@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="v-sky" x1="0" y1="0" x2="0" y2="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0c0b1a"/>
+      <stop offset="1" stop-color="#221d47"/>
+    </linearGradient>
+    <linearGradient id="v-ground" x1="0" y1="580" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#090812"/>
+      <stop offset="1" stop-color="#06050c"/>
+    </linearGradient>
+    <radialGradient id="v-limb" cx="512" cy="580" r="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f1edff"/>
+      <stop offset="0.38" stop-color="#a596ff"/>
+      <stop offset="0.82" stop-color="#5d7dff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5d7dff" stop-opacity="0.25"/>
+    </radialGradient>
+    <radialGradient id="v-atmo" cx="512" cy="590" r="520" gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(0 590) scale(1 0.42) translate(0 -590)">
+      <stop offset="0" stop-color="#8f7dff" stop-opacity="0.42"/>
+      <stop offset="0.55" stop-color="#6b72ff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#6b72ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v-halo" cx="668" cy="304" r="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c9bdff" stop-opacity="0.62"/>
+      <stop offset="0.22" stop-color="#c9bdff" stop-opacity="0.2"/>
+      <stop offset="0.6" stop-color="#c9bdff" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#c9bdff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="v-edge" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+    <clipPath id="v-clip"><circle cx="512" cy="512" r="512"/></clipPath>
+    <mask id="v-limbmask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <circle cx="512" cy="1640" r="1060" fill="#fff"/>
+      <circle cx="512" cy="2565.31" r="1911.31" fill="#000"/>
+    </mask>
+  </defs>
+  <g clip-path="url(#v-clip)">
+    <rect width="1024" height="1024" fill="url(#v-sky)"/>
+    <rect width="1024" height="1024" fill="url(#v-atmo)"/>
+    <circle cx="512" cy="1640" r="1060" fill="url(#v-ground)"/>
+    <rect width="1024" height="1024" fill="url(#v-limb)" mask="url(#v-limbmask)"/>
+    <circle cx="668" cy="304" r="150" fill="url(#v-halo)"/>
+    <circle cx="668" cy="304" r="30" fill="#f7f5ff"/>
+  </g>
+  <circle cx="512" cy="512" r="509" fill="none" stroke="url(#v-edge)" stroke-width="6"/>
+</svg>

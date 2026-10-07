@@ -1,0 +1,72 @@
+[package]
+name = "vesper"
+version = "0.1.0"
+description = "A calm, honest Roblox launcher for Windows."
+authors = ["The Vesper Authors"]
+license = "MIT"
+repository = "https://github.com/kelcum/vesper"
+homepage = "https://xan.gripe/vesper"
+edition = "2021"
+rust-version = "1.90"
+default-run = "vesper"
+
+[lib]
+name = "vesper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "system-proxy"] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = { version = "0.4", features = ["std"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+hex = "0.4"
+regex = "1"
+notify = "8"
+url = "2"
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-registry = "0.6"
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Threading",
+  "Win32_System_SystemInformation",
+  "Win32_System_Performance",
+  "Win32_System_Diagnostics_Etw",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Pipes",
+  "Win32_System_IO",
+  "Win32_System_Time",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+  "Win32_UI_WindowsAndMessaging",
+  "Wdk_System_SystemInformation",
+  "Wdk_System_SystemServices",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

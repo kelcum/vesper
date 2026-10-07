@@ -1,0 +1,348 @@
+{
+  "schema": 1,
+  "reviewed": "2026-10-07",
+  "allowlist": {
+    "title": "Allowlist for local client configuration via Fast Flags",
+    "url": "https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569",
+    "publisher": "Roblox (Developer Forum announcement)",
+    "effective": "2025-09-29",
+    "summary": "Since 29 September 2025 the Roblox client only reads local Fast Flags that are on Roblox's allowlist. Anything else in ClientAppSettings.json is ignored, and the client logs \"Denied local configuration for: <flag>\"."
+  },
+  "sources": {
+    "allowlist": {
+      "label": "Roblox allowlist announcement",
+      "url": "https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569"
+    },
+    "d3d11Removal": {
+      "label": "Roblox staff reply about removing this flag (22 Oct 2025)",
+      "url": "https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569/326"
+    },
+    "robloxCdn": {
+      "label": "Roblox client settings service (PCDesktopClient)",
+      "url": "https://clientsettingscdn.roblox.com/v2/settings/application/PCDesktopClient"
+    },
+    "bloxstrapPresets": {
+      "label": "Bloxstrap Fast Flag presets",
+      "url": "https://github.com/bloxstraplabs/bloxstrap/blob/main/Bloxstrap/FastFlagManager.cs"
+    },
+    "bloxstrapStrings": {
+      "label": "Bloxstrap preset descriptions",
+      "url": "https://github.com/bloxstraplabs/bloxstrap/blob/main/Bloxstrap/Resources/Strings.resx"
+    },
+    "fishstrapPresets": {
+      "label": "Fishstrap Fast Flag presets",
+      "url": "https://github.com/fishstrap/fishstrap/blob/main/Bloxstrap/FastFlagManager.cs"
+    }
+  },
+  "flags": [
+    {
+      "name": "FFlagHandleAltEnterFullscreenManually",
+      "title": "Roblox handles Alt+Enter",
+      "summary": "When off, Alt+Enter is handled by Direct3D instead of Roblox, which allows exclusive fullscreen.",
+      "details": "Roblox normally handles Alt+Enter itself and toggles a borderless window. Setting this to False hands Alt+Enter to Direct3D, so pressing it switches Roblox into exclusive fullscreen. It only changes what Alt+Enter does; nothing happens until you press it.",
+      "categories": ["rendering", "ui"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": { "value": "True", "source": "robloxCdn", "observed": "2026-10-07" },
+      "status": "active",
+      "references": ["allowlist", "bloxstrapPresets", "bloxstrapStrings"],
+      "observations": [
+        {
+          "robloxVersion": "0.741.0.7411058",
+          "result": "accepted",
+          "date": "2026-10-07",
+          "method": "Roblox client log: loaded from ClientAppSettings.json and not denied."
+        }
+      ]
+    },
+    {
+      "name": "DFFlagDisableDPIScale",
+      "title": "Ignore Windows display scaling",
+      "summary": "Renders at your display's full resolution instead of reducing quality when Windows scaling is above 100%.",
+      "details": "With Windows display scaling above 100%, Roblox lowers its rendering resolution. Turning this on keeps full resolution. On scaled displays that means more pixels to draw, so expect higher GPU load. It has no effect at 100% scaling.",
+      "categories": ["rendering", "graphics", "ui"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "bloxstrapPresets", "bloxstrapStrings"]
+    },
+    {
+      "name": "FIntDebugForceMSAASamples",
+      "title": "Anti-aliasing samples (MSAA)",
+      "summary": "Forces a fixed number of multisample anti-aliasing samples instead of Roblox's automatic choice.",
+      "details": "1 sample means no multisampling (jagged edges, least GPU work). 2 and 4 smooth edges at increasing GPU cost. Leaving the flag unset lets Roblox decide based on your graphics quality.",
+      "categories": ["rendering", "graphics", "performance", "debug"],
+      "risk": "low",
+      "behavior": "established",
+      "input": {
+        "kind": "choice",
+        "options": [
+          { "value": "1", "label": "1× (off)" },
+          { "value": "2", "label": "2×" },
+          { "value": "4", "label": "4×" }
+        ]
+      },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "bloxstrapPresets"]
+    },
+    {
+      "name": "DFFlagTextureQualityOverrideEnabled",
+      "title": "Texture quality override",
+      "summary": "Lets the texture quality level below take effect.",
+      "details": "Must be True for \"Texture quality level\" to apply. On its own it changes nothing.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "bloxstrapPresets"]
+    },
+    {
+      "name": "DFIntTextureQualityOverride",
+      "title": "Texture quality level",
+      "summary": "Forces texture resolution from 0 (lowest) to 3 (highest).",
+      "details": "Lower levels use less video memory and look blurrier. Requires \"Texture quality override\" to be True.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "established",
+      "input": {
+        "kind": "choice",
+        "options": [
+          { "value": "0", "label": "0 · Lowest" },
+          { "value": "1", "label": "1 · Low" },
+          { "value": "2", "label": "2 · Medium" },
+          { "value": "3", "label": "3 · Highest" }
+        ]
+      },
+      "robloxDefault": null,
+      "status": "active",
+      "requires": [
+        {
+          "flag": "DFFlagTextureQualityOverrideEnabled",
+          "value": "True",
+          "reason": "The level is ignored unless the texture quality override is enabled."
+        }
+      ],
+      "references": ["allowlist", "bloxstrapPresets"]
+    },
+    {
+      "name": "DFIntDebugFRMQualityLevelOverride",
+      "title": "Force graphics quality level",
+      "summary": "Locks Roblox's internal graphics quality level (1–21), overriding the in-game slider.",
+      "details": "Roblox's frame-rate manager normally moves between quality levels automatically. This pins it to one level. High values are demanding on the GPU; low values reduce detail everywhere.",
+      "categories": ["rendering", "graphics", "performance", "debug"],
+      "risk": "medium",
+      "behavior": "established",
+      "input": { "kind": "number", "min": 1, "max": 21, "step": 1 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "fishstrapPresets"]
+    },
+    {
+      "name": "FFlagDebugGraphicsPreferVulkan",
+      "title": "Prefer Vulkan",
+      "summary": "Asks Roblox to render with Vulkan instead of its default graphics API.",
+      "details": "Some systems run better with Vulkan, others worse or with visual glitches. Only one graphics API preference should be on at a time.",
+      "categories": ["rendering", "engine", "debug"],
+      "risk": "medium",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "conflicts": [
+        { "flag": "FFlagDebugGraphicsPreferD3D11", "when": "True", "reason": "Only one graphics API can be preferred." },
+        { "flag": "FFlagDebugGraphicsPreferOpenGL", "when": "True", "reason": "Only one graphics API can be preferred." }
+      ],
+      "references": ["allowlist", "fishstrapPresets"]
+    },
+    {
+      "name": "FFlagDebugGraphicsPreferOpenGL",
+      "title": "Prefer OpenGL",
+      "summary": "Asks Roblox to render with OpenGL instead of its default graphics API.",
+      "details": "Mostly useful for troubleshooting driver problems. Only one graphics API preference should be on at a time.",
+      "categories": ["rendering", "engine", "debug"],
+      "risk": "medium",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "conflicts": [
+        { "flag": "FFlagDebugGraphicsPreferD3D11", "when": "True", "reason": "Only one graphics API can be preferred." },
+        { "flag": "FFlagDebugGraphicsPreferVulkan", "when": "True", "reason": "Only one graphics API can be preferred." }
+      ],
+      "references": ["allowlist"]
+    },
+    {
+      "name": "FFlagDebugGraphicsPreferD3D11",
+      "title": "Prefer Direct3D 11",
+      "summary": "Asks Roblox to render with Direct3D 11.",
+      "details": "Direct3D 11 is already Roblox's normal choice on Windows. On 22 October 2025, when asked why this flag exists, a Roblox staff member replied \"We are going to remove it.\" It may stop working without notice; Vesper's launch check will show if Roblox denies it.",
+      "categories": ["rendering", "engine", "debug"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "removal-announced",
+      "conflicts": [
+        { "flag": "FFlagDebugGraphicsPreferVulkan", "when": "True", "reason": "Only one graphics API can be preferred." },
+        { "flag": "FFlagDebugGraphicsPreferOpenGL", "when": "True", "reason": "Only one graphics API can be preferred." }
+      ],
+      "references": ["allowlist", "d3d11Removal", "fishstrapPresets"]
+    },
+    {
+      "name": "FFlagDebugSkyGray",
+      "title": "Gray sky",
+      "summary": "Replaces the skybox with a flat gray sky.",
+      "details": "A visual preference. Vesper makes no performance claim for it.",
+      "categories": ["graphics", "debug"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist"]
+    },
+    {
+      "name": "FIntFRMMinGrassDistance",
+      "title": "Grass distance (minimum)",
+      "summary": "Lower bound for how far away terrain grass is drawn.",
+      "details": "Setting both grass distances to 0 is widely reported to hide terrain grass. The exact units aren't documented by Roblox. Keep the minimum at or below the maximum.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 1 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist"]
+    },
+    {
+      "name": "FIntFRMMaxGrassDistance",
+      "title": "Grass distance (maximum)",
+      "summary": "Upper bound for how far away terrain grass is drawn.",
+      "details": "Setting both grass distances to 0 is widely reported to hide terrain grass. The exact units aren't documented by Roblox.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "established",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 1 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist"]
+    },
+    {
+      "name": "FIntGrassMovementReducedMotionFactor",
+      "title": "Grass motion",
+      "summary": "Scales how much terrain grass sways. Roblox lists it under user-interface settings.",
+      "details": "Roblox groups this with its reduced-motion accessibility settings. Exactly how values map to motion hasn't been documented; 0 is commonly used to stop grass moving.",
+      "categories": ["ui", "graphics"],
+      "risk": "low",
+      "behavior": "uncertain",
+      "input": { "kind": "number", "min": 0, "max": 100, "step": 1 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist"]
+    },
+    {
+      "name": "DFFlagDebugPauseVoxelizer",
+      "title": "Pause lighting voxelizer",
+      "summary": "Stops Roblox from updating its voxel lighting data.",
+      "details": "Community reports say this freezes voxel-based lighting updates, which can save work but leaves lighting and shadows stale or wrong as the world changes. Roblox hasn't documented its exact effect.",
+      "categories": ["rendering", "performance", "debug"],
+      "risk": "medium",
+      "behavior": "uncertain",
+      "input": { "kind": "toggle" },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist"]
+    },
+    {
+      "name": "DFIntCSGLevelOfDetailSwitchingDistance",
+      "title": "Mesh detail distance · level 0",
+      "summary": "Distance at which solid-modelling (CSG) parts first drop from full detail.",
+      "details": "Part of a set of four distances that control when unions and meshes switch to simpler versions. Roblox publishes 250 for this one. Lower values are reported to switch to simpler geometry sooner. The unit isn't documented.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "uncertain",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 50 },
+      "robloxDefault": { "value": "250", "source": "robloxCdn", "observed": "2026-10-07" },
+      "status": "active",
+      "references": ["allowlist", "robloxCdn", "fishstrapPresets"]
+    },
+    {
+      "name": "DFIntCSGLevelOfDetailSwitchingDistanceL12",
+      "title": "Mesh detail distance · level 1→2",
+      "summary": "Distance at which solid-modelling (CSG) parts drop from detail level 1 to 2.",
+      "details": "Roblox publishes 500 for this one. Lower values are reported to switch to simpler geometry sooner. The unit isn't documented.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "uncertain",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 50 },
+      "robloxDefault": { "value": "500", "source": "robloxCdn", "observed": "2026-10-07" },
+      "status": "active",
+      "references": ["allowlist", "robloxCdn", "fishstrapPresets"]
+    },
+    {
+      "name": "DFIntCSGLevelOfDetailSwitchingDistanceL23",
+      "title": "Mesh detail distance · level 2→3",
+      "summary": "Distance at which solid-modelling (CSG) parts drop from detail level 2 to 3.",
+      "details": "Roblox doesn't publish a value for this one, so the engine's built-in default applies. The unit isn't documented.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "uncertain",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 50 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "fishstrapPresets"]
+    },
+    {
+      "name": "DFIntCSGLevelOfDetailSwitchingDistanceL34",
+      "title": "Mesh detail distance · level 3→4",
+      "summary": "Distance at which solid-modelling (CSG) parts drop from detail level 3 to 4.",
+      "details": "Roblox doesn't publish a value for this one, so the engine's built-in default applies. The unit isn't documented.",
+      "categories": ["graphics", "performance"],
+      "risk": "low",
+      "behavior": "uncertain",
+      "input": { "kind": "number", "min": 0, "max": 10000, "step": 50 },
+      "robloxDefault": null,
+      "status": "active",
+      "references": ["allowlist", "fishstrapPresets"]
+    }
+  ],
+  "knownIgnored": [
+    {
+      "name": "DFIntTaskSchedulerTargetFps",
+      "reason": "Not on Roblox's allowlist. Use Vesper's frame-rate limit instead, which sets Roblox's own frame-rate cap setting.",
+      "replacement": "fpsCap"
+    },
+    {
+      "name": "FFlagTaskSchedulerLimitTargetFpsTo2402",
+      "reason": "Not on Roblox's allowlist. Use Vesper's frame-rate limit instead.",
+      "replacement": "fpsCap"
+    },
+    {
+      "name": "FFlagGameBasicSettingsFramerateCap5",
+      "reason": "Not on Roblox's allowlist. Use Vesper's frame-rate limit instead.",
+      "replacement": "fpsCap"
+    },
+    {
+      "name": "FFlagDebugDisablePostFx",
+      "reason": "Not on Roblox's allowlist. Denied by Roblox 0.741.0.7411058 on 2026-10-07 (client log)."
+    },
+    {
+      "name": "FFlagDebugForceFutureIsBrightPhase3",
+      "reason": "Not on Roblox's allowlist. Denied by Roblox 0.741.0.7411058 on 2026-10-07 (client log)."
+    },
+    {
+      "name": "FIntRenderShadowIntensity",
+      "reason": "Not on Roblox's allowlist. Denied by Roblox 0.741.0.7411058 on 2026-10-07 (client log)."
+    },
+    {
+      "name": "FIntTerrainArraySliceSize",
+      "reason": "Not on Roblox's allowlist. Denied by Roblox 0.741.0.7411058 on 2026-10-07 (client log)."
+    }
+  ]
+}
