@@ -43,7 +43,7 @@ tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-registry = "0.6"
+windows-registry = "0.100"
 windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Security",
