@@ -65,12 +65,13 @@ impl UpdateState {
 /// Turns updater errors into something a person can act on.
 pub fn friendly_error(raw: &str) -> String {
     let r = raw.to_lowercase();
-    if r.contains("404") || r.contains("not found") {
-        "No update information has been published for this channel yet.".into()
-    } else if r.contains("signature") || r.contains("minisign") {
+    if r.contains("signature") || r.contains("minisign") {
         "The downloaded update's signature didn't match Vesper's key, so it was not installed.".into()
     } else if r.contains("dns") || r.contains("connect") || r.contains("timed out") || r.contains("network") {
         "Couldn't reach the update server. Check your internet connection.".into()
+    } else if r.contains("404") || r.contains("not found") || r.contains("valid release json") {
+        // The updater reports a missing manifest (HTTP 404) this way.
+        "No update information is published for this channel yet.".into()
     } else {
         "The update server sent something Vesper couldn't use.".into()
     }
@@ -88,7 +89,8 @@ mod tests {
 
     #[test]
     fn errors_are_explained() {
-        assert!(friendly_error("Could not fetch a valid release JSON from the remote: 404").contains("published"));
+        // Exact message tauri-plugin-updater logged for a missing manifest.
+        assert!(friendly_error("Could not fetch a valid release JSON from the remote").contains("published"));
         assert!(friendly_error("minisign: signature verification failed").contains("signature"));
         assert!(friendly_error("error sending request: dns error").contains("internet"));
     }

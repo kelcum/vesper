@@ -1,8 +1,13 @@
 //! Where Vesper keeps its own files.
 //!
 //! Installed builds use the standard per-user locations:
-//!   %APPDATA%\Vesper        settings, profiles, backups (roams with the user)
-//!   %LOCALAPPDATA%\Vesper   logs and caches (machine-specific)
+//!   %APPDATA%\Vesper                  settings, profiles, backups (roams with the user)
+//!   %LOCALAPPDATA%\gripe.xan.vesper   logs and caches (machine-specific)
+//!
+//! Local data uses the app identifier rather than "Vesper" because the
+//! per-user installer puts the program itself in %LOCALAPPDATA%\Vesper. The
+//! identifier folder is also where WebView2 keeps its data, and the
+//! uninstaller's "delete app data" option already removes it.
 //!
 //! Portable builds keep everything in a `data` folder next to the executable.
 //! Portable mode is enabled by a file named `portable` beside `Vesper.exe`.
@@ -11,6 +16,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const APP_DIR_NAME: &str = "Vesper";
+/// Matches `identifier` in tauri.conf.json.
+pub const LOCAL_DIR_NAME: &str = "gripe.xan.vesper";
 pub const PORTABLE_MARKER: &str = "portable";
 
 #[derive(Debug, Clone)]
@@ -46,7 +53,7 @@ impl AppPaths {
 
     pub fn installed(roaming: &Path, local: &Path) -> Self {
         let config = roaming.join(APP_DIR_NAME);
-        let local = local.join(APP_DIR_NAME);
+        let local = local.join(LOCAL_DIR_NAME);
         Self {
             backups: config.join("backups"),
             config,
@@ -134,8 +141,15 @@ mod tests {
         let p = AppPaths::installed(Path::new(r"C:\R"), Path::new(r"C:\L"));
         assert_eq!(p.config, Path::new(r"C:\R\Vesper"));
         assert_eq!(p.backups, Path::new(r"C:\R\Vesper\backups"));
-        assert_eq!(p.logs, Path::new(r"C:\L\Vesper\logs"));
+        assert_eq!(p.logs, Path::new(r"C:\L\gripe.xan.vesper\logs"));
         assert!(!p.portable);
+    }
+
+    /// The uninstaller removes %LOCALAPPDATA%\<identifier>, so they must match.
+    #[test]
+    fn local_folder_matches_the_app_identifier() {
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(conf["identifier"], LOCAL_DIR_NAME);
     }
 
     #[test]

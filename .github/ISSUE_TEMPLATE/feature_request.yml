@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest something Vesper could do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vesper won't add anything that injects into Roblox, bypasses its anti-cheat, reads cookies or tokens, or claims performance gains nobody measured.
+  - type: input
+    id: feature
+    attributes:
+      label: Feature
+      description: A short name for it.
+    validations:
+      required: true
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose
+      description: What problem does it solve for you?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Suggested behaviour
+      description: How should it work? Mock-ups and examples welcome.
+    validations:
+      required: true

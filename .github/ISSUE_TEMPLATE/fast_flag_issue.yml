@@ -1,0 +1,42 @@
+name: Fast Flag issue
+description: A flag behaves differently from what Vesper says, or the allowlist changed.
+labels: [fast-flags]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vesper only lists flags on Roblox's allowlist and cites a source for every claim. Reports with evidence (Roblox staff posts, release notes, your Roblox log) help most.
+  - type: input
+    id: flag
+    attributes:
+      label: Flag
+      placeholder: FIntDebugForceMSAASamples
+    validations:
+      required: true
+  - type: input
+    id: roblox
+    attributes:
+      label: Roblox version
+      placeholder: '0.742.0.7421053'
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behaviour you saw
+      description: Include what Vesper's "Last check" reported (accepted, denied or not read).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Reference or source
+      description: Links to Roblox announcements, DevForum posts, or the relevant lines from your Roblox log (%LOCALAPPDATA%\Roblox\logs). Remove anything personal first.
+    validations:
+      required: true

@@ -17,8 +17,9 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   ${If} $DeleteAppDataCheckboxState = 1
   ${AndIf} $UpdateMode <> 1
+    ; Tauri removes $LOCALAPPDATA\<identifier> (logs, cache, WebView2 data);
+    ; settings, profiles and backups live here.
     SetShellVarContext current
     RmDir /r "$APPDATA\Vesper"
-    RmDir /r "$LOCALAPPDATA\Vesper"
   ${EndIf}
 !macroend

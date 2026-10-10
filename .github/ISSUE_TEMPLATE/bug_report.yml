@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Vesper doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Never paste passwords, Roblox cookies, Discord tokens or other secrets**, here or anywhere else. Vesper never needs them.
+        Security problems go through private reporting instead: see SECURITY.md.
+  - type: input
+    id: vesper
+    attributes:
+      label: Vesper version
+      description: About page, or Settings → Updates.
+      placeholder: '0.1.0'
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: 'Windows 11 Home 24H2'
+    validations:
+      required: true
+  - type: input
+    id: roblox
+    attributes:
+      label: Roblox version
+      description: Shown on Home in the Roblox card.
+      placeholder: '0.742.0.7421053'
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Fast Flags
+        2. Set …
+        3. Launch Roblox
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Settings → Advanced → Copy diagnostics, then paste here. It contains no secrets and no Windows user name.
+      render: text
