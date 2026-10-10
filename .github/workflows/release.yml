@@ -80,7 +80,7 @@ jobs:
           $v = "${{ steps.version.outputs.version }}"
           gh release create "v$v" --draft --title "Vesper $v" --notes-file release-notes.md (Get-ChildItem release/* | ForEach-Object FullName)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vesper-${{ steps.version.outputs.version }}
           path: release/
