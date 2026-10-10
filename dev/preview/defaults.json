@@ -1,0 +1,147 @@
+{
+  "profiles": {
+    "active": "balanced",
+    "default": "balanced",
+    "profiles": [
+      {
+        "affinity": null,
+        "builtin": "competitive",
+        "createdAt": "2026-10-10T23:50:00.094678800Z",
+        "description": "Uncapped frame rate, above-normal process priority, no multisampling and no terrain grass. Alt+Enter switches to exclusive fullscreen.",
+        "flags": {
+          "FFlagHandleAltEnterFullscreenManually": "False",
+          "FIntDebugForceMSAASamples": "1",
+          "FIntFRMMaxGrassDistance": "0",
+          "FIntFRMMinGrassDistance": "0"
+        },
+        "fpsCap": {
+          "mode": "unlimited"
+        },
+        "id": "competitive",
+        "name": "Competitive",
+        "priority": "aboveNormal",
+        "updatedAt": "2026-10-10T23:50:00.094678800Z"
+      },
+      {
+        "affinity": null,
+        "builtin": "balanced",
+        "createdAt": "2026-10-10T23:50:00.094694200Z",
+        "description": "Frame rate capped to your display's refresh rate. Everything else stays at Roblox's defaults, apart from allowing exclusive fullscreen with Alt+Enter.",
+        "flags": {
+          "FFlagHandleAltEnterFullscreenManually": "False"
+        },
+        "fpsCap": {
+          "mode": "matchDisplay"
+        },
+        "id": "balanced",
+        "name": "Balanced",
+        "priority": "normal",
+        "updatedAt": "2026-10-10T23:50:00.094694200Z"
+      },
+      {
+        "affinity": null,
+        "builtin": "quality",
+        "createdAt": "2026-10-10T23:50:00.094695100Z",
+        "description": "Full-resolution rendering on scaled displays, 4\u00d7 multisampling and the highest texture quality, capped to your display's refresh rate.",
+        "flags": {
+          "DFFlagDisableDPIScale": "True",
+          "DFFlagTextureQualityOverrideEnabled": "True",
+          "DFIntTextureQualityOverride": "3",
+          "FIntDebugForceMSAASamples": "4"
+        },
+        "fpsCap": {
+          "mode": "matchDisplay"
+        },
+        "id": "quality",
+        "name": "Quality",
+        "priority": "normal",
+        "updatedAt": "2026-10-10T23:50:00.094695100Z"
+      },
+      {
+        "affinity": null,
+        "builtin": "potato",
+        "createdAt": "2026-10-10T23:50:00.094696700Z",
+        "description": "For older PCs: lowest graphics quality level, lowest textures, no multisampling, no grass and a plain gray sky, capped at 60 FPS.",
+        "flags": {
+          "DFFlagTextureQualityOverrideEnabled": "True",
+          "DFIntDebugFRMQualityLevelOverride": "1",
+          "DFIntTextureQualityOverride": "0",
+          "FFlagDebugSkyGray": "True",
+          "FIntDebugForceMSAASamples": "1",
+          "FIntFRMMaxGrassDistance": "0",
+          "FIntFRMMinGrassDistance": "0"
+        },
+        "fpsCap": {
+          "mode": "fixed",
+          "value": 60
+        },
+        "id": "potato",
+        "name": "Potato",
+        "priority": "normal",
+        "updatedAt": "2026-10-10T23:50:00.094696700Z"
+      },
+      {
+        "affinity": null,
+        "builtin": "custom",
+        "createdAt": "2026-10-10T23:50:00.094698800Z",
+        "description": "Starts empty: Roblox's defaults with nothing changed. Add any flags and options you like.",
+        "flags": {},
+        "fpsCap": null,
+        "id": "custom",
+        "name": "Custom",
+        "priority": "normal",
+        "updatedAt": "2026-10-10T23:50:00.094698800Z"
+      }
+    ]
+  },
+  "settings": {
+    "advanced": {
+      "logLevel": "info"
+    },
+    "appearance": {
+      "background": null,
+      "backgroundBlur": 12,
+      "backgroundDim": 55,
+      "density": "comfortable",
+      "motion": "system",
+      "scale": 100,
+      "theme": "dark",
+      "transparency": "full"
+    },
+    "discord": {
+      "richPresence": false,
+      "showProfile": true,
+      "showRobloxStatus": true
+    },
+    "firstRunComplete": true,
+    "general": {
+      "afterLaunch": "minimize",
+      "closeBehavior": "tray",
+      "launchRobloxOnStart": false,
+      "minimizeToTray": false,
+      "startMinimized": true,
+      "startWithWindows": false,
+      "trayHintShown": false,
+      "whenRobloxCloses": "show"
+    },
+    "lastLaunch": null,
+    "originalFpsCap": null,
+    "performance": {
+      "fpsCounter": true,
+      "monitoring": true,
+      "sampleMs": 1000
+    },
+    "roblox": {
+      "applyFpsCap": true,
+      "checkRobloxUpdates": true,
+      "flagMode": "applyOnLaunch",
+      "installDir": null,
+      "verifyAfterLaunch": true
+    },
+    "schema": 1,
+    "updates": {
+      "autoCheck": true,
+      "channel": "stable"
+    }
+  }
+}

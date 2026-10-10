@@ -6,6 +6,22 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-11
+
+### Added
+
+- "When Roblox closes" (Settings → General): if Vesper minimized or hid
+  itself to make room for Roblox, it comes back on screen once the game
+  closes. It can also stay where it is, or quit.
+- The tray menu and tooltip show whether Roblox is running and which
+  profile is active.
+- A "New profile" tile at the end of the profiles grid.
+
+### Changed
+
+- The About page links to the website and the contact page; problem
+  messages point there too.
+
 ## [0.1.0] - 2026-10-11
 
 First release.

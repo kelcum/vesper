@@ -92,6 +92,8 @@ pub struct AppState {
     pub mod_ledger: Mutex<ModLedger>,
     pub last_mod_report: Mutex<Option<ModReport>>,
     pub roblox_running: AtomicBool,
+    /// Vesper hid or minimized itself when it launched Roblox.
+    pub hidden_for_roblox: AtomicBool,
     pub quitting: AtomicBool,
 }
 
@@ -139,6 +141,7 @@ impl AppState {
             mod_paths,
             last_mod_report: Mutex::new(None),
             roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
+            hidden_for_roblox: AtomicBool::new(false),
             quitting: AtomicBool::new(false),
             env,
             paths,
@@ -354,6 +357,36 @@ pub fn save_published(paths: &AppPaths, p: &PublishedValues) {
 
 /// Watches for Roblox starting and stopping (including launches from the website).
 /// A process snapshot costs about a millisecond and opens no handles.
+/// Brings Vesper back (or quits) once Roblox has stayed closed for a moment;
+/// Roblox briefly restarts itself when it updates.
+fn after_roblox_closed(app: AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(3));
+        let state = app.state::<AppState>();
+        if !crate::roblox::process::roblox_pids().is_empty() {
+            state.hidden_for_roblox.store(true, Ordering::Relaxed);
+            return;
+        }
+        let behaviour = lock(&state.settings).general.when_roblox_closes;
+        log::info!("Roblox closed; Vesper will {behaviour:?}");
+        match behaviour {
+            crate::config::WhenRobloxCloses::Show => crate::tray::show_main(&app),
+            crate::config::WhenRobloxCloses::Stay => {}
+            crate::config::WhenRobloxCloses::Quit => {
+                // Never close a window someone is using.
+                let in_use = app.get_webview_window("main").is_some_and(|w| {
+                    w.is_visible().unwrap_or(false)
+                        && !w.is_minimized().unwrap_or(false)
+                        && w.is_focused().unwrap_or(false)
+                });
+                if !in_use {
+                    crate::tray::quit(&app);
+                }
+            }
+        }
+    });
+}
+
 pub fn spawn_roblox_watcher(app: AppHandle) {
     std::thread::Builder::new()
         .name("vesper-roblox".into())
@@ -374,6 +407,10 @@ pub fn spawn_roblox_watcher(app: AppHandle) {
                     if matches!(*l, LaunchStatus::Running { .. }) {
                         *l = LaunchStatus::Idle;
                         let _ = app.emit(events::LAUNCH, &*l);
+                    }
+                    drop(l);
+                    if state.hidden_for_roblox.swap(false, Ordering::Relaxed) {
+                        after_roblox_closed(app.clone());
                     }
                 }
                 crate::tray::refresh(&app);

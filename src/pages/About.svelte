@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bug, ExternalLink, Globe, ShieldCheck } from '@lucide/svelte';
+  import { ExternalLink, Globe, MessageCircle, ShieldCheck } from '@lucide/svelte';
   import iconUrl from '../../assets/branding/icon.svg?url';
   import Button from '../components/ui/Button.svelte';
   import Card from '../components/ui/Card.svelte';
@@ -7,7 +7,8 @@
   import { app } from '../lib/store.svelte';
 
   const SITE = 'https://xan.gripe/vesper';
-  const REPO = 'https://github.com/kelcum/vesper';
+  // Questions, requests and problem reports (the code itself isn't public).
+  const CONTACT = 'https://xan.gripe/k3/#contact';
 
   const credits = [
     { name: 'Tauri', what: 'app framework', license: 'MIT / Apache-2.0', url: 'https://tauri.app' },
@@ -31,24 +32,13 @@
 <section class="hero glass">
   <img src={iconUrl} alt="Vesper logo" width="96" height="96" />
   <div>
-    <h1>vesper</h1>
+    <h1>Vesper</h1>
     <p class="tag">Roblox, tuned and verified.</p>
     <p class="muted">Version {app.boot?.version}{app.boot?.portable ? ' · portable' : ''}</p>
   </div>
   <div class="links">
     <Button icon={Globe} onclick={() => api.openUrl(SITE)}>Website</Button>
-    <Button onclick={() => api.openUrl(REPO)}>
-      <span class="gh">
-        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"
-          ><path
-            fill="currentColor"
-            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-          /></svg
-        >
-        GitHub
-      </span>
-    </Button>
-    <Button variant="ghost" icon={Bug} onclick={() => api.openUrl(`${REPO}/issues/new/choose`)}>Report a bug</Button>
+    <Button variant="ghost" icon={MessageCircle} onclick={() => api.openUrl(CONTACT)}>Contact</Button>
   </div>
 </section>
 
@@ -131,11 +121,6 @@
     display: flex;
     gap: var(--space-2);
     flex-wrap: wrap;
-  }
-  .gh {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
   }
   .grid {
     display: grid;

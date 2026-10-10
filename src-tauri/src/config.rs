@@ -32,6 +32,18 @@ pub enum AfterLaunch {
     Tray,
 }
 
+/// What Vesper does once Roblox closes, if it had hidden or minimized itself for the launch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum WhenRobloxCloses {
+    /// Come back on screen.
+    #[default]
+    Show,
+    /// Stay minimized or in the tray.
+    Stay,
+    Quit,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum Theme {
@@ -100,6 +112,7 @@ pub struct General {
     pub close_behavior: CloseBehavior,
     pub launch_roblox_on_start: bool,
     pub after_launch: AfterLaunch,
+    pub when_roblox_closes: WhenRobloxCloses,
     /// Shown once, the first time the window is closed to the tray.
     pub tray_hint_shown: bool,
 }
@@ -113,6 +126,7 @@ impl Default for General {
             close_behavior: CloseBehavior::Tray,
             launch_roblox_on_start: false,
             after_launch: AfterLaunch::Minimize,
+            when_roblox_closes: WhenRobloxCloses::Show,
             tray_hint_shown: false,
         }
     }
@@ -340,6 +354,15 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_from_before_the_roblox_closes_option_bring_vesper_back() {
+        let g: General = serde_json::from_str(r#"{"afterLaunch":"tray","closeBehavior":"tray"}"#).unwrap();
+        assert_eq!(g.after_launch, AfterLaunch::Tray);
+        assert_eq!(g.when_roblox_closes, WhenRobloxCloses::Show);
+        let g: General = serde_json::from_str(r#"{"whenRobloxCloses":"quit"}"#).unwrap();
+        assert_eq!(g.when_roblox_closes, WhenRobloxCloses::Quit);
+    }
 
     #[test]
     fn missing_file_gives_defaults() {

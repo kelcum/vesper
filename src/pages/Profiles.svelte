@@ -218,6 +218,12 @@
       </div>
     </article>
   {/each}
+  <!-- Fills the grid's last gap and makes the next step obvious. -->
+  <button class="new-tile" type="button" onclick={() => (creating = true)}>
+    <span class="plus"><Plus size={18} aria-hidden="true" /></span>
+    <span class="new-title">New profile</span>
+    <span class="faint xs">Your own mix of flags, frame-rate limit and priority</span>
+  </button>
 </div>
 
 <Dialog
@@ -425,5 +431,41 @@
     color: var(--text);
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  }
+  .new-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 170px;
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      background var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .new-tile:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+  .new-tile .plus {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--accent-strong);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .new-title {
+    font-weight: 650;
   }
 </style>

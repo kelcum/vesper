@@ -43,7 +43,7 @@ export function toProblem(err: unknown): Problem {
     title: 'Something went wrong',
     what: 'Vesper hit an unexpected error.',
     why: 'This is probably a bug.',
-    fix: 'Try again. If it keeps happening, copy the details and open a bug report.',
+    fix: 'Try again. If it keeps happening, copy the details and send them through xan.gripe/k3.',
     details: String(err),
     actions: [{ kind: 'openLogs' }],
   };

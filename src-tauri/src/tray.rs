@@ -15,9 +15,9 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let running = state.roblox_running.load(Ordering::Relaxed);
     let store = lock(&state.profiles).clone();
 
-    let show = MenuItem::with_id(app, "show", "Show Vesper", true, None::<&str>)?;
-    let launch_label = if running { "Roblox is running" } else { "Launch Roblox" };
-    let launch = MenuItem::with_id(app, "launch", launch_label, !running, None::<&str>)?;
+    let status = MenuItem::with_id(app, "status", status_line(running, &store.active().name), false, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", "Open Vesper", true, None::<&str>)?;
+    let launch = MenuItem::with_id(app, "launch", "Launch Roblox", !running, None::<&str>)?;
     let profiles = Submenu::with_id(app, "profiles", format!("Profile: {}", store.active().name), true)?;
     for p in &store.profiles {
         let item = CheckMenuItem::with_id(
@@ -35,6 +35,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(
         app,
         &[
+            &status,
+            &PredefinedMenuItem::separator(app)?,
             &show,
             &launch,
             &PredefinedMenuItem::separator(app)?,
@@ -46,11 +48,26 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     )
 }
 
+fn status_line(running: bool, profile: &str) -> String {
+    if running {
+        format!("Roblox is running · {profile}")
+    } else {
+        format!("Ready · {profile} profile")
+    }
+}
+
+fn tooltip(app: &AppHandle) -> String {
+    let state = app.state::<AppState>();
+    let running = state.roblox_running.load(Ordering::Relaxed);
+    let profile = lock(&state.profiles).active().name.clone();
+    format!("Vesper\n{}", status_line(running, &profile))
+}
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .tooltip("Vesper")
+        .tooltip(tooltip(app))
         .menu(&build_menu(app)?)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
@@ -72,6 +89,7 @@ pub fn refresh(app: &AppHandle) {
             }
             Err(e) => log::warn!("Couldn't rebuild the tray menu: {e}"),
         }
+        let _ = tray.set_tooltip(Some(tooltip(app)));
     }
 }
 

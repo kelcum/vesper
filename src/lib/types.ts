@@ -6,6 +6,7 @@ export type FlagSet = Record<string, string>;
 
 export type CloseBehavior = 'tray' | 'quit';
 export type AfterLaunch = 'stay' | 'minimize' | 'tray';
+export type WhenRobloxCloses = 'show' | 'stay' | 'quit';
 export type Theme = 'system' | 'dark' | 'light';
 export type Transparency = 'full' | 'reduced' | 'off';
 export type Motion = 'system' | 'full' | 'reduced' | 'off';
@@ -34,6 +35,7 @@ export interface Settings {
     closeBehavior: CloseBehavior;
     launchRobloxOnStart: boolean;
     afterLaunch: AfterLaunch;
+    whenRobloxCloses: WhenRobloxCloses;
     trayHintShown: boolean;
   };
   appearance: Appearance;

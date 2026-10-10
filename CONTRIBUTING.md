@@ -113,6 +113,14 @@ Use the issue templates. Attach diagnostics from Settings → Advanced → Copy
 diagnostics. They contain no secrets and no Windows user name. Security
 problems go through [SECURITY.md](SECURITY.md), not public issues.
 
+## Previewing the interface
+
+`npm run dev`, then open <http://localhost:1420/dev/preview/> in a browser. It
+runs the real interface on sample data from `dev/preview/`, with no Vesper
+backend, so nothing can touch Roblox. Add `?running` to the address to show
+Roblox as running. Use it for reviewing screens and taking screenshots
+instead of a second copy of the app.
+
 ## Releasing (maintainers)
 
 1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and

@@ -223,6 +223,20 @@
           onchange={(v) => app.saveSettings({ general: { afterLaunch: v } })}
         />
       </Field>
+      {#if s.general.afterLaunch !== 'stay'}
+        <Field label="When Roblox closes" hint="After Vesper minimized or hid itself to make room for Roblox.">
+          <Select
+            label="When Roblox closes"
+            value={s.general.whenRobloxCloses}
+            options={[
+              { value: 'show', label: 'Bring Vesper back' },
+              { value: 'stay', label: 'Leave it where it is' },
+              { value: 'quit', label: 'Quit Vesper' },
+            ]}
+            onchange={(v) => app.saveSettings({ general: { whenRobloxCloses: v } })}
+          />
+        </Field>
+      {/if}
       <Field label="Launch Roblox when Vesper starts">
         <Toggle
           label="Launch Roblox on start"
@@ -695,7 +709,7 @@
       {/if}
       <Field
         label="Diagnostics"
-        hint="A summary to paste into a bug report. It never includes secrets or your user name."
+        hint="A summary to paste when you report a problem. It never includes secrets or your user name."
       >
         <Button
           size="sm"

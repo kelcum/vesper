@@ -311,14 +311,13 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
 
 fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
     if let Some(w) = app.get_webview_window("main") {
-        match behaviour {
-            AfterLaunch::Stay => {}
-            AfterLaunch::Minimize => {
-                let _ = w.minimize();
-            }
-            AfterLaunch::Tray => {
-                let _ = w.hide();
-            }
+        let hidden = match behaviour {
+            AfterLaunch::Stay => false,
+            AfterLaunch::Minimize => w.minimize().is_ok(),
+            AfterLaunch::Tray => w.hide().is_ok(),
+        };
+        if hidden {
+            app.state::<AppState>().hidden_for_roblox.store(true, Ordering::Relaxed);
         }
     }
 }

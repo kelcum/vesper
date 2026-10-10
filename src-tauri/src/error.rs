@@ -82,7 +82,7 @@ impl Problem {
         Problem::new("io", "Something went wrong")
             .what(context.to_owned())
             .why(why)
-            .fix("Try again. If it keeps happening, copy the details and open a bug report.")
+            .fix("Try again. If it keeps happening, copy the details and send them through xan.gripe/k3.")
             .details(format!("{err} ({:?})", err.kind()))
             .action(ProblemAction::Retry)
     }
@@ -91,7 +91,7 @@ impl Problem {
         Problem::new("internal", "Something went wrong")
             .what(context.to_owned())
             .why("Vesper hit an unexpected state.")
-            .fix("Try again. If it keeps happening, copy the details and open a bug report.")
+            .fix("Try again. If it keeps happening, copy the details and send them through xan.gripe/k3.")
             .details(detail)
     }
 
