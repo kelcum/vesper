@@ -1,9 +1,17 @@
 {
-  "status": "unreleased",
+  "status": "released",
   "version": "0.1.0",
-  "date": null,
-  "installer": null,
-  "portable": null,
+  "date": "2026-10-11",
+  "installer": {
+    "file": "Vesper_0.1.0_x64-setup.exe",
+    "size": 4451736,
+    "sha256": "fbc316b0841d31fe4423459f21eb08fce2fd85492195d9f16d1436ecd5ff25c7"
+  },
+  "portable": {
+    "file": "Vesper_0.1.0_x64-portable.zip",
+    "size": 5524873,
+    "sha256": "69e58d3c91dc95f69efdb3096b8207cc1a774590695aae81b585a921b97ae9f3"
+  },
   "repoPublic": false,
   "repo": "https://github.com/kelcum/vesper"
 }

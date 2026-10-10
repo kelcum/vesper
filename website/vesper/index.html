@@ -42,7 +42,7 @@
         <a href="#privacy">Privacy</a>
       </nav>
       <!-- build:nav-cta -->
-      <a class="btn btn-primary" href="#download">Coming soon</a>
+      <a class="btn btn-primary" href="download/Vesper_0.1.0_x64-setup.exe" download>Download</a>
       <!-- /build:nav-cta -->
     </header>
 
@@ -59,12 +59,27 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <span class="btn soon" aria-disabled="true">Coming soon</span>
+          <a class="btn btn-primary" href="download/Vesper_0.1.0_x64-setup.exe" download
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            Download for Windows</a
+          >
           <!-- /build:hero-cta -->
           <a class="btn btn-ghost" href="#tour">Take the tour</a>
         </div>
         <!-- build:hero-meta -->
-        <p class="cta-meta reveal">Windows 10 &amp; 11 · 64-bit · free</p>
+        <p class="cta-meta reveal">Version 0.1.0 · 4.2 MB · Windows 10 &amp; 11 (64-bit) · updates itself</p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
           <div class="frame glass">
@@ -665,10 +680,113 @@
               finds Roblox by itself.
             </p>
             <!-- build:download -->
-            <div class="cta"><span class="btn soon" aria-disabled="true">Coming soon</span></div>
+            <div class="cta">
+              <a class="btn btn-primary" href="download/Vesper_0.1.0_x64-setup.exe" download
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3v12" />
+                  <path d="m7 10 5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
+                Download Vesper 0.1.0</a
+              >
+            </div>
+            <ul class="facts">
+              <li><b>4.2 MB</b> installer, released 2026-10-11, no administrator rights needed</li>
+              <li>
+                <b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your
+                settings stay.
+              </li>
+              <li>
+                <b>Portable:</b>
+                <a href="download/Vesper_0.1.0_x64-portable.zip" download>Vesper_0.1.0_x64-portable.zip</a> (5.3 MB),
+                keeps everything in a folder next to Vesper.exe
+              </li>
+              <li><b>SHA-256</b> <code>fbc316b0841d31fe4423459f21eb08fce2fd85492195d9f16d1436ecd5ff25c7</code></li>
+            </ul>
+            <details>
+              <summary>What's new in 0.1.0</summary>
+              <p>First release.</p>
+              <h3>Added</h3>
+              <ul>
+                <li>
+                  Roblox detection: the registered install, older version folders, all-users installs, Fishstrap and
+                  Bloxstrap copies, a chosen folder, and the Microsoft Store edition (reported as unsupported). Versions
+                  are read from the executable, including Roblox&#39;s 7-digit build numbers.
+                </li>
+                <li>
+                  Launching the Roblox app or a game from a place ID, game link, private server link or `roblox://`
+                  link. Input is validated and the launch link is rebuilt from checked parts. Share links open in the
+                  browser.
+                </li>
+                <li>
+                  Launch handling for Roblox updating itself first, closing straight away, or not starting, each with an
+                  explanation and next steps.
+                </li>
+                <li>
+                  A Fast Flag catalog of the 18 flags on Roblox&#39;s allowlist, with sources, risk, confidence in the
+                  described behaviour, and Roblox&#39;s published values where Roblox publishes them.
+                </li>
+                <li>
+                  Verification: after each launch Vesper reads Roblox&#39;s own log and shows which flags Roblox
+                  accepted, denied or didn&#39;t read.
+                </li>
+                <li>
+                  Profiles: Competitive, Balanced, Quality, Potato and Custom, plus your own; duplicate, rename, delete,
+                  import, export, reset and set default.
+                </li>
+                <li>
+                  Frame-rate limit through Roblox&#39;s own setting (30–480, unlimited, custom or match the display),
+                  restored to the original on request or uninstall.
+                </li>
+                <li>Process priority and optional processor affinity per profile.</li>
+                <li>
+                  Customisation: cursor and emote wheel (built-in styles or your own image, generated at every size
+                  Roblox uses, with a highlight colour), font, death sound and a custom files folder. Originals are
+                  backed up and restored. Your own picture becomes a round emote wheel with Roblox-style slots,
+                  adjustable darkening and optional dividers; cursor styles can be resized and recoloured. Both are
+                  previewed on a Roblox-style baseplate. A custom font set in Fishstrap or Bloxstrap can be brought over
+                  in one click (or with `Vesper.exe --import-font Fishstrap`).
+                </li>
+                <li>Keeping flags and customisations applied when Roblox updates itself.</li>
+                <li>
+                  Performance page: system and Roblox CPU, memory and GPU, and frame rate and frame timing from Direct3D
+                  present events when Windows permits.
+                </li>
+                <li>
+                  Discord Rich Presence with a &quot;Get Vesper&quot; button, built in, with its own artwork and a
+                  status badge that follows the &quot;show whether Roblox is running&quot; setting.
+                </li>
+                <li>
+                  Backups with history, import and export; recovery tools for flags, customisations, the frame-rate
+                  setting and Vesper&#39;s own settings.
+                </li>
+                <li>Diagnostics and structured logs with secrets and user names removed.</li>
+                <li>System tray, start with Windows, close-to-tray, first-run setup.</li>
+                <li>Signed updates from xan.gripe/vesper, installed only when you confirm.</li>
+                <li>
+                  Windows installer with Start menu and desktop shortcuts and a clean uninstall that reverts
+                  Vesper&#39;s changes to Roblox.
+                </li>
+              </ul>
+              <h3>Security</h3>
+              <ul>
+                <li>
+                  Vesper never reads Roblox cookies or tokens, never injects into Roblox, and never holds a handle to
+                  the Roblox process.
+                </li>
+              </ul>
+            </details>
             <p class="note">
-              Vesper 0.1.0 is in private testing. The installer will appear here, with its checksum, when it's
-              published.
+              Vesper is new and its installer isn't code-signed yet, so Windows may show
+              <b>“Windows protected your PC”</b>. Choose <b>More info</b>, then <b>Run anyway</b>.
             </p>
             <!-- /build:download -->
           </div>

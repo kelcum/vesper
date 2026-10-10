@@ -83,7 +83,8 @@ if (flags.has('--beta')) {
   Object.assign(release, {
     status: 'released',
     version,
-    date: new Date().toISOString().slice(0, 10),
+    // The publisher's local date (toISOString would give the UTC one).
+    date: new Date().toLocaleDateString('en-CA'),
     installer: entry(installer),
     portable: existsSync(join(from, portable)) ? entry(portable) : null,
     repoPublic: flags.has('--repo-public'),
