@@ -200,11 +200,17 @@ mod tests {
         let samples = Arc::new(Mutex::new(0));
         let counter = samples.clone();
         let h = MonitorHandle::spawn(Duration::from_millis(100), false, move |_| *counter.lock().unwrap() += 1);
-        std::thread::sleep(Duration::from_millis(450));
+        // Wait for samples rather than assuming a rate: a loaded machine samples slower.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while *samples.lock().unwrap() < 2 {
+            assert!(Instant::now() < deadline, "no samples");
+            std::thread::sleep(Duration::from_millis(20));
+        }
         let started = Instant::now();
         drop(h);
         assert!(started.elapsed() < Duration::from_millis(500), "stops within a slice");
         let n = *samples.lock().unwrap();
-        assert!((2..=7).contains(&n), "{n} samples");
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(*samples.lock().unwrap(), n, "no samples after stopping");
     }
 }

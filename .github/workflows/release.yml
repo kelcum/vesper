@@ -6,7 +6,8 @@ name: Release
 # (scripts/site/publish.mjs), so nothing goes public automatically.
 #
 # Repository secrets: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-# Repository variable (optional): VESPER_DISCORD_CLIENT_ID
+# Repository variable (optional): VESPER_DISCORD_CLIENT_ID, to use a Discord application
+# other than the one built into src-tauri/src/discord/mod.rs
 
 on:
   push:
