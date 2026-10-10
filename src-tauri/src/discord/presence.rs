@@ -18,7 +18,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const PAGE_URL: &str = "https://xan.gripe/vesper";
-pub const ARTWORK_URL: &str = "https://xan.gripe/vesper/assets/brand/presence.png";
+/// Art asset names uploaded to the Discord application (scripts/brand/discord.mjs).
+pub const LARGE_IMAGE: &str = "vesper";
+pub const SMALL_PLAYING: &str = "playing";
+pub const SMALL_IDLE: &str = "idle";
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const REFRESH: Duration = Duration::from_secs(60);
 
@@ -55,10 +58,18 @@ pub fn activity(state: &PresenceState, started_unix: i64) -> Value {
     let mut a = json!({
         "details": "Using Vesper",
         "timestamps": { "start": started_unix },
-        "assets": { "large_image": ARTWORK_URL, "large_text": "Vesper · Roblox, tuned and verified" },
+        "assets": {
+            "large_image": LARGE_IMAGE,
+            "large_text": "Vesper · Roblox, tuned and verified",
+        },
         "buttons": [ { "label": "Get Vesper", "url": PAGE_URL } ],
         "instance": false,
     });
+    // The badge shows whether Roblox is running, so it follows the same setting.
+    if state.show_roblox_status {
+        a["assets"]["small_image"] = json!(if state.roblox_running { SMALL_PLAYING } else { SMALL_IDLE });
+        a["assets"]["small_text"] = json!(status);
+    }
     if let Some(l) = line {
         a["state"] = Value::String(l.chars().take(128).collect());
     }
@@ -291,7 +302,11 @@ mod tests {
         assert_eq!(a["state"], "Playing Roblox · Competitive profile");
         assert_eq!(a["buttons"][0]["label"], "Get Vesper");
         assert_eq!(a["buttons"][0]["url"], "https://xan.gripe/vesper");
-        assert!(a["assets"]["large_image"].as_str().unwrap().starts_with("https://xan.gripe/vesper/"));
+        assert_eq!(a["assets"]["large_image"], "vesper");
+        assert_eq!(a["assets"]["small_image"], "playing");
+        assert_eq!(activity(&state(false, None), 0)["assets"]["small_image"], "idle");
+        let hidden = PresenceState { show_roblox_status: false, ..state(true, None) };
+        assert!(activity(&hidden, 0)["assets"].get("small_image").is_none(), "badge hidden with the status");
         let text = a.to_string().to_lowercase();
         for leak in ["users\\", "appdata", "c:\\", "roblosecurity", "token"] {
             assert!(!text.contains(leak), "activity contains {leak}");

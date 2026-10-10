@@ -471,7 +471,14 @@
       </Field>
       <div class="presence">
         <div class="pv glass">
-          <img src={iconUrl} alt="" width="56" height="56" />
+          <span class="pv-art">
+            <img src={iconUrl} alt="" width="56" height="56" />
+            {#if s.discord.showRobloxStatus}<span
+                class="pv-badge"
+                class:playing={app.robloxRunning}
+                title={app.robloxRunning ? 'Playing Roblox' : 'In the launcher'}
+              ></span>{/if}
+          </span>
           <div>
             <div class="pv-name">Vesper</div>
             <div class="pv-line">Using Vesper</div>
@@ -811,8 +818,37 @@
     flex: none;
     border-radius: var(--radius-md);
   }
+  .pv-art {
+    position: relative;
+    flex: none;
+    width: 56px;
+    height: 56px;
+  }
   .pv img {
     border-radius: 10px;
+  }
+  /* The small image Discord shows in the corner (assets "idle" / "playing"). */
+  .pv-badge {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--bg-elevated);
+    background:
+      radial-gradient(circle, #f7f5ff 0 22%, rgba(201, 189, 255, 0.45) 24%, transparent 62%),
+      linear-gradient(#0c0b1a, #221d47);
+  }
+  .pv-badge.playing {
+    background: linear-gradient(#4fe0a8, #22a879);
+  }
+  .pv-badge.playing::after {
+    content: '';
+    position: absolute;
+    inset: 6px 5px 6px 8px;
+    background: #fff;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
   }
   .pv-name {
     font-weight: 650;

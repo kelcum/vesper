@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "brand": "node scripts/brand/render.mjs",
+    "brand:discord": "node scripts/brand/discord.mjs",
     "flags:check": "node scripts/check-flag-catalog.mjs",
     "release:checksums": "node scripts/release/checksums.mjs",
     "site:build": "node scripts/site/build.mjs"
