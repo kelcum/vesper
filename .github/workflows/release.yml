@@ -25,9 +25,9 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       VESPER_DISCORD_CLIENT_ID: ${{ vars.VESPER_DISCORD_CLIENT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -80,7 +80,7 @@ jobs:
           $v = "${{ steps.version.outputs.version }}"
           gh release create "v$v" --draft --title "Vesper $v" --notes-file release-notes.md (Get-ChildItem release/* | ForEach-Object FullName)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vesper-${{ steps.version.outputs.version }}
           path: release/
