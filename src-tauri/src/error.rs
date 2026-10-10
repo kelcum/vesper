@@ -17,7 +17,7 @@ pub enum ProblemAction {
     OpenSettings(String),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Problem {
     /// Stable identifier, e.g. `roblox.not_installed`. Useful in bug reports.

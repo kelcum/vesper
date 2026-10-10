@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vesper",
+  "mainBinaryName": "Vesper",
+  "version": "0.1.0",
+  "identifier": "gripe.xan.vesper",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Vesper",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 940,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "visible": false,
+        "dragDropEnabled": false,
+        "windowEffects": {
+          "effects": [
+            "mica"
+          ]
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src ipc: http://ipc.localhost",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "The Vesper Authors",
+    "copyright": "Copyright © 2026 The Vesper Authors. MIT License.",
+    "category": "Utility",
+    "homepage": "https://xan.gripe/vesper",
+    "shortDescription": "A calm, honest Roblox launcher for Windows.",
+    "longDescription": "Vesper launches Roblox with verified Fast Flags, performance profiles, a frame-rate limit, live performance monitoring and Discord Rich Presence. Privacy-first: no telemetry, no cookies, no tokens.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "displayLanguageSelector": false,
+        "startMenuFolder": "Vesper",
+        "installerHooks": "installer/hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExQjA1MjdEMUFFNzVCQjMKUldTelcrY2FmVkt3b1FJcWw1N0dVSHp4S2pUbXkxN2MyRm4xeTVYdHF0WWhmQU4xWjJmS293OFoK",
+      "endpoints": [
+        "https://xan.gripe/vesper/updates/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

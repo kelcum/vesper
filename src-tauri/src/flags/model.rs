@@ -35,10 +35,8 @@ pub fn kind_of(name: &str) -> Option<ValueKind> {
         (ValueKind::Int, s)
     } else if let Some(s) = rest.strip_prefix("Log") {
         (ValueKind::Int, s)
-    } else if let Some(s) = rest.strip_prefix("String") {
-        (ValueKind::String, s)
     } else {
-        return None;
+        (ValueKind::String, rest.strip_prefix("String")?)
     };
     (!suffix.is_empty()).then_some(kind)
 }
