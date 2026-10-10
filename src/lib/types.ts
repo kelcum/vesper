@@ -324,10 +324,14 @@ export interface CleanupSummary {
 
 // ---------------------------------------------------------------- customize
 
+export interface WheelLook {
+  dim: number;
+  dividers: boolean;
+}
 export type ModSource = { kind: 'preset'; id: string } | { kind: 'file'; name: string };
 export interface ModsConfig {
-  cursor: { source: ModSource; scale: number } | null;
-  emoteWheel: { source: ModSource | null; accent: string | null } | null;
+  cursor: { source: ModSource; scale: number; color: string | null } | null;
+  emoteWheel: { source: ModSource | null; accent: string | null; look: WheelLook } | null;
   font: { name: string } | null;
   deathSound: { name: string } | null;
   customFiles: boolean;
@@ -346,10 +350,18 @@ export interface ModsView {
   wheelPresets: { id: string; label: string }[];
   customDir: string;
   customFileCount: number;
+  cursorScale: [number, number];
+  maxWheelDim: number;
   lastReport: ModReport | null;
   robloxRunning: boolean;
   appliedNow: boolean;
-  previews: { cursor: string | null; wheelBackground: string | null; wheelRing: string | null };
+  previews: {
+    cursor: string | null;
+    wheelBackground: string | null;
+    wheelRing: string | null;
+    wheelGradient: string | null;
+    wheelLine: string | null;
+  };
 }
 
 // ---------------------------------------------------------------- bootstrap

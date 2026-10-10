@@ -19,6 +19,8 @@
   import Card from '../components/ui/Card.svelte';
   import Slider from '../components/ui/Slider.svelte';
   import Toggle from '../components/ui/Toggle.svelte';
+  import RobloxScene from '../components/customize/RobloxScene.svelte';
+  import WheelPreview from '../components/customize/WheelPreview.svelte';
   import { api } from '../lib/api';
   import { invalidateBackground } from '../lib/appearance';
   import { app } from '../lib/store.svelte';
@@ -33,10 +35,13 @@
 
   let view = $state<ModsView | null>(null);
   let busy = $state<string | null>(null);
-  let cursorScale = $state(80);
+  let cursorScale = $state(100);
+  let wheelDim = $state(30);
+  let wheelDividers = $state(true);
+  /** Where the preview cursor is drawn, in px inside the scene; null = centred. */
+  let tryAt = $state<{ x: number; y: number } | null>(null);
 
-  const ACCENTS = [
-    { value: null, label: "Roblox's white" },
+  const COLOURS = [
     { value: '#a596ff', label: 'Lavender' },
     { value: '#7aa2ff', label: 'Blue' },
     { value: '#5fd3a6', label: 'Mint' },
@@ -44,12 +49,23 @@
     { value: '#f2c46d', label: 'Gold' },
     { value: '#ff6b6b', label: 'Red' },
   ];
+  const ACCENTS = [{ value: null, label: "Roblox's white" }, ...COLOURS];
+  const CURSOR_COLOURS = [{ value: null, label: 'Original colours' }, ...COLOURS];
 
   onMount(load);
 
   async function load() {
     view = (await app.attempt(() => api.modsGet())) ?? view;
-    if (view?.config.cursor?.source.kind === 'file') cursorScale = view.config.cursor.scale;
+    syncControls();
+  }
+
+  function syncControls() {
+    if (view?.config.cursor) cursorScale = view.config.cursor.scale;
+    const look = view?.config.emoteWheel?.look;
+    if (look) {
+      wheelDim = look.dim;
+      wheelDividers = look.dividers;
+    }
   }
 
   async function run(key: string, fn: () => Promise<ModsView>) {
@@ -58,6 +74,7 @@
     busy = null;
     if (v) {
       view = v;
+      syncControls();
       const r = v.lastReport;
       if (r?.missing.length)
         app.toast(`${r.missing.length} file(s) aren't in this Roblox version, so they were skipped.`, 'warn');
@@ -81,16 +98,39 @@
 
   async function cursorFromFile() {
     const path = await pick('Image', ['png', 'jpg', 'jpeg', 'webp']);
-    if (path) run('cursor', () => api.modsSetCursor({ path, scale: cursorScale }));
+    if (path) run('cursor', () => api.modsSetCursor({ path, scale: Math.min(cursorScale, 100) }));
   }
 
   function cursorPreset(id: string) {
-    run('cursor', () => api.modsSetCursor({ preset: id }));
+    run('cursor', () => api.modsSetCursor({ preset: id, scale: cursorScale, color: cfg?.cursor?.color ?? null }));
+  }
+
+  function cursorRedraw(change: { scale?: number; color?: string | null }) {
+    if (!cfg?.cursor) return;
+    const color = 'color' in change ? change.color : cfg.cursor.color;
+    run('cursor', () => api.modsSetCursor({ scale: change.scale ?? cursorScale, color, reuse: true }));
+  }
+
+  function tryCursor(e: PointerEvent) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    tryAt = { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
   async function wheelFromFile() {
     const path = await pick('Image', ['png', 'jpg', 'jpeg', 'webp']);
-    if (path) run('wheel', () => api.modsSetWheel({ path, accent: view?.config.emoteWheel?.accent ?? null }));
+    if (path)
+      run('wheel', () =>
+        api.modsSetWheel({
+          path,
+          accent: view?.config.emoteWheel?.accent ?? null,
+          dim: wheelDim,
+          dividers: wheelDividers,
+        }),
+      );
+  }
+
+  function wheelLook(change: { dim?: number; dividers?: boolean }) {
+    run('wheel', () => api.modsSetWheel({ ...change, accent: cfg?.emoteWheel?.accent ?? null, reuse: true }));
   }
 
   function wheelPreset(id: string | null) {
@@ -129,6 +169,7 @@
     cfg?.emoteWheel?.source ? (cfg.emoteWheel.source.kind === 'preset' ? cfg.emoteWheel.source.id : 'file') : null,
   );
   const accent = $derived(cfg?.emoteWheel?.accent ?? null);
+  const cursorColor = $derived(cfg?.cursor?.color ?? null);
 </script>
 
 <header class="head">
@@ -158,10 +199,20 @@
           onclick={() => run('cursor', () => api.modsClear('cursor'))}>Reset</Button
         >{/if}
     {/snippet}
-    <div class="preview cursor-preview">
-      {#if view?.previews.cursor}<img src={view.previews.cursor} alt="Current cursor" width="64" height="64" />{/if}
-      <span class="crosshair" aria-hidden="true"></span>
-    </div>
+    <RobloxScene height={170} hideCursor onpointermove={tryCursor} onpointerleave={() => (tryAt = null)}>
+      {#if view?.previews.cursor}
+        <img
+          class="try-cursor"
+          src={view.previews.cursor}
+          alt="Current cursor"
+          width="64"
+          height="64"
+          style:left={tryAt ? `${tryAt.x}px` : '50%'}
+          style:top={tryAt ? `${tryAt.y}px` : '50%'}
+        />
+      {/if}
+      {#if !tryAt}<span class="scene-hint">Move your mouse here to try it</span>{/if}
+    </RobloxScene>
     <div class="tiles">
       <button
         class="tile"
@@ -182,25 +233,51 @@
         </button>
       {/each}
       <button class="tile" class:sel={cursorSel === 'file'} onclick={cursorFromFile} disabled={busy === 'cursor'}>
-        <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span><span>Your image…</span>
+        {#if cursorSel === 'file' && view?.previews.cursor}
+          <img class="tile-art" src={view.previews.cursor} alt="" width="40" height="40" />
+        {:else}
+          <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span>
+        {/if}
+        <span>{cursorSel === 'file' ? 'Change image…' : 'Your image…'}</span>
       </button>
     </div>
-    <div class="field">
-      <span class="small muted">Size of your own image</span>
-      <Slider
-        label="Custom cursor size"
-        min={30}
-        max={100}
-        step={5}
-        unit="%"
-        bind:value={cursorScale}
-        onchange={(v) =>
-          cfg?.cursor?.source.kind === 'file' && run('cursor', () => api.modsSetCursor({ scale: v, reuse: true }))}
-      />
-    </div>
+    {#if cfg?.cursor}
+      <div class="field">
+        <span class="small muted">Size</span>
+        <Slider
+          label="Cursor size"
+          min={view?.cursorScale[0] ?? 30}
+          max={view?.cursorScale[1] ?? 150}
+          step={5}
+          unit="%"
+          bind:value={cursorScale}
+          onchange={(v) => cursorRedraw({ scale: v })}
+        />
+      </div>
+      {#if cfg.cursor.source.kind === 'preset'}
+        <div class="field">
+          <span class="small muted">Colour</span>
+          <div class="swatches" role="radiogroup" aria-label="Cursor colour">
+            {#each CURSOR_COLOURS as c (c.label)}
+              <button
+                role="radio"
+                aria-checked={cursorColor === c.value}
+                aria-label={c.label}
+                title={c.label}
+                class="swatch"
+                class:sel={cursorColor === c.value}
+                class:original={c.value === null}
+                style:--c={c.value ?? '#ffffff'}
+                onclick={() => cursorRedraw({ color: c.value })}
+              ></button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/if}
     <p class="faint xs">
       Roblox draws the cursor centred on the mouse, so the middle of your image is where you aim. Images are fitted into
-      64×64.
+      Roblox's 64×64 cursor; above 100% the edges are cut off.
     </p>
   </Card>
 
@@ -214,11 +291,14 @@
           onclick={() => run('wheel', () => api.modsClear('emoteWheel'))}>Reset</Button
         >{/if}
     {/snippet}
-    <div class="preview wheel-preview" style:--accent-c={accent ?? '#ffffff'}>
-      {#if view?.previews.wheelBackground}<img src={view.previews.wheelBackground} alt="" />{/if}
-      {#if view?.previews.wheelRing}<img src={view.previews.wheelRing} alt="Current emote wheel" />{/if}
-      <span class="highlight" aria-hidden="true"></span>
-    </div>
+    <RobloxScene height={250}>
+      <WheelPreview
+        background={view?.previews.wheelBackground ?? null}
+        ring={view?.previews.wheelRing ?? null}
+        gradient={view?.previews.wheelGradient ?? null}
+        line={view?.previews.wheelLine ?? null}
+      />
+    </RobloxScene>
     <div class="tiles">
       <button class="tile" class:sel={wheelSel === null} onclick={() => wheelPreset(null)} disabled={busy === 'wheel'}>
         <span class="tile-art roblox">R</span><span>Roblox</span>
@@ -234,9 +314,32 @@
         </button>
       {/each}
       <button class="tile" class:sel={wheelSel === 'file'} onclick={wheelFromFile} disabled={busy === 'wheel'}>
-        <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span><span>Your image…</span>
+        {#if wheelSel === 'file' && view?.previews.wheelBackground}
+          <img class="tile-art round" src={view.previews.wheelBackground} alt="" width="40" height="40" />
+        {:else}
+          <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span>
+        {/if}
+        <span>{wheelSel === 'file' ? 'Change image…' : 'Your image…'}</span>
       </button>
     </div>
+    {#if wheelSel === 'file'}
+      <div class="field">
+        <span class="small muted">Darken picture</span>
+        <Slider
+          label="Darken picture"
+          min={0}
+          max={view?.maxWheelDim ?? 80}
+          step={5}
+          unit="%"
+          bind:value={wheelDim}
+          onchange={(v) => wheelLook({ dim: v })}
+        />
+      </div>
+      <div class="field">
+        <span class="small muted">Lines between slots</span>
+        <Toggle label="Lines between slots" bind:checked={wheelDividers} onchange={(v) => wheelLook({ dividers: v })} />
+      </div>
+    {/if}
     <div class="field">
       <span class="small muted">Highlight colour</span>
       <div class="swatches" role="radiogroup" aria-label="Highlight colour">
@@ -255,8 +358,8 @@
       </div>
     </div>
     <p class="faint xs">
-      Your image replaces the ring with dividers; square images work best. Vesper makes every size Roblox uses (small
-      screens, PC, TV).
+      Your picture is cut into a circle from its middle and darkened a little so emotes stay readable. Point at the
+      preview to see a slot highlighted. Vesper makes every size Roblox uses (small screens, PC, TV).
     </p>
   </Card>
 
@@ -436,63 +539,27 @@
   .grid :global(.card) {
     gap: var(--space-3);
   }
-  .preview {
-    position: relative;
-    display: grid;
-    place-items: center;
-    height: 150px;
-    border-radius: var(--radius-md);
-    background: linear-gradient(135deg, #6f8fa8 0%, #9fb7a2 55%, #c9b98f 100%);
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-  .cursor-preview img {
-    image-rendering: auto;
+  .try-cursor {
+    position: absolute;
     width: 64px;
     height: 64px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
     z-index: 1;
   }
-  .crosshair {
+  .scene-hint {
     position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    margin: -3px 0 0 -3px;
-    border-radius: 50%;
-    background: rgba(255, 60, 60, 0.85);
-    z-index: 2;
-    opacity: 0;
-  }
-  .cursor-preview:hover .crosshair {
-    opacity: 1;
-  }
-  .wheel-preview {
-    height: 190px;
-    background: linear-gradient(135deg, #52687a, #7d8f74);
-  }
-  .wheel-preview img {
-    position: absolute;
-    width: 170px;
-    height: 170px;
-  }
-  .highlight {
-    position: absolute;
-    width: 170px;
-    height: 170px;
-    border-radius: 50%;
-    background: conic-gradient(
-      from -22.5deg,
-      color-mix(in srgb, var(--accent-c) 55%, transparent) 0 45deg,
-      transparent 45deg
-    );
-    mask: radial-gradient(circle, transparent 46%, #000 47%, #000 98%, transparent 99%);
-    opacity: 0.75;
+    bottom: 10px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    color: #fff;
+    background: rgba(10, 10, 16, 0.5);
     pointer-events: none;
   }
   .tiles {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
     gap: 6px;
   }
   .tile {
@@ -533,6 +600,10 @@
     background: linear-gradient(135deg, #5d7180, #8a9a80);
     color: #fff;
   }
+  .tile-art.round {
+    border-radius: 50%;
+    object-fit: cover;
+  }
   .tile-art.roblox {
     font-weight: 800;
     background: linear-gradient(135deg, #3a3d45, #26282e);
@@ -559,6 +630,9 @@
   }
   .swatch:hover {
     transform: scale(1.12);
+  }
+  .swatch.original {
+    background: conic-gradient(#fff 0 25%, #c9bdff 0 50%, #fff 0 75%, #c9bdff 0);
   }
   .swatch.sel {
     box-shadow:

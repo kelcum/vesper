@@ -39,13 +39,18 @@ pub const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 pub const MAX_FONT_BYTES: u64 = 30 * 1024 * 1024;
 pub const MAX_SOUND_BYTES: u64 = 10 * 1024 * 1024;
 
-pub const CURSOR_PRESETS: &[(&str, &str)] = &[("dot", "Vesper dot"), ("crosshair", "Crosshair"), ("arrow", "Arrow")];
+pub const CURSOR_PRESETS: &[(&str, &str)] =
+    &[("dot", "Vesper dot"), ("crosshair", "Crosshair"), ("ring", "Ring"), ("plus", "Plus"), ("arrow", "Arrow")];
+/// Cursor size range, in percent of the 64×64 canvas a style is drawn for.
+pub const CURSOR_SCALE: (u8, u8) = (30, 150);
 pub const WHEEL_PRESETS: &[(&str, &str)] = &[("dusk", "Dusk"), ("glass", "Glass"), ("minimal", "Minimal")];
 
 fn cursor_preset(id: &str) -> Option<&'static [u8]> {
     match id {
         "dot" => Some(include_bytes!("../resources/mods/cursors/dot.png")),
         "crosshair" => Some(include_bytes!("../resources/mods/cursors/crosshair.png")),
+        "ring" => Some(include_bytes!("../resources/mods/cursors/ring.png")),
+        "plus" => Some(include_bytes!("../resources/mods/cursors/plus.png")),
         "arrow" => Some(include_bytes!("../resources/mods/cursors/arrow.png")),
         _ => None,
     }
@@ -70,6 +75,15 @@ fn wheel_preset(id: &str) -> Option<(&'static [u8], &'static [u8])> {
     }
 }
 
+/// Dividers, edge and see-through centre drawn over a picture wheel (1920×1920).
+fn photo_overlay(dividers: bool) -> &'static [u8] {
+    if dividers {
+        include_bytes!("../resources/mods/wheels/photo/SegmentedCircle.png")
+    } else {
+        include_bytes!("../resources/mods/wheels/photo/SegmentedCircleClean.png")
+    }
+}
+
 // ------------------------------------------------------------------ configuration
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -88,9 +102,35 @@ pub enum Source {
 #[serde(rename_all = "camelCase")]
 pub struct CursorMod {
     pub source: Source,
-    /// Size of a custom image inside the 64×64 cursor, in percent.
+    /// Size in percent: of the 64×64 canvas for an image, of the drawn size for a style.
+    #[serde(default = "full_size")]
     pub scale: u8,
+    /// Tint for a built-in style as `#rrggbb`; `None` keeps its own colours.
+    #[serde(default)]
+    pub color: Option<String>,
 }
+
+fn full_size() -> u8 {
+    100
+}
+
+/// How a picture wheel is drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct WheelLook {
+    /// How much the picture is darkened so emotes and numbers stay readable, in percent.
+    pub dim: u8,
+    /// Draw Roblox-style dividers between the eight slots.
+    pub dividers: bool,
+}
+
+impl Default for WheelLook {
+    fn default() -> Self {
+        Self { dim: 30, dividers: true }
+    }
+}
+
+pub const MAX_WHEEL_DIM: u8 = 80;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +139,9 @@ pub struct WheelMod {
     pub source: Option<Source>,
     /// Highlight colour as `#rrggbb`; `None` keeps Roblox's white.
     pub accent: Option<String>,
+    /// Only used for a picture.
+    #[serde(default)]
+    pub look: WheelLook,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -181,16 +224,44 @@ fn load_image(path: &Path) -> Result<DynamicImage, String> {
         .map_err(|_| "That isn't a PNG, JPEG or WebP image Vesper can read.".to_string())
 }
 
-/// Fits `img` inside a `size`×`size` canvas at `scale_pct`, centred
-/// (Roblox draws cursor images centred on the mouse position).
+/// Fits `img` inside a box of `scale_pct` of a `size`×`size` canvas, centred
+/// (Roblox draws cursor images centred on the mouse position). Above 100 %
+/// the edges are cropped.
 pub fn fit_centered(img: &DynamicImage, size: u32, scale_pct: u8) -> RgbaImage {
-    let box_size = ((size as f32) * (scale_pct.clamp(20, 100) as f32) / 100.0).round().max(1.0) as u32;
+    let pct = scale_pct.clamp(CURSOR_SCALE.0, CURSOR_SCALE.1) as f32;
+    let box_size = ((size as f32) * pct / 100.0).round().max(1.0) as u32;
     let fitted = img.resize(box_size, box_size, FilterType::Lanczos3).to_rgba8();
     let mut canvas = RgbaImage::from_pixel(size, size, Rgba([0, 0, 0, 0]));
-    let x = (size - fitted.width()) / 2;
-    let y = (size - fitted.height()) / 2;
-    image::imageops::overlay(&mut canvas, &fitted, x as i64, y as i64);
+    let x = (size as i64 - fitted.width() as i64) / 2;
+    let y = (size as i64 - fitted.height() as i64) / 2;
+    image::imageops::overlay(&mut canvas, &fitted, x, y);
     canvas
+}
+
+/// Multiplies every pixel by `rgb`: white becomes `rgb`, dark outlines stay dark.
+pub fn tint(img: &mut RgbaImage, rgb: [u8; 3]) {
+    for p in img.pixels_mut() {
+        for c in 0..3 {
+            p[c] = ((p[c] as u32 * rgb[c] as u32 + 127) / 255) as u8;
+        }
+    }
+}
+
+/// The picture as a round, darkened disc filling a `side`×`side` square,
+/// with an anti-aliased edge.
+pub fn photo_disc(img: &DynamicImage, side: u32, dim_pct: u8) -> RgbaImage {
+    let mut disc = square(img, side);
+    let keep = 1.0 - dim_pct.min(MAX_WHEEL_DIM) as f32 / 100.0;
+    let c = side as f32 / 2.0;
+    for (x, y, p) in disc.enumerate_pixels_mut() {
+        let d = ((x as f32 + 0.5 - c).powi(2) + (y as f32 + 0.5 - c).powi(2)).sqrt();
+        let coverage = (c - d).clamp(0.0, 1.0);
+        for ch in 0..3 {
+            p[ch] = (p[ch] as f32 * keep).round() as u8;
+        }
+        p[3] = (p[3] as f32 * coverage).round() as u8;
+    }
+    disc
 }
 
 /// Centre-crops to a square, then resizes to `side`.
@@ -217,6 +288,37 @@ pub fn recolor(original: &[u8], rgb: [u8; 3]) -> Result<Vec<u8>, String> {
     png_bytes(&img)
 }
 
+/// Radius of the wheel's centre disc as a share of the wheel's radius (Roblox's layout).
+pub const WHEEL_INNER: f32 = 0.465;
+
+/// Roblox's slot highlight, optionally recoloured. Its point sits at the wheel's
+/// centre and is brightest there; Roblox's solid centre disc normally hides that
+/// part. With a see-through centre (a picture wheel), `cut_radius` removes it so
+/// no white tip shows over the picture.
+pub fn highlight_gradient(
+    original: &[u8],
+    accent: Option<[u8; 3]>,
+    cut_radius: Option<f32>,
+) -> Result<Vec<u8>, String> {
+    let recoloured;
+    let bytes = match accent {
+        Some(rgb) => {
+            recoloured = recolor(original, rgb)?;
+            &recoloured[..]
+        }
+        None => original,
+    };
+    let Some(r) = cut_radius else { return Ok(bytes.to_vec()) };
+    let mut img = image::load_from_memory(bytes).map_err(|e| e.to_string())?.to_rgba8();
+    let apex_y = img.height() as f32 / 2.0;
+    for (x, y, p) in img.enumerate_pixels_mut() {
+        let d = ((x as f32 + 0.5).powi(2) + (y as f32 + 0.5 - apex_y).powi(2)).sqrt();
+        let keep = ((d - r) / 2.0).clamp(0.0, 1.0);
+        p[3] = (p[3] as f32 * keep).round() as u8;
+    }
+    png_bytes(&img)
+}
+
 pub fn parse_hex(s: &str) -> Option<[u8; 3]> {
     let h = s.strip_prefix('#').unwrap_or(s);
     if h.len() != 6 {
@@ -230,10 +332,28 @@ fn wheel_rel(size: &str, layer: &str, scale: &str) -> String {
     format!(r"{WHEEL_DIR}\{size}\{layer}{scale}.png")
 }
 
-/// Prepares the cursor files from a preset or an image.
-pub fn prepare_cursor(p: &ModPaths, source: &Source, file: Option<&Path>, scale: u8) -> Result<(), String> {
+/// Prepares the cursor files from a preset or an image. `color` tints a preset.
+pub fn prepare_cursor(
+    p: &ModPaths,
+    source: &Source,
+    file: Option<&Path>,
+    scale: u8,
+    color: Option<[u8; 3]>,
+) -> Result<(), String> {
     let bytes = match source {
-        Source::Preset { id } => cursor_preset(id).ok_or("Unknown cursor style.")?.to_vec(),
+        Source::Preset { id } => {
+            let art = cursor_preset(id).ok_or("Unknown cursor style.")?;
+            if scale == 100 && color.is_none() {
+                art.to_vec()
+            } else {
+                let img = image::load_from_memory(art).map_err(|e| e.to_string())?;
+                let mut out = if scale == 100 { img.to_rgba8() } else { fit_centered(&img, CURSOR_SIZE, scale) };
+                if let Some(rgb) = color {
+                    tint(&mut out, rgb);
+                }
+                png_bytes(&out)?
+            }
+        }
         Source::File { .. } => {
             let img = load_image(file.ok_or("Choose an image.")?)?;
             png_bytes(&fit_centered(&img, CURSOR_SIZE, scale))?
@@ -246,28 +366,30 @@ pub fn prepare_cursor(p: &ModPaths, source: &Source, file: Option<&Path>, scale:
 }
 
 /// Prepares emote wheel layers for every size class and scale.
-pub fn prepare_wheel(p: &ModPaths, source: &Source, file: Option<&Path>) -> Result<(), String> {
-    let (background, ring): (Option<DynamicImage>, DynamicImage) = match source {
+///
+/// A picture becomes the round background disc (Roblox draws a square image
+/// as a square, covering the wheel), with dividers and a see-through centre
+/// drawn over it so the slots and "Select an Emote" stay readable.
+pub fn prepare_wheel(p: &ModPaths, source: &Source, file: Option<&Path>, look: WheelLook) -> Result<(), String> {
+    let decode = |b: &[u8]| image::load_from_memory(b).map_err(|e| e.to_string());
+    let (background, ring, photo) = match source {
         Source::Preset { id } => {
             let (bg, ring) = wheel_preset(id).ok_or("Unknown emote wheel style.")?;
-            (
-                Some(image::load_from_memory(bg).map_err(|e| e.to_string())?),
-                image::load_from_memory(ring).map_err(|e| e.to_string())?,
-            )
+            (decode(bg)?, decode(ring)?, false)
         }
-        Source::File { .. } => (None, load_image(file.ok_or("Choose an image.")?)?),
+        Source::File { .. } => {
+            (load_image(file.ok_or("Choose an image.")?)?, decode(photo_overlay(look.dividers))?, true)
+        }
     };
-    // Clear layers from a previous choice so a custom ring keeps Roblox's background.
     let _ = std::fs::remove_dir_all(p.prepared(WHEEL_DIR));
     for (size, base) in WHEEL_SIZES {
         for (suffix, mul) in SCALES {
             let side = base * mul;
+            let bg = if photo { photo_disc(&background, side, look.dim) } else { square(&background, side) };
+            write_atomic(&p.prepared(&wheel_rel(size, "CircleBackground", suffix)), &png_bytes(&bg)?)
+                .map_err(|e| e.to_string())?;
             write_atomic(&p.prepared(&wheel_rel(size, "SegmentedCircle", suffix)), &png_bytes(&square(&ring, side))?)
                 .map_err(|e| e.to_string())?;
-            if let Some(bg) = &background {
-                write_atomic(&p.prepared(&wheel_rel(size, "CircleBackground", suffix)), &png_bytes(&square(bg, side))?)
-                    .map_err(|e| e.to_string())?;
-            }
         }
     }
     Ok(())
@@ -422,16 +544,21 @@ fn desired_files(
                 }
             }
         }
-        if let Some(rgb) = w.accent.as_deref().and_then(parse_hex) {
-            for (size, _) in WHEEL_SIZES {
-                for (suffix, _) in SCALES {
-                    for layer in ["SelectedGradient", "SelectedLine"] {
-                        let rel = wheel_rel(size, layer, suffix);
-                        // Recolour Roblox's own shape: from the backup if we already replaced it.
-                        let source = original_for(install, &rel, originals);
-                        if let Some(bytes) = source.and_then(|b| recolor(&b, rgb).ok()) {
-                            out.insert(rel, Desired { kind: "emoteWheel", bytes, create: false });
-                        }
+        let accent = w.accent.as_deref().and_then(parse_hex);
+        let see_through = matches!(w.source, Some(Source::File { .. }));
+        for (size, base) in WHEEL_SIZES {
+            for (suffix, mul) in SCALES {
+                let cut = see_through.then_some(WHEEL_INNER * (base * mul) as f32 / 2.0);
+                for layer in ["SelectedGradient", "SelectedLine"] {
+                    let (rgb, cut) = if layer == "SelectedGradient" { (accent, cut) } else { (accent, None) };
+                    if rgb.is_none() && cut.is_none() {
+                        continue;
+                    }
+                    let rel = wheel_rel(size, layer, suffix);
+                    // Start from Roblox's own shape: the backup if we already replaced it.
+                    let source = original_for(install, &rel, originals);
+                    if let Some(bytes) = source.and_then(|b| highlight_gradient(&b, rgb, cut).ok()) {
+                        out.insert(rel, Desired { kind: "emoteWheel", bytes, create: false });
                     }
                 }
             }
@@ -673,10 +800,10 @@ mod tests {
         let src = e.mods.root.join("pick.png");
         std::fs::create_dir_all(&e.mods.root).unwrap();
         std::fs::write(&src, png(200, 100, [255, 0, 0, 255])).unwrap();
-        prepare_cursor(&e.mods, &Source::File { name: "pick.png".into() }, Some(&src), 50).unwrap();
+        prepare_cursor(&e.mods, &Source::File { name: "pick.png".into() }, Some(&src), 50, None).unwrap();
 
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::File { name: "pick.png".into() }, scale: 50 }),
+            cursor: Some(CursorMod { source: Source::File { name: "pick.png".into() }, scale: 50, color: None }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -700,11 +827,12 @@ mod tests {
     #[test]
     fn preset_wheel_writes_every_size_and_accent_recolours_highlight() {
         let e = env();
-        prepare_wheel(&e.mods, &Source::Preset { id: "dusk".into() }, None).unwrap();
+        prepare_wheel(&e.mods, &Source::Preset { id: "dusk".into() }, None, WheelLook::default()).unwrap();
         let cfg = ModsConfig {
             emote_wheel: Some(WheelMod {
                 source: Some(Source::Preset { id: "dusk".into() }),
                 accent: Some("#a596ff".into()),
+                look: WheelLook::default(),
             }),
             ..Default::default()
         };
@@ -722,6 +850,7 @@ mod tests {
             emote_wheel: Some(WheelMod {
                 source: Some(Source::Preset { id: "dusk".into() }),
                 accent: Some("#ff0000".into()),
+                look: WheelLook::default(),
             }),
             ..Default::default()
         };
@@ -732,6 +861,79 @@ mod tests {
 
         let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(off.restored, 36);
+    }
+
+    #[test]
+    fn picture_wheel_is_round_dimmed_and_has_dividers() {
+        let e = env();
+        let src = e.mods.root.join("me.png");
+        std::fs::create_dir_all(&e.mods.root).unwrap();
+        std::fs::write(&src, png(300, 200, [200, 100, 50, 255])).unwrap();
+        let source = Source::File { name: "me.png".into() };
+        prepare_wheel(&e.mods, &source, Some(&src), WheelLook { dim: 50, dividers: true }).unwrap();
+
+        let bg_rel = wheel_rel("Large", "CircleBackground", "");
+        let bg = image::load_from_memory(&std::fs::read(e.mods.prepared(&bg_rel)).unwrap()).unwrap().to_rgba8();
+        assert_eq!(bg.dimensions(), (400, 400));
+        assert_eq!(bg.get_pixel(1, 1)[3], 0, "corners are outside the circle");
+        assert_eq!(bg.get_pixel(399, 0)[3], 0);
+        let mid = bg.get_pixel(200, 200);
+        assert_eq!((mid[0], mid[1], mid[2], mid[3]), (100, 50, 25, 255), "picture darkened by half");
+        assert_eq!(bg.get_pixel(200, 2)[3], 255, "the disc reaches the edge");
+
+        let ring_rel = wheel_rel("Large", "SegmentedCircle", "");
+        let ring = image::load_from_memory(&std::fs::read(e.mods.prepared(&ring_rel)).unwrap()).unwrap().to_rgba8();
+        let centre = ring.get_pixel(200, 200)[3];
+        assert!(centre > 60 && centre < 200, "see-through centre, alpha {centre}");
+        // A divider at 22.5°, half-way out.
+        let a = 22.5f32.to_radians();
+        let (x, y) = (200.0 + a.sin() * 140.0, 200.0 - a.cos() * 140.0);
+        assert!(ring.get_pixel(x as u32, y as u32)[3] > 60, "divider drawn");
+
+        prepare_wheel(&e.mods, &source, Some(&src), WheelLook { dim: 0, dividers: false }).unwrap();
+        let ring = image::load_from_memory(&std::fs::read(e.mods.prepared(&ring_rel)).unwrap()).unwrap().to_rgba8();
+        assert!(ring.get_pixel(x as u32, y as u32)[3] < 10, "no divider");
+
+        let cfg = ModsConfig {
+            emote_wheel: Some(WheelMod { source: Some(source), accent: None, look: WheelLook::default() }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!(r.written, 27, "background, ring and trimmed highlight for every size and scale: {r:?}");
+        let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
+        assert_eq!(off.restored, 27);
+    }
+
+    #[test]
+    fn highlight_point_is_trimmed_for_see_through_centres() {
+        let original = png(100, 60, [255, 255, 255, 255]);
+        let cut = highlight_gradient(&original, Some([255, 0, 0]), Some(40.0)).unwrap();
+        let img = image::load_from_memory(&cut).unwrap().to_rgba8();
+        assert_eq!(img.get_pixel(5, 30)[3], 0, "point removed");
+        assert_eq!(img.get_pixel(80, 30).0, [255, 0, 0, 255], "outer part kept and recoloured");
+        assert_eq!(highlight_gradient(&original, None, None).unwrap(), original);
+    }
+
+    #[test]
+    fn preset_cursors_can_be_tinted_and_resized() {
+        let e = env();
+        let style = Source::Preset { id: "plus".into() };
+        prepare_cursor(&e.mods, &style, None, 100, None).unwrap();
+        let plain = std::fs::read(e.mods.prepared(CURSOR_FILES[0])).unwrap();
+        assert_eq!(plain, cursor_preset("plus").unwrap(), "unchanged style is written as drawn");
+
+        prepare_cursor(&e.mods, &style, None, 100, Some([255, 0, 0])).unwrap();
+        let red = image::load_from_memory(&std::fs::read(e.mods.prepared(CURSOR_FILES[0])).unwrap()).unwrap();
+        let px = red.to_rgba8().get_pixel(32, 26).0;
+        assert!(px[0] > 200 && px[1] < 40 && px[2] < 40, "white arm is now red: {px:?}");
+
+        prepare_cursor(&e.mods, &style, None, 50, None).unwrap();
+        let small = image::load_from_memory(&std::fs::read(e.mods.prepared(CURSOR_FILES[0])).unwrap()).unwrap();
+        let small = small.to_rgba8();
+        assert_eq!(small.dimensions(), (64, 64));
+        assert_eq!(small.get_pixel(32, 21)[3], 0, "arm end moved inwards");
+        assert!(small.get_pixel(32, 28)[3] > 0);
     }
 
     #[test]
@@ -764,8 +966,8 @@ mod tests {
         std::fs::write(&bad, b"<html>").unwrap();
         assert!(prepare_font(&e.mods, &bad).is_err());
         assert!(prepare_sound(&e.mods, &bad).is_err());
-        assert!(prepare_cursor(&e.mods, &Source::File { name: "x".into() }, Some(&bad), 100).is_err());
-        assert!(prepare_wheel(&e.mods, &Source::Preset { id: "nope".into() }, None).is_err());
+        assert!(prepare_cursor(&e.mods, &Source::File { name: "x".into() }, Some(&bad), 100, None).is_err());
+        assert!(prepare_wheel(&e.mods, &Source::Preset { id: "nope".into() }, None, WheelLook::default()).is_err());
         let ogg = e.mods.root.join("s.ogg");
         std::fs::write(&ogg, b"OggS....").unwrap();
         assert!(prepare_sound(&e.mods, &ogg).is_ok());
@@ -828,9 +1030,9 @@ mod tests {
         let rel = CURSOR_FILES[0];
         std::fs::create_dir_all(sibling.join(rel).parent().unwrap()).unwrap();
         std::fs::write(sibling.join(rel), png(64, 64, [1, 1, 1, 255])).unwrap();
-        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100).unwrap();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100 }),
+            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -846,9 +1048,9 @@ mod tests {
     #[test]
     fn restore_keeps_original_file_name_case() {
         let e = env();
-        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100).unwrap();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100 }),
+            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();

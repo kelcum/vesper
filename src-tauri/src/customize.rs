@@ -20,6 +20,9 @@ pub struct Previews {
     pub cursor: Option<String>,
     pub wheel_background: Option<String>,
     pub wheel_ring: Option<String>,
+    /// The highlight Roblox draws over the slot under the mouse, in the chosen colour.
+    pub wheel_gradient: Option<String>,
+    pub wheel_line: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -30,6 +33,8 @@ pub struct ModsView {
     pub wheel_presets: Vec<PresetInfo>,
     pub custom_dir: String,
     pub custom_file_count: usize,
+    pub cursor_scale: (u8, u8),
+    pub max_wheel_dim: u8,
     pub last_report: Option<ModReport>,
     pub roblox_running: bool,
     /// True when the last change was applied to Roblox already.
@@ -54,18 +59,28 @@ fn preview(state: &AppState, rel: &str, modded: bool) -> Option<String> {
 fn view(state: &AppState, applied_now: bool) -> ModsView {
     let config = lock(&state.mods).clone();
     let wheel_custom = config.emote_wheel.as_ref().and_then(|w| w.source.as_ref()).is_some();
-    let ring_rel = format!(r"{}\Large\SegmentedCircle.png", mods::WHEEL_DIR);
-    let bg_rel = format!(r"{}\Large\CircleBackground.png", mods::WHEEL_DIR);
+    let layer = |name: &str| format!(r"{}\Large\{name}.png", mods::WHEEL_DIR);
+    let accent = config.emote_wheel.as_ref().and_then(|w| w.accent.as_deref()).and_then(mods::parse_hex);
+    let see_through = matches!(config.emote_wheel.as_ref().and_then(|w| w.source.as_ref()), Some(Source::File { .. }));
+    // Large @1x: a 400 px wheel.
+    let cut = see_through.then_some(mods::WHEEL_INNER * 200.0);
+    let highlight = |name: &str, cut: Option<f32>| {
+        let bytes = roblox_original_bytes(state, &layer(name))?;
+        mods::highlight_gradient(&bytes, accent, cut).ok().map(|b| data_url(&b))
+    };
     let previews = Previews {
         cursor: preview(state, mods::CURSOR_FILES[0], config.cursor.is_some()),
-        // A custom ring keeps Roblox's background, so fall back per layer.
-        wheel_background: preview(state, &bg_rel, wheel_custom),
-        wheel_ring: preview(state, &ring_rel, wheel_custom),
+        wheel_background: preview(state, &layer("CircleBackground"), wheel_custom),
+        wheel_ring: preview(state, &layer("SegmentedCircle"), wheel_custom),
+        wheel_gradient: highlight("SelectedGradient", cut),
+        wheel_line: highlight("SelectedLine", None),
     };
     let custom_dir = state.mod_paths.custom_dir();
     ModsView {
         custom_file_count: count_files(&custom_dir),
         custom_dir: crate::redact::display_path(&custom_dir),
+        cursor_scale: mods::CURSOR_SCALE,
+        max_wheel_dim: mods::MAX_WHEEL_DIM,
         config,
         cursor_presets: mods::presets(mods::CURSOR_PRESETS),
         wheel_presets: mods::presets(mods::WHEEL_PRESETS),
@@ -77,11 +92,18 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
 }
 
 /// Roblox's unmodified file: the backup if Vesper replaced it, otherwise the live one.
-fn roblox_original(state: &AppState, rel: &str) -> Option<String> {
+fn roblox_original_bytes(state: &AppState, rel: &str) -> Option<Vec<u8>> {
     let install = state.preferred_install()?;
     let backup = state.mod_paths.originals.join(&install.version_hash).join(rel);
-    let bytes = std::fs::read(backup).ok().or_else(|| std::fs::read(install.dir.join(rel)).ok())?;
-    Some(data_url(&bytes))
+    std::fs::read(backup).ok().or_else(|| std::fs::read(install.dir.join(rel)).ok())
+}
+
+fn roblox_original(state: &AppState, rel: &str) -> Option<String> {
+    roblox_original_bytes(state, rel).map(|b| data_url(&b))
+}
+
+fn colour(hex: Option<&str>) -> Result<Option<[u8; 3]>> {
+    hex.map(|h| mods::parse_hex(h).ok_or_else(|| problem("Colours look like #a596ff."))).transpose()
 }
 
 fn count_files(dir: &Path) -> usize {
@@ -142,18 +164,21 @@ fn stored_source(state: &AppState, kind: &str) -> Option<PathBuf> {
 }
 
 /// `preset` picks a built-in style, `path` a new image. With neither and
-/// `reuse`, the previously picked image is rendered again (e.g. at a new size).
+/// `reuse`, the current style or image is rendered again (e.g. at a new size).
+/// `color` tints a built-in style.
 #[tauri::command]
 pub async fn mods_set_cursor(
     app: AppHandle,
     preset: Option<String>,
     path: Option<PathBuf>,
     scale: Option<u8>,
+    color: Option<String>,
     reuse: Option<bool>,
 ) -> Result<ModsView> {
     blocking(app, move |app| {
         let state = app.state::<AppState>();
-        let scale = scale.unwrap_or(100).clamp(20, 100);
+        let scale = scale.unwrap_or(100).clamp(mods::CURSOR_SCALE.0, mods::CURSOR_SCALE.1);
+        let rgb = colour(color.as_deref())?;
         let previous = lock(&state.mods).cursor.clone();
         let (source, file) = match (&preset, &path) {
             (Some(id), _) => (Source::Preset { id: id.clone() }, None),
@@ -168,8 +193,9 @@ pub async fn mods_set_cursor(
         if matches!(source, Source::File { .. }) && file.is_none() {
             return Err(problem("The image you picked earlier is gone. Choose it again."));
         }
-        mods::prepare_cursor(&state.mod_paths, &source, file.as_deref(), scale).map_err(problem)?;
-        lock(&state.mods).cursor = Some(CursorMod { source, scale });
+        let (rgb, color) = if matches!(source, Source::Preset { .. }) { (rgb, color) } else { (None, None) };
+        mods::prepare_cursor(&state.mod_paths, &source, file.as_deref(), scale, rgb).map_err(problem)?;
+        lock(&state.mods).cursor = Some(CursorMod { source, scale, color });
         let applied = commit(app, &state)?;
         Ok(view(&state, applied))
     })
@@ -177,21 +203,31 @@ pub async fn mods_set_cursor(
 }
 
 /// With no preset and no path, keeps Roblox's wheel and only changes the accent,
-/// unless `reuse` asks to keep the previously picked image.
+/// unless `reuse` asks to keep the previously picked style or image.
+/// `dim` and `dividers` change how a picture is drawn; left out, they stay as they were.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn mods_set_wheel(
     app: AppHandle,
     preset: Option<String>,
     path: Option<PathBuf>,
     accent: Option<String>,
+    dim: Option<u8>,
+    dividers: Option<bool>,
     reuse: Option<bool>,
 ) -> Result<ModsView> {
     blocking(app, move |app| {
         let state = app.state::<AppState>();
-        if let Some(a) = &accent {
-            mods::parse_hex(a).ok_or_else(|| problem("Colours look like #a596ff."))?;
+        colour(accent.as_deref())?;
+        let current = lock(&state.mods).emote_wheel.clone();
+        let mut look = current.as_ref().map(|w| w.look).unwrap_or_default();
+        if let Some(d) = dim {
+            look.dim = d.min(mods::MAX_WHEEL_DIM);
         }
-        let previous = lock(&state.mods).emote_wheel.clone().and_then(|w| w.source);
+        if let Some(d) = dividers {
+            look.dividers = d;
+        }
+        let previous = current.and_then(|w| w.source);
         let (source, file) = match (&preset, &path) {
             (Some(id), _) => (Some(Source::Preset { id: id.clone() }), None),
             (None, Some(p)) => (Some(Source::File { name: file_name(p) }), Some(store_source(&state, "wheel", p)?)),
@@ -205,10 +241,10 @@ pub async fn mods_set_wheel(
             Some(Source::File { .. }) if file.is_none() => {
                 return Err(problem("The image you picked earlier is gone. Choose it again."));
             }
-            Some(s) => mods::prepare_wheel(&state.mod_paths, s, file.as_deref()).map_err(problem)?,
+            Some(s) => mods::prepare_wheel(&state.mod_paths, s, file.as_deref(), look).map_err(problem)?,
             None => mods::clear_prepared(&state.mod_paths, "emoteWheel"),
         }
-        let wheel = (source.is_some() || accent.is_some()).then_some(WheelMod { source, accent });
+        let wheel = (source.is_some() || accent.is_some()).then_some(WheelMod { source, accent, look });
         lock(&state.mods).emote_wheel = wheel;
         let applied = commit(app, &state)?;
         Ok(view(&state, applied))

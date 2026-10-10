@@ -115,18 +115,28 @@ export const api = {
   updatesInstall: () => call<void>('updates_install'),
 
   modsGet: () => call<ModsView>('mods_get'),
-  modsSetCursor: (args: { preset?: string; path?: string; scale?: number; reuse?: boolean }) =>
+  modsSetCursor: (args: { preset?: string; path?: string; scale?: number; color?: string | null; reuse?: boolean }) =>
     call<ModsView>('mods_set_cursor', {
       preset: args.preset ?? null,
       path: args.path ?? null,
       scale: args.scale ?? null,
+      color: args.color ?? null,
       reuse: args.reuse ?? null,
     }),
-  modsSetWheel: (args: { preset?: string; path?: string; accent?: string | null; reuse?: boolean }) =>
+  modsSetWheel: (args: {
+    preset?: string;
+    path?: string;
+    accent?: string | null;
+    dim?: number;
+    dividers?: boolean;
+    reuse?: boolean;
+  }) =>
     call<ModsView>('mods_set_wheel', {
       preset: args.preset ?? null,
       path: args.path ?? null,
       accent: args.accent ?? null,
+      dim: args.dim ?? null,
+      dividers: args.dividers ?? null,
       reuse: args.reuse ?? null,
     }),
   modsSetFont: (path: string) => call<ModsView>('mods_set_font', { path }),

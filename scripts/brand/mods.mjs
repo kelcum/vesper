@@ -7,6 +7,7 @@
 //                                       draws cursor images centred on the mouse)
 //   wheels/<id>/CircleBackground.png    1920×1920 masters, downscaled by the app
 //   wheels/<id>/SegmentedCircle.png     to every size class and scale
+//   wheels/photo/SegmentedCircle*.png   the dividers drawn over a photo wheel
 //
 // Wheel geometry follows Roblox's own layers: a full background disc, a centre
 // disc of 0.465 R, and eight dividers at 22.5° + 45°·k.
@@ -48,6 +49,13 @@ const cursors = {
     return `${lines('#0a0914', 4.6)}${lines('#ffffff', 2.4)}
       <circle cx="32" cy="32" r="2.4" fill="#0a0914"/><circle cx="32" cy="32" r="1.4" fill="#c9bdff"/>`;
   })(),
+  ring: `
+    <circle cx="32" cy="32" r="9" fill="none" stroke="#0a0914" stroke-opacity="0.85" stroke-width="4.6"/>
+    <circle cx="32" cy="32" r="9" fill="none" stroke="#ffffff" stroke-width="2.2"/>
+    <circle cx="32" cy="32" r="2.2" fill="#0a0914"/><circle cx="32" cy="32" r="1.3" fill="#ffffff"/>`,
+  plus: `
+    <path d="M32 21 V43 M21 32 H43" stroke="#0a0914" stroke-width="5.4" stroke-linecap="round"/>
+    <path d="M32 21 V43 M21 32 H43" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>`,
   // Tip exactly on the centre, pointing up-left.
   arrow: `<path transform="translate(32 32) scale(1.15)"
       d="M0 0 L0 17.2 L4.3 13.3 L7.3 20.1 L10.2 18.8 L7.2 12.2 L12.8 12.2 Z"
@@ -130,11 +138,35 @@ const wheels = {
   },
 };
 
+// Drawn over the user's own picture: the picture is the background disc, so
+// the overlay only adds Roblox-style dividers, an edge and a see-through centre
+// that keeps "Select an Emote" readable.
+const photoOverlay = (withDividers) => {
+  const d = dividers({
+    color: '#ffffff',
+    inner: INNER + R * 0.012,
+    outer: R * 0.985,
+    width: R * 0.0062,
+    startOpacity: 0.75,
+  });
+  return `${withDividers ? `<defs>${d.defs}</defs>${d.lines}` : ''}
+    <circle cx="${C}" cy="${C}" r="${R * 0.992}" fill="none" stroke="#ffffff" stroke-opacity="0.38" stroke-width="${R * 0.008}"/>
+    <circle cx="${C}" cy="${C}" r="${INNER}" fill="#08080d" fill-opacity="0.46"/>
+    <circle cx="${C}" cy="${C}" r="${INNER}" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="${R * 0.006}"/>`;
+};
+
 for (const [id, w] of Object.entries(wheels)) {
   const doc = (body) =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${body}</svg>`;
   writeFileSync(out(`wheels/${id}/CircleBackground.png`), render(doc(w.background), S));
   writeFileSync(out(`wheels/${id}/SegmentedCircle.png`), render(doc(w.ring()), S));
+}
+
+{
+  const doc = (body) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${body}</svg>`;
+  writeFileSync(out('wheels/photo/SegmentedCircle.png'), render(doc(photoOverlay(true)), S));
+  writeFileSync(out('wheels/photo/SegmentedCircleClean.png'), render(doc(photoOverlay(false)), S));
 }
 
 // Small thumbnails for the Customize page (the 1920 px masters are too heavy to bundle twice).
