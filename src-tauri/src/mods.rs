@@ -367,29 +367,45 @@ pub fn prepare_cursor(
 
 /// Prepares emote wheel layers for every size class and scale.
 ///
-/// A picture becomes the round background disc (Roblox draws a square image
-/// as a square, covering the wheel), with dividers and a see-through centre
-/// drawn over it so the slots and "Select an Emote" stay readable.
+/// A picture is cut into a round, darkened disc (Roblox draws a square image as
+/// a square, covering the wheel) with dividers and a see-through centre drawn
+/// over it, and goes into the ring layer: Roblox draws that layer exactly as
+/// given, while it doesn't show a picture put in the background layer. Roblox's
+/// own background stays underneath.
 pub fn prepare_wheel(p: &ModPaths, source: &Source, file: Option<&Path>, look: WheelLook) -> Result<(), String> {
     let decode = |b: &[u8]| image::load_from_memory(b).map_err(|e| e.to_string());
-    let (background, ring, photo) = match source {
+    enum Art {
+        Preset { background: DynamicImage, ring: DynamicImage },
+        Picture { picture: DynamicImage, overlay: DynamicImage },
+    }
+    let art = match source {
         Source::Preset { id } => {
             let (bg, ring) = wheel_preset(id).ok_or("Unknown emote wheel style.")?;
-            (decode(bg)?, decode(ring)?, false)
+            Art::Preset { background: decode(bg)?, ring: decode(ring)? }
         }
-        Source::File { .. } => {
-            (load_image(file.ok_or("Choose an image.")?)?, decode(photo_overlay(look.dividers))?, true)
-        }
+        Source::File { .. } => Art::Picture {
+            picture: load_image(file.ok_or("Choose an image.")?)?,
+            overlay: decode(photo_overlay(look.dividers))?,
+        },
     };
     let _ = std::fs::remove_dir_all(p.prepared(WHEEL_DIR));
+    let write = |size: &str, layer: &str, suffix: &str, img: &RgbaImage| {
+        write_atomic(&p.prepared(&wheel_rel(size, layer, suffix)), &png_bytes(img)?).map_err(|e| e.to_string())
+    };
     for (size, base) in WHEEL_SIZES {
         for (suffix, mul) in SCALES {
             let side = base * mul;
-            let bg = if photo { photo_disc(&background, side, look.dim) } else { square(&background, side) };
-            write_atomic(&p.prepared(&wheel_rel(size, "CircleBackground", suffix)), &png_bytes(&bg)?)
-                .map_err(|e| e.to_string())?;
-            write_atomic(&p.prepared(&wheel_rel(size, "SegmentedCircle", suffix)), &png_bytes(&square(&ring, side))?)
-                .map_err(|e| e.to_string())?;
+            match &art {
+                Art::Preset { background, ring } => {
+                    write(size, "CircleBackground", suffix, &square(background, side))?;
+                    write(size, "SegmentedCircle", suffix, &square(ring, side))?;
+                }
+                Art::Picture { picture, overlay } => {
+                    let mut ring = photo_disc(picture, side, look.dim);
+                    image::imageops::overlay(&mut ring, &square(overlay, side), 0, 0);
+                    write(size, "SegmentedCircle", suffix, &ring)?;
+                }
+            }
         }
     }
     Ok(())
@@ -415,6 +431,38 @@ pub fn prepare_font(p: &ModPaths, file: &Path) -> Result<(), String> {
         "font (.ttf, .otf or .ttc)",
     )?;
     write_atomic(&p.prepared(FONT_FILE), &bytes).map_err(|e| e.to_string())
+}
+
+/// Rebuilds a picture wheel prepared by an older Vesper, which put the picture in
+/// the background layer Roblox doesn't show. Returns true if it rebuilt it.
+pub fn upgrade_picture_wheel(p: &ModPaths, cfg: &ModsConfig) -> Result<bool, String> {
+    let Some(w) = &cfg.emote_wheel else { return Ok(false) };
+    let Some(source @ Source::File { .. }) = &w.source else { return Ok(false) };
+    let old_layout = p.prepared(&wheel_rel("Large", "CircleBackground", "")).is_file();
+    let picture = p.root.join("sources").join("wheel");
+    if !old_layout || !picture.is_file() {
+        return Ok(false);
+    }
+    prepare_wheel(p, source, Some(&picture), w.look)?;
+    Ok(true)
+}
+
+/// Launchers that keep a custom Roblox font where Vesper can bring it over from.
+pub const FONT_LAUNCHERS: [&str; 2] = ["Fishstrap", "Bloxstrap"];
+
+/// The custom font a launcher applies to Roblox, if it has one.
+pub fn launcher_font(local_appdata: &Path, launcher: &str) -> Option<PathBuf> {
+    FONT_LAUNCHERS
+        .contains(&launcher)
+        .then(|| local_appdata.join(launcher).join("Modifications").join(FONT_FILE))
+        .filter(|p| p.is_file())
+}
+
+/// Uses a font file: prepares it and records it in the configuration.
+pub fn import_font(p: &ModPaths, cfg: &mut ModsConfig, file: &Path, name: String) -> Result<(), String> {
+    prepare_font(p, file)?;
+    cfg.font = Some(FileMod { name });
+    Ok(())
 }
 
 pub fn prepare_sound(p: &ModPaths, file: &Path) -> Result<(), String> {
@@ -649,11 +697,13 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
                 report.unchanged += 1;
                 continue;
             }
-            if sha(cur) != entry.sha256 {
+            if sha(cur) != entry.sha256 && !is_original(entry, cur) {
                 // Changed by something else after Vesper wrote it.
                 report.skipped_foreign.push(rel.clone());
                 continue;
             }
+            // Otherwise it's Vesper's file, or Roblox's own file is back (a repair,
+            // a reset or another tool put it back); writing again loses nothing.
         }
         let mut original = ours.and_then(|o| o.original.clone());
         if ours.is_none() {
@@ -709,12 +759,22 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
     report
 }
 
+/// Is `current` exactly the Roblox file Vesper backed up before replacing it?
+fn is_original(entry: &AppliedFile, current: &[u8]) -> bool {
+    entry.original.as_deref().and_then(|b| std::fs::read(b).ok()).is_some_and(|o| sha(&o) == sha(current))
+}
+
 /// Restores one file. `Ok(false)` if it was changed by something else and left alone.
 fn restore_one(k: &str, ledger: &mut ModLedger) -> Result<bool, String> {
     let Some(entry) = ledger.files.get(k).cloned() else { return Ok(true) };
     // Restore through the exact path; the lowercased key would rename the file.
     let target = entry.path.clone().unwrap_or_else(|| PathBuf::from(k));
     match std::fs::read(&target) {
+        Ok(cur) if is_original(&entry, &cur) => {
+            // Already back to Roblox's file.
+            ledger.files.remove(k);
+            return Ok(true);
+        }
         Ok(cur) if sha(&cur) != entry.sha256 => {
             ledger.files.remove(k);
             return Ok(false);
@@ -872,27 +932,31 @@ mod tests {
         let source = Source::File { name: "me.png".into() };
         prepare_wheel(&e.mods, &source, Some(&src), WheelLook { dim: 50, dividers: true }).unwrap();
 
-        let bg_rel = wheel_rel("Large", "CircleBackground", "");
-        let bg = image::load_from_memory(&std::fs::read(e.mods.prepared(&bg_rel)).unwrap()).unwrap().to_rgba8();
-        assert_eq!(bg.dimensions(), (400, 400));
-        assert_eq!(bg.get_pixel(1, 1)[3], 0, "corners are outside the circle");
-        assert_eq!(bg.get_pixel(399, 0)[3], 0);
-        let mid = bg.get_pixel(200, 200);
-        assert_eq!((mid[0], mid[1], mid[2], mid[3]), (100, 50, 25, 255), "picture darkened by half");
-        assert_eq!(bg.get_pixel(200, 2)[3], 255, "the disc reaches the edge");
-
+        assert!(
+            !e.mods.prepared(&wheel_rel("Large", "CircleBackground", "")).exists(),
+            "Roblox's own background stays; it doesn't show pictures"
+        );
         let ring_rel = wheel_rel("Large", "SegmentedCircle", "");
         let ring = image::load_from_memory(&std::fs::read(e.mods.prepared(&ring_rel)).unwrap()).unwrap().to_rgba8();
-        let centre = ring.get_pixel(200, 200)[3];
-        assert!(centre > 60 && centre < 200, "see-through centre, alpha {centre}");
+        assert_eq!(ring.dimensions(), (400, 400));
+        assert_eq!(ring.get_pixel(1, 1)[3], 0, "corners are outside the circle");
+        assert_eq!(ring.get_pixel(399, 0)[3], 0);
+        // Mid-slot, between the centre and the edge: the picture, darkened by half.
+        let slot = ring.get_pixel(200, 50);
+        assert_eq!((slot[0], slot[1], slot[2], slot[3]), (100, 50, 25, 255), "picture darkened by half");
+        let centre = ring.get_pixel(200, 200);
+        assert_eq!(centre[3], 255);
+        assert!(centre[0] < 80, "centre darkened further so text stays readable: {centre:?}");
         // A divider at 22.5°, half-way out.
         let a = 22.5f32.to_radians();
         let (x, y) = (200.0 + a.sin() * 140.0, 200.0 - a.cos() * 140.0);
-        assert!(ring.get_pixel(x as u32, y as u32)[3] > 60, "divider drawn");
+        let divider = ring.get_pixel(x as u32, y as u32);
+        assert!(divider[1] > 90, "a light divider over the darkened picture: {divider:?}");
 
         prepare_wheel(&e.mods, &source, Some(&src), WheelLook { dim: 0, dividers: false }).unwrap();
         let ring = image::load_from_memory(&std::fs::read(e.mods.prepared(&ring_rel)).unwrap()).unwrap().to_rgba8();
-        assert!(ring.get_pixel(x as u32, y as u32)[3] < 10, "no divider");
+        let plain = ring.get_pixel(x as u32, y as u32);
+        assert_eq!((plain[0], plain[1], plain[2]), (200, 100, 50), "no divider, picture not darkened");
 
         let cfg = ModsConfig {
             emote_wheel: Some(WheelMod { source: Some(source), accent: None, look: WheelLook::default() }),
@@ -900,9 +964,39 @@ mod tests {
         };
         let mut ledger = ModLedger::default();
         let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
-        assert_eq!(r.written, 27, "background, ring and trimmed highlight for every size and scale: {r:?}");
+        assert_eq!(r.written, 18, "ring and trimmed highlight for every size and scale: {r:?}");
         let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
-        assert_eq!(off.restored, 27);
+        assert_eq!(off.restored, 18);
+    }
+
+    #[test]
+    fn files_put_back_to_robloxs_original_are_taken_over_again() {
+        let e = env();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        assert_eq!(apply(&cfg, &e.mods, &e.install, &mut ledger).written, 2);
+
+        // Something (a repair, a reset, another tool) puts Roblox's own file back.
+        let target = e.install.join(CURSOR_FILES[0]);
+        std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
+        let again = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!((again.written, again.skipped_foreign.len()), (1, 0), "{again:?}");
+        assert_eq!(std::fs::read(&target).unwrap(), cursor_preset("dot").unwrap());
+
+        // Anything else is still left alone.
+        std::fs::write(&target, b"someone else's cursor").unwrap();
+        let foreign = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!(foreign.skipped_foreign, vec![CURSOR_FILES[0].to_owned()]);
+
+        // Restoring a file that is already Roblox's counts as restored, not foreign.
+        std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
+        let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
+        assert_eq!((off.restored, off.skipped_foreign.len()), (2, 0), "{off:?}");
+        assert!(ledger.files.is_empty());
     }
 
     #[test]
@@ -956,6 +1050,47 @@ mod tests {
         assert!(!e.install.join(FONT_FILE).exists(), "created file removed");
         let fam = String::from_utf8(read(&e, &format!(r"{FONT_FAMILIES}\BuilderSans.json"))).unwrap();
         assert!(fam.contains("BuilderSans-Regular.otf"), "family restored");
+    }
+
+    #[test]
+    fn picture_wheels_from_older_versions_are_rebuilt() {
+        let e = env();
+        let source = Source::File { name: "me.png".into() };
+        let cfg = ModsConfig {
+            emote_wheel: Some(WheelMod { source: Some(source.clone()), accent: None, look: WheelLook::default() }),
+            ..Default::default()
+        };
+        // What an older Vesper left: the picture in the background layer.
+        let old_bg = e.mods.prepared(&wheel_rel("Large", "CircleBackground", ""));
+        std::fs::create_dir_all(old_bg.parent().unwrap()).unwrap();
+        std::fs::write(&old_bg, png(400, 400, [9, 9, 9, 255])).unwrap();
+        let picture = e.mods.root.join("sources").join("wheel");
+        std::fs::create_dir_all(picture.parent().unwrap()).unwrap();
+        std::fs::write(&picture, png(300, 300, [200, 100, 50, 255])).unwrap();
+
+        assert!(upgrade_picture_wheel(&e.mods, &cfg).unwrap());
+        assert!(!old_bg.exists(), "the background layer goes back to Roblox's");
+        let ring = std::fs::read(e.mods.prepared(&wheel_rel("Large", "SegmentedCircle", ""))).unwrap();
+        let ring = image::load_from_memory(&ring).unwrap().to_rgba8();
+        assert_eq!(ring.get_pixel(200, 50)[3], 255, "the picture is in the ring layer");
+        assert!(!upgrade_picture_wheel(&e.mods, &cfg).unwrap(), "only once");
+    }
+
+    #[test]
+    fn a_launchers_font_is_found_and_imported() {
+        let e = env();
+        let local = e.mods.root.parent().unwrap().join("local");
+        assert!(launcher_font(&local, "Fishstrap").is_none());
+        let font = local.join("Fishstrap").join("Modifications").join(FONT_FILE);
+        std::fs::create_dir_all(font.parent().unwrap()).unwrap();
+        std::fs::write(&font, [0x00, 0x01, 0x00, 0x00, 1, 2, 3]).unwrap();
+        assert_eq!(launcher_font(&local, "Fishstrap"), Some(font.clone()));
+        assert!(launcher_font(&local, "SomethingElse").is_none(), "only known launchers");
+
+        let mut cfg = ModsConfig::default();
+        import_font(&e.mods, &mut cfg, &font, "Fishstrap's font".into()).unwrap();
+        assert_eq!(cfg.font, Some(FileMod { name: "Fishstrap's font".into() }));
+        assert_eq!(std::fs::read(e.mods.prepared(FONT_FILE)).unwrap(), std::fs::read(&font).unwrap());
     }
 
     #[test]

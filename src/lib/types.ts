@@ -352,6 +352,7 @@ export interface ModsView {
   customFileCount: number;
   cursorScale: [number, number];
   maxWheelDim: number;
+  launcherFonts: string[];
   lastReport: ModReport | null;
   robloxRunning: boolean;
   appliedNow: boolean;

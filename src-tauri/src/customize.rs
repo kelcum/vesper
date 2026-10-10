@@ -35,6 +35,8 @@ pub struct ModsView {
     pub custom_file_count: usize,
     pub cursor_scale: (u8, u8),
     pub max_wheel_dim: u8,
+    /// Launchers with a custom font Vesper can bring over (e.g. "Fishstrap").
+    pub launcher_fonts: Vec<&'static str>,
     pub last_report: Option<ModReport>,
     pub roblox_running: bool,
     /// True when the last change was applied to Roblox already.
@@ -81,6 +83,10 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
         custom_dir: crate::redact::display_path(&custom_dir),
         cursor_scale: mods::CURSOR_SCALE,
         max_wheel_dim: mods::MAX_WHEEL_DIM,
+        launcher_fonts: mods::FONT_LAUNCHERS
+            .into_iter()
+            .filter(|l| mods::launcher_font(&state.env.local_appdata, l).is_some())
+            .collect(),
         config,
         cursor_presets: mods::presets(mods::CURSOR_PRESETS),
         wheel_presets: mods::presets(mods::WHEEL_PRESETS),
@@ -262,6 +268,57 @@ pub async fn mods_set_font(app: AppHandle, path: PathBuf) -> Result<ModsView> {
         Ok(view(&state, applied))
     })
     .await
+}
+
+/// Brings over the custom font Fishstrap or Bloxstrap applies to Roblox.
+#[tauri::command]
+pub async fn mods_use_launcher_font(app: AppHandle, launcher: String) -> Result<ModsView> {
+    blocking(app, move |app| {
+        let state = app.state::<AppState>();
+        let file = mods::launcher_font(&state.env.local_appdata, &launcher)
+            .ok_or_else(|| problem(format!("{launcher} doesn't have a custom font set.")))?;
+        mods::import_font(&state.mod_paths, &mut lock(&state.mods), &file, format!("{launcher}'s font"))
+            .map_err(problem)?;
+        let applied = commit(app, &state)?;
+        Ok(view(&state, applied))
+    })
+    .await
+}
+
+/// `Vesper.exe --import-font <file|Fishstrap|Bloxstrap>`: sets the custom font and exits.
+/// Only while Vesper isn't running, so the open app can't overwrite the change.
+pub fn import_font_cli(arg: Option<&str>) -> i32 {
+    let fail = |msg: &str| {
+        eprintln!("{msg}");
+        log::warn!("Font import: {msg}");
+        log::logger().flush();
+        1
+    };
+    let Ok(paths) = crate::paths::AppPaths::resolve() else { return 1 };
+    crate::logging::init(&paths.logs, log::LevelFilter::Info);
+    let Some(arg) = arg else { return fail("Usage: Vesper.exe --import-font <font file | Fishstrap | Bloxstrap>") };
+    let running = crate::roblox::process::snapshot()
+        .map(|all| crate::roblox::process::named(&all, "Vesper.exe").count())
+        .unwrap_or(0);
+    if running > 1 {
+        return fail("Close Vesper first, then try again.");
+    }
+    let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default();
+    let (file, name) = match mods::launcher_font(&local, arg) {
+        Some(f) => (f, format!("{arg}'s font")),
+        None => (PathBuf::from(arg), file_name(Path::new(arg))),
+    };
+    let mod_paths = mods::ModPaths::new(&paths.config, &paths.cache);
+    let mut cfg = ModsConfig::load(&mod_paths);
+    if let Err(e) = mods::import_font(&mod_paths, &mut cfg, &file, name.clone()) {
+        return fail(&e);
+    }
+    if let Err(e) = cfg.save(&mod_paths) {
+        return fail(&e.to_string());
+    }
+    log::info!("Font set to {name}; it's applied the next time Vesper starts Roblox");
+    log::logger().flush();
+    0
 }
 
 #[tauri::command]

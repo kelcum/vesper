@@ -179,6 +179,11 @@ impl AppState {
         if nothing {
             return None;
         }
+        match crate::mods::upgrade_picture_wheel(&self.mod_paths, &cfg) {
+            Ok(true) => log::info!("Rebuilt the picture emote wheel in the current layout"),
+            Ok(false) => {}
+            Err(e) => log::warn!("Couldn't rebuild the picture emote wheel: {e}"),
+        }
         let report = {
             let mut ledger = lock(&self.mod_ledger);
             crate::mods::apply(&cfg, &self.mod_paths, dir, &mut ledger)
@@ -187,11 +192,12 @@ impl AppState {
             log::warn!("Couldn't save the mods ledger: {e}");
         }
         log::info!(
-            "Mods: {} written, {} unchanged, {} restored, {} missing, {} errors",
+            "Mods: {} written, {} unchanged, {} restored, {} missing, {} left alone (changed by another program), {} errors",
             report.written,
             report.unchanged,
             report.restored,
             report.missing.len(),
+            report.skipped_foreign.len(),
             report.errors.len()
         );
         *lock(&self.last_mod_report) = Some(report.clone());

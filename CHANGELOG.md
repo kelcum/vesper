@@ -36,7 +36,9 @@ First release.
   sound and a custom files folder. Originals are backed up and restored.
   Your own picture becomes a round emote wheel with Roblox-style slots,
   adjustable darkening and optional dividers; cursor styles can be resized
-  and recoloured. Both are previewed on a Roblox-style baseplate.
+  and recoloured. Both are previewed on a Roblox-style baseplate. A custom
+  font set in Fishstrap or Bloxstrap can be brought over in one click (or
+  with `Vesper.exe --import-font Fishstrap`).
 - Keeping flags and customisations applied when Roblox updates itself.
 - Performance page: system and Roblox CPU, memory and GPU, and frame rate and
   frame timing from Direct3D present events when Windows permits.

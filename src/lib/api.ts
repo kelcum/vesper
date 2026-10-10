@@ -141,6 +141,7 @@ export const api = {
     }),
   modsSetFont: (path: string) => call<ModsView>('mods_set_font', { path }),
   modsSetSound: (path: string) => call<ModsView>('mods_set_sound', { path }),
+  modsUseLauncherFont: (launcher: string) => call<ModsView>('mods_use_launcher_font', { launcher }),
   modsSetCustom: (enabled: boolean) => call<ModsView>('mods_set_custom', { enabled }),
   modsClear: (kind: 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'customFiles' | 'all') =>
     call<ModsView>('mods_clear', { kind }),

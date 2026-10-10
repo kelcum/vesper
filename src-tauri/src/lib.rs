@@ -31,7 +31,11 @@ use crate::state::{events, lock, AppState};
 use tauri::{Emitter, Manager, WindowEvent};
 
 pub fn run() {
-    if std::env::args().any(|a| a == "--cleanup") {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--import-font") {
+        std::process::exit(customize::import_font_cli(args.get(i + 1).map(String::as_str)));
+    }
+    if args.iter().any(|a| a == "--cleanup") {
         std::process::exit(cleanup::run_cli());
     }
 
@@ -174,6 +178,7 @@ pub fn run() {
             customize::mods_set_wheel,
             customize::mods_set_font,
             customize::mods_set_sound,
+            customize::mods_use_launcher_font,
             customize::mods_set_custom,
             customize::mods_clear,
             customize::mods_open_custom_folder,

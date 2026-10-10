@@ -314,8 +314,8 @@
         </button>
       {/each}
       <button class="tile" class:sel={wheelSel === 'file'} onclick={wheelFromFile} disabled={busy === 'wheel'}>
-        {#if wheelSel === 'file' && view?.previews.wheelBackground}
-          <img class="tile-art round" src={view.previews.wheelBackground} alt="" width="40" height="40" />
+        {#if wheelSel === 'file' && view?.previews.wheelRing}
+          <img class="tile-art round" src={view.previews.wheelRing} alt="" width="40" height="40" />
         {:else}
           <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span>
         {/if}
@@ -374,14 +374,23 @@
         >{/if}
     {/snippet}
     <p class="current">{cfg?.font ? cfg.font.name : "Roblox's own fonts"}</p>
-    <Button
-      icon={FolderOpen}
-      loading={busy === 'font'}
-      onclick={async () => {
-        const p = await pick('Font', ['ttf', 'otf', 'ttc']);
-        if (p) run('font', () => api.modsSetFont(p));
-      }}>Choose font…</Button
-    >
+    <div class="row-buttons">
+      <Button
+        icon={FolderOpen}
+        loading={busy === 'font'}
+        onclick={async () => {
+          const p = await pick('Font', ['ttf', 'otf', 'ttc']);
+          if (p) run('font', () => api.modsSetFont(p));
+        }}>Choose font…</Button
+      >
+      {#each view?.launcherFonts ?? [] as l (l)}
+        {#if cfg?.font?.name !== `${l}'s font`}
+          <Button variant="ghost" icon={Copy} onclick={() => run('font', () => api.modsUseLauncherFont(l))}
+            >Use {l}'s font</Button
+          >
+        {/if}
+      {/each}
+    </div>
     <p class="faint xs">TrueType or OpenType. Games that load their own fonts from Roblox's servers aren't affected.</p>
   </Card>
 
@@ -641,6 +650,11 @@
   }
   .current {
     font-weight: 600;
+  }
+  .row-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
   .shaders,
   .report {
