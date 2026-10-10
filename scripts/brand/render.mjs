@@ -344,7 +344,7 @@ function main() {
   writeFileSync(out(`${site}/favicon-32.png`), png(markSvg({ detail: 'small', container: 'squircle' }), 32));
   writeFileSync(out(`${site}/apple-touch-icon.png`), png(markSvg({ detail: 'full', container: 'square' }), 180));
   writeFileSync(out(`${site}/og.png`), social);
-  writeFileSync(out(`${site}/presence.png`), png(markSvg({ detail: 'medium', container: 'square' }), 1024));
+  writeFileSync(out(`${site}/icon.svg`), markSvg({ detail: 'full', container: 'squircle' }));
   writeFileSync(out(`${site}/logo.svg`), markSvg({ detail: 'full', container: 'circle' }));
 
   console.log('Brand assets rendered.');

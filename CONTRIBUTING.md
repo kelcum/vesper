@@ -33,7 +33,7 @@ src/                 Svelte 5 interface
   pages/             one file per page (Home, Profiles, Fast Flags, …)
   components/        ui/ primitives, shell/, flags/, profiles/
   lib/               typed API, store, formatting and flag logic
-  styles/tokens.css  design tokens shared with the website
+  styles/tokens.css  design tokens
 src-tauri/
   src/
     roblox/          detection, launching, logs, frame-rate cap, deep links

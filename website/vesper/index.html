@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Vesper · Roblox, tuned and verified</title>
     <meta
       name="description"
-      content="Vesper is a fast, private Roblox launcher for Windows. It applies the Fast Flags Roblox still accepts, then checks Roblox's own log to confirm them."
+      content="Vesper is a fast, private Roblox launcher for Windows. It applies the Fast Flags Roblox still accepts, restyles the cursor and emote wheel, and checks Roblox's own log to confirm what took effect."
     />
-    <meta name="theme-color" content="#0b0a14" />
+    <meta name="theme-color" content="#07060d" />
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
@@ -22,222 +22,308 @@
     <meta property="og:image" content="https://xan.gripe/vesper/assets/brand/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="assets/tokens.css" />
     <link rel="stylesheet" href="assets/site.css" />
+    <script>
+      document.documentElement.classList.add('js');
+    </script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="grain" aria-hidden="true"></div>
 
-    <header class="nav">
-      <div class="wrap nav-inner">
-        <a class="brand" href="./" aria-label="Vesper home">
-          <img src="assets/brand/logo.svg" alt="" width="30" height="30" />
-          <span>vesper</span>
-        </a>
-        <nav aria-label="Page">
-          <a href="#features">Features</a>
-          <a href="#flags">Fast Flags</a>
-          <a href="#profiles">Profiles</a>
-          <a href="#install">Install</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-        <!-- build:nav-cta -->
-        <a class="btn primary small" href="#download">Coming soon</a>
-        <!-- /build:nav-cta -->
-      </div>
+    <header class="nav glass">
+      <a class="brand" href="./"><img src="assets/brand/icon.svg" alt="" width="28" height="28" />Vesper</a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#customize">Customize</a>
+        <a href="#flags">Fast Flags</a>
+        <a href="#tour">Tour</a>
+        <a href="#privacy">Privacy</a>
+      </nav>
+      <!-- build:nav-cta -->
+      <a class="btn btn-primary" href="#download">Coming soon</a>
+      <!-- /build:nav-cta -->
     </header>
 
     <main id="main">
-      <section class="hero">
-        <div class="sky" aria-hidden="true">
-          <span class="star"></span>
-          <span class="limb"></span>
+      <!-- ============================================================ hero -->
+      <section class="hero wrap">
+        <span class="pill glass reveal"
+          ><b>Free</b><span>Roblox launcher<span class="hide-sm"> · Windows 10 &amp; 11</span></span></span
+        >
+        <h1 class="reveal"><span class="gradient-text">Roblox, tuned and verified.</span></h1>
+        <p class="lead reveal">
+          Vesper applies the Fast Flags Roblox still accepts, sets its frame-rate limit, turns your own pictures into
+          the emote wheel and cursor, then reads Roblox's log to show you what actually took effect.
+        </p>
+        <div class="cta reveal">
+          <!-- build:hero-cta -->
+          <span class="btn soon" aria-disabled="true">Coming soon</span>
+          <!-- /build:hero-cta -->
+          <a class="btn btn-ghost" href="#tour">Take the tour</a>
         </div>
-        <div class="wrap hero-inner">
-          <p class="eyebrow">Roblox launcher for Windows</p>
-          <h1>Roblox, tuned<br />and verified.</h1>
-          <p class="lede">
-            Vesper applies the Fast Flags Roblox still accepts, sets Roblox's own frame-rate limit, lets you restyle the
-            cursor and emote wheel, and then reads Roblox's log to prove what actually took effect.
-          </p>
-          <div class="cta">
-            <!-- build:hero-cta -->
-            <span class="btn primary disabled" aria-disabled="true">Coming soon</span>
-            <!-- /build:hero-cta -->
-            <a class="btn ghost" href="#how">How it works</a>
-          </div>
-          <!-- build:hero-meta -->
-          <p class="meta">Windows 10 and 11 · 64-bit · free and open source (MIT)</p>
-          <!-- /build:hero-meta -->
-          <figure class="shot hero-shot">
+        <!-- build:hero-meta -->
+        <p class="cta-meta reveal">Windows 10 &amp; 11 · 64-bit · free</p>
+        <!-- /build:hero-meta -->
+        <div class="hero-shot reveal">
+          <div class="frame glass">
             <img
               src="shots/home.webp"
               width="1180"
               height="760"
-              alt="Vesper's home screen: Roblox 0.742 up to date, one Fast Flag accepted by Roblox, live CPU and memory."
               fetchpriority="high"
+              alt="Vesper's home screen: a Launch Roblox button with the Balanced profile, Roblox 0.742 up to date, one Fast Flag accepted by Roblox, and live CPU and memory."
             />
-          </figure>
-        </div>
-      </section>
-
-      <section class="proof wrap" aria-label="At a glance">
-        <div><strong>18</strong><span>allowlisted flags, explained</span></div>
-        <div><strong>Every launch</strong><span>checked against Roblox's own log</span></div>
-        <div><strong>0</strong><span>trackers, accounts or ads</span></div>
-        <div><strong>No</strong><span>injection, cookies or tokens</span></div>
-      </section>
-
-      <section id="how" class="band">
-        <div class="wrap split">
-          <div>
-            <p class="eyebrow">Why Vesper</p>
-            <h2>Most flag lists stopped working in 2025.</h2>
-            <p>
-              Since 29 September 2025, Roblox only reads local Fast Flags that are on its
-              <a href="https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569"
-                >published allowlist</a
-              >. Everything else is silently ignored, including the old FPS unlocker.
-            </p>
-            <p>
-              Vesper only offers flags on that list. After you launch, it reads the two lines Roblox writes for every
-              local setting: what it loaded, and what it denied. You see the result per flag, per Roblox version.
-            </p>
-            <p class="small muted">
-              The frame-rate limit uses Roblox's own setting instead of a flag, so it still works.
-            </p>
           </div>
-          <figure class="log" aria-label="Excerpt from a real Roblox client log">
-            <figcaption>Roblox client log · 0.742</figcaption>
-            <pre><code><span class="t">13:41:18.584</span> LoadClientSettingsFromLocal: "{
-  <span class="k">"FFlagHandleAltEnterFullscreenManually"</span>: <span class="v">"False"</span>
-}"
-<span class="t">13:41:18.585</span> Successfully loaded flags
-<span class="t dim">…another launcher's file:</span>
-<span class="t">16:02:22.645</span> <span class="d">Denied local configuration for: FFlagDebugDisablePostFx</span>
-<span class="t">16:02:22.645</span> <span class="d">Denied local configuration for: FIntRenderShadowIntensity</span></code></pre>
-            <div class="verdicts">
-              <span class="pill ok">Accepted · 0.742</span>
-              <span class="pill bad">Denied by Roblox</span>
-            </div>
-          </figure>
+        </div>
+        <div class="strip reveal" aria-label="What Vesper covers">
+          <span>Fast Flags</span><span>Profiles</span><span>FPS limit</span><span>Emote wheel</span><span>Cursor</span
+          ><span>Discord</span>
         </div>
       </section>
 
-      <section id="features" class="wrap section">
-        <p class="eyebrow">Features</p>
-        <h2>Everything a launcher should do, and nothing it shouldn't.</h2>
-        <div class="grid features">
-          <article class="card">
+      <!-- ============================================================ stats -->
+      <div class="wrap">
+        <div class="stats glass reveal" role="list" aria-label="At a glance">
+          <div class="stat" role="listitem"><strong>18</strong><span>allowlisted Fast Flags, explained</span></div>
+          <div class="stat" role="listitem">
+            <strong>Every launch</strong><span>checked against Roblox's own log</span>
+          </div>
+          <div class="stat" role="listitem"><strong>0</strong><span>trackers, accounts or ads</span></div>
+          <div class="stat" role="listitem"><strong>No</strong><span>injection, cookies or tokens</span></div>
+        </div>
+      </div>
+
+      <!-- ============================================================ features -->
+      <section id="features" class="wrap">
+        <p class="eyebrow reveal">Everything in one place</p>
+        <h2 class="reveal">
+          Everything a launcher should do.<br /><span class="gradient-text">Nothing it shouldn't.</span>
+        </h2>
+        <div class="bento">
+          <article class="card glass span-4 wide reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <path d="M4 22v-7" />
+              </svg>
+            </div>
+            <h3>Fast Flags you can actually read</h3>
+            <p>
+              Every flag Roblox still accepts, in plain language: what it changes, how sure anyone is about that, where
+              the information comes from, and Roblox's own published value. Conflicts, like two graphics APIs at once,
+              are caught and fixed in one click.
+            </p>
+            <div class="tags">
+              <span>Rendering</span><span>Graphics</span><span>Performance</span><span>UI</span><span>Debug</span
+              ><span>Engine</span>
+            </div>
+          </article>
+          <article class="card glass span-2 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+                />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </div>
+            <h3>Verified on your PC</h3>
+            <p>After each launch: accepted, denied or not read, per flag, with the Roblox version it was checked on.</p>
+          </article>
+          <article class="card glass span-2 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polygon points="6 3 20 12 6 21 6 3" />
+              </svg>
+            </div>
             <h3>Launch, or jump straight in</h3>
             <p>
-              Open Roblox or paste a game, private server or <code>roblox://</code> link. Vesper follows Roblox through
-              its own updates and explains clearly if it closes or never opens.
+              Open Roblox, or paste a game or <code>roblox://</code> link. Vesper follows Roblox through its own updates
+              and tells you plainly if it closes.
             </p>
           </article>
-          <article class="card">
-            <h3>Fast Flags you can read</h3>
-            <p>
-              Plain-language descriptions, risk, how sure we are of each effect, sources, and Roblox's published values.
-              Conflicts are caught and fixed in one click.
-            </p>
-          </article>
-          <article class="card">
-            <h3>Verified on your PC</h3>
-            <p>
-              After each launch: accepted, denied or not read, with the Roblox version it was checked on. No other
-              launcher shows you this.
-            </p>
-          </article>
-          <article class="card">
+          <article class="card glass span-2 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"
+                />
+                <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+                <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+              </svg>
+            </div>
             <h3>Profiles</h3>
-            <p>
-              Competitive, Balanced, Quality, Potato and Custom, plus your own. Duplicate, export, import old flag files
-              and set a default.
-            </p>
+            <p>Competitive, Balanced, Quality, Potato and your own. Duplicate, export, import and set a default.</p>
           </article>
-          <article class="card">
-            <h3>Make Roblox yours</h3>
-            <p>
-              Swap the cursor, emote wheel, font and death sound with built-in styles or your own image. Vesper makes
-              every size Roblox needs and restores the originals.
-            </p>
-          </article>
-          <article class="card">
+          <article class="card glass span-2 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m12 14 4-4" />
+                <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+              </svg>
+            </div>
             <h3>Measured, not promised</h3>
             <p>
-              Live CPU, memory and GPU for Roblox and your PC, plus frame rate and frame timing where Windows allows. A
-              dash, never a guess.
+              Live CPU, memory and GPU for Roblox and your PC, plus frame rate where Windows allows. A dash, never a
+              guess.
             </p>
           </article>
-          <article class="card">
+          <article class="card glass span-3 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+              </svg>
+            </div>
             <h3>Discord Rich Presence</h3>
             <p>
               “Using Vesper” on your profile with a button for friends. Built in, off until you turn it on, and it never
               shares your games or account.
             </p>
           </article>
-          <article class="card">
+          <article class="card glass span-3 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </div>
             <h3>Easy to undo</h3>
             <p>
-              Backups with history, one-click recovery, diagnostics for bug reports, and an uninstaller that reverts
-              Vesper's changes to Roblox.
+              Backups with history, one-click recovery, diagnostics without secrets, and an uninstaller that puts Roblox
+              back exactly as it was.
             </p>
           </article>
         </div>
       </section>
 
-      <section class="wrap section gallery" aria-label="Screenshots">
-        <figure class="shot">
-          <img
-            src="shots/fast-flags.webp"
-            width="1180"
-            height="760"
-            loading="lazy"
-            alt="Fast Flags page with a flag marked Accepted on Roblox 0.742 and empty categories explained."
-          />
-          <figcaption>Fast Flags, with what Roblox said at the last launch.</figcaption>
+      <!-- ============================================================ why -->
+      <section id="how" class="wrap spotlight">
+        <div class="spot-text reveal">
+          <p class="eyebrow">Why Vesper</p>
+          <h2>Most flag lists stopped <span class="gradient-text">working in 2025.</span></h2>
+          <p class="lead">
+            Since 29 September 2025, Roblox only reads local Fast Flags on its
+            <a
+              class="inline"
+              href="https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569"
+              >published allowlist</a
+            >. Everything else is silently ignored, including the old FPS unlocker.
+          </p>
+          <ul>
+            <li><b>Only allowlisted flags,</b> so nothing you set is quietly thrown away</li>
+            <li><b>Checked every launch</b> against the lines Roblox writes for what it loaded and denied</li>
+            <li><b>Frame-rate limit</b> through Roblox's own setting, which still works</li>
+          </ul>
+        </div>
+        <figure class="log glass reveal" aria-label="Excerpt from a real Roblox client log">
+          <figcaption>Roblox client log · 0.742</figcaption>
+          <pre><code><span class="t">13:41:18.584</span> LoadClientSettingsFromLocal: "{
+  <span class="k">"FFlagHandleAltEnterFullscreenManually"</span>: <span class="v">"False"</span>
+}"
+<span class="t">13:41:18.585</span> Successfully loaded flags
+<span class="t dim">…another launcher's file:</span>
+<span class="t">16:02:22.645</span> <span class="d">Denied local configuration for: FFlagDebugDisablePostFx</span>
+<span class="t">16:02:22.645</span> <span class="d">Denied local configuration for: FIntRenderShadowIntensity</span></code></pre>
+          <div class="verdicts">
+            <span class="chip ok">Accepted · 0.742</span>
+            <span class="chip bad">Denied by Roblox</span>
+          </div>
         </figure>
-        <figure class="shot">
+      </section>
+
+      <!-- ============================================================ customize -->
+      <section id="customize" class="wrap spotlight flip">
+        <div class="spot-text reveal">
+          <p class="eyebrow">Customize</p>
+          <h2>Make Roblox <span class="gradient-text">yours.</span></h2>
+          <p class="lead">Swap what you see and hear in every game, and get it all back with one click.</p>
+          <ul>
+            <li><b>Your picture as the emote wheel,</b> cut into a circle with Roblox's slots on top</li>
+            <li><b>Cursor styles in any colour and size,</b> or your own image</li>
+            <li><b>Your font and death sound</b> across Roblox's interface</li>
+            <li><b>Originals backed up</b> and restored when you switch something off</li>
+          </ul>
+        </div>
+        <figure class="shot glass reveal">
           <img
             src="shots/customize.webp"
             width="1180"
             height="760"
             loading="lazy"
-            alt="Customize page with the Vesper dot cursor and the Dusk emote wheel."
+            alt="Vesper's Customize page: cursor styles with size and colour, and an emote wheel preview on a Roblox baseplate."
           />
-          <figcaption>Cursor and emote wheel styles, applied to Roblox's own files.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img
-            src="shots/performance.webp"
-            width="1180"
-            height="760"
-            loading="lazy"
-            alt="Performance page showing Roblox at 6.4% CPU, 1.2 GB memory and 96% GPU."
-          />
-          <figcaption>Live numbers, read without touching Roblox.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img
-            src="shots/profiles.webp"
-            width="1180"
-            height="760"
-            loading="lazy"
-            alt="Profiles page with the five built-in profiles."
-          />
-          <figcaption>Five built-in profiles, plus your own.</figcaption>
         </figure>
       </section>
 
-      <section id="flags" class="band">
-        <div class="wrap section">
-          <p class="eyebrow">Fast Flags</p>
-          <h2>The 18 flags Roblox still reads.</h2>
-          <p class="muted narrow">
-            From Roblox's allowlist announcement. “Uncertain” means the flag is allowed but Roblox hasn't documented
-            exactly what it does, so Vesper says so instead of guessing.
+      <!-- ============================================================ flags -->
+      <section id="flags" class="wrap">
+        <div class="center">
+          <p class="eyebrow reveal">Fast Flags</p>
+          <h2 class="reveal">The 18 flags <span class="gradient-text">Roblox still reads.</span></h2>
+          <p class="lead reveal">
+            From Roblox's allowlist. “Uncertain” means the flag is allowed but its effect isn't documented, so Vesper
+            says so instead of guessing.
           </p>
+        </div>
+        <div class="table-card glass reveal">
           <!-- build:flags -->
           <div class="table-wrap">
             <table>
@@ -261,7 +347,7 @@
                     </p>
                   </td>
                   <td>Rendering, UI</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -274,7 +360,7 @@
                     </p>
                   </td>
                   <td>Rendering, Graphics, UI</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -287,7 +373,7 @@
                     </p>
                   </td>
                   <td>Rendering, Graphics, Performance, Debug</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -296,13 +382,13 @@
                   </td>
                   <td><p>Lets the texture quality level below take effect.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Texture quality level</strong><span class="name">DFIntTextureQualityOverride</span></td>
                   <td><p>Forces texture resolution from 0 (lowest) to 3 (highest).</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -313,55 +399,55 @@
                     <p>Locks Roblox&#39;s internal graphics quality level (1–21), overriding the in-game slider.</p>
                   </td>
                   <td>Rendering, Graphics, Performance, Debug</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Prefer Vulkan</strong><span class="name">FFlagDebugGraphicsPreferVulkan</span></td>
                   <td><p>Asks Roblox to render with Vulkan instead of its default graphics API.</p></td>
                   <td>Rendering, Engine, Debug</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Prefer OpenGL</strong><span class="name">FFlagDebugGraphicsPreferOpenGL</span></td>
                   <td><p>Asks Roblox to render with OpenGL instead of its default graphics API.</p></td>
                   <td>Rendering, Engine, Debug</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Prefer Direct3D 11</strong><span class="name">FFlagDebugGraphicsPreferD3D11</span></td>
                   <td><p>Asks Roblox to render with Direct3D 11.</p></td>
                   <td>Rendering, Engine, Debug</td>
-                  <td><span class="pill warn">Being removed</span></td>
+                  <td><span class="chip warn">Being removed</span></td>
                 </tr>
                 <tr>
                   <td><strong>Gray sky</strong><span class="name">FFlagDebugSkyGray</span></td>
                   <td><p>Replaces the skybox with a flat gray sky.</p></td>
                   <td>Graphics, Debug</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Grass distance (minimum)</strong><span class="name">FIntFRMMinGrassDistance</span></td>
                   <td><p>Lower bound for how far away terrain grass is drawn.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Grass distance (maximum)</strong><span class="name">FIntFRMMaxGrassDistance</span></td>
                   <td><p>Upper bound for how far away terrain grass is drawn.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill ok">Established</span></td>
+                  <td><span class="chip ok">Established</span></td>
                 </tr>
                 <tr>
                   <td><strong>Grass motion</strong><span class="name">FIntGrassMovementReducedMotionFactor</span></td>
                   <td><p>Scales how much terrain grass sways. Roblox lists it under user-interface settings.</p></td>
                   <td>UI, Graphics</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
                 <tr>
                   <td><strong>Pause lighting voxelizer</strong><span class="name">DFFlagDebugPauseVoxelizer</span></td>
                   <td><p>Stops Roblox from updating its voxel lighting data.</p></td>
                   <td>Rendering, Performance, Debug</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -370,7 +456,7 @@
                   </td>
                   <td><p>Distance at which solid-modelling (CSG) parts first drop from full detail.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -379,7 +465,7 @@
                   </td>
                   <td><p>Distance at which solid-modelling (CSG) parts drop from detail level 1 to 2.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -388,7 +474,7 @@
                   </td>
                   <td><p>Distance at which solid-modelling (CSG) parts drop from detail level 2 to 3.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
                 <tr>
                   <td>
@@ -397,12 +483,12 @@
                   </td>
                   <td><p>Distance at which solid-modelling (CSG) parts drop from detail level 3 to 4.</p></td>
                   <td>Graphics, Performance</td>
-                  <td><span class="pill neutral">Uncertain</span></td>
+                  <td><span class="chip neutral">Uncertain</span></td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p class="small muted">
+          <p class="table-note">
             Catalog reviewed 2026-10-07. Source:
             <a href="https://devforum.roblox.com/t/allowlist-for-local-client-configuration-via-fast-flags/3966569"
               >Roblox's allowlist announcement</a
@@ -412,110 +498,303 @@
         </div>
       </section>
 
-      <section id="profiles" class="wrap section">
-        <p class="eyebrow">Profiles</p>
-        <h2>Pick a starting point.</h2>
-        <div class="grid profiles">
-          <article class="card">
+      <!-- ============================================================ tour -->
+      <section id="tour" class="wrap center">
+        <p class="eyebrow reveal">Tour</p>
+        <h2 class="reveal">Every screen, <span class="gradient-text">in glass.</span></h2>
+        <div class="tour-tabs glass reveal" role="tablist" aria-label="Screens">
+          <button
+            role="tab"
+            id="t-home"
+            aria-controls="s-home"
+            aria-selected="true"
+            data-caption="Home: launch with a profile, or paste a game link. The Last check card shows what Roblox accepted."
+          >
+            Home
+          </button>
+          <button
+            role="tab"
+            id="t-flags"
+            aria-controls="s-flags"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Fast Flags: every allowlisted flag with its status on your Roblox version."
+          >
+            Fast Flags
+          </button>
+          <button
+            role="tab"
+            id="t-profiles"
+            aria-controls="s-profiles"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Profiles: five built in, plus your own. Each has its own flags, frame-rate limit and priority."
+          >
+            Profiles
+          </button>
+          <button
+            role="tab"
+            id="t-customize"
+            aria-controls="s-customize"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Customize: cursor, emote wheel, font and death sound, previewed on a Roblox baseplate."
+          >
+            Customize
+          </button>
+          <button
+            role="tab"
+            id="t-perf"
+            aria-controls="s-perf"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Performance: live numbers from Windows, read without touching Roblox."
+          >
+            Performance
+          </button>
+          <button
+            role="tab"
+            id="t-settings"
+            aria-controls="s-settings"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Settings: updates, backups and recovery, all in one place."
+          >
+            Settings
+          </button>
+        </div>
+        <div class="tour-stage glass reveal">
+          <div class="slides">
+            <img
+              id="s-home"
+              class="on"
+              src="shots/home.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="Vesper's home screen."
+            />
+            <img
+              id="s-flags"
+              src="shots/fast-flags.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Fast Flags page."
+            />
+            <img
+              id="s-profiles"
+              src="shots/profiles.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Profiles page."
+            />
+            <img
+              id="s-customize"
+              src="shots/customize.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Customize page."
+            />
+            <img
+              id="s-perf"
+              src="shots/performance.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Performance page."
+            />
+            <img
+              id="s-settings"
+              src="shots/settings.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Settings page."
+            />
+          </div>
+        </div>
+        <p class="tour-caption" aria-live="polite">
+          Home: launch with a profile, or paste a game link. The Last check card shows what Roblox accepted.
+        </p>
+      </section>
+
+      <!-- ============================================================ profiles -->
+      <section id="profiles" class="wrap">
+        <p class="eyebrow reveal">Profiles</p>
+        <h2 class="reveal">Pick a <span class="gradient-text">starting point.</span></h2>
+        <div class="profiles">
+          <article class="profile glass reveal">
             <h3>Competitive</h3>
-            <p>
-              Uncapped frame rate, above-normal priority, no multisampling, no terrain grass, exclusive fullscreen on
-              Alt+Enter.
-            </p>
+            <p>Uncapped frame rate, above-normal priority, no multisampling or grass, exclusive fullscreen.</p>
           </article>
-          <article class="card">
+          <article class="profile glass reveal">
             <h3>Balanced</h3>
-            <p>Frame rate capped to your display's refresh rate; everything else at Roblox's defaults.</p>
+            <p>Capped to your display's refresh rate; everything else at Roblox's defaults.</p>
           </article>
-          <article class="card">
+          <article class="profile glass reveal">
             <h3>Quality</h3>
             <p>Full resolution on scaled displays, 4× multisampling and the highest textures.</p>
           </article>
-          <article class="card">
+          <article class="profile glass reveal">
             <h3>Potato</h3>
             <p>Lowest graphics level and textures, no grass, a plain sky, capped at 60 FPS.</p>
           </article>
-          <article class="card">
+          <article class="profile glass reveal">
             <h3>Custom</h3>
             <p>Starts with nothing changed. Add exactly what you want.</p>
           </article>
         </div>
-        <p class="small muted">
+        <p class="fine reveal">
           Profiles change settings. Vesper doesn't claim any of them makes Roblox faster on your PC; the Performance
           page shows what actually happens.
         </p>
       </section>
 
-      <section id="install" class="band">
-        <div class="wrap split">
-          <div id="download">
+      <!-- ============================================================ download -->
+      <section id="download" class="wrap">
+        <div class="download glass reveal">
+          <img class="download-icon" src="assets/brand/icon.svg" alt="" width="96" height="96" />
+          <div class="download-text">
             <p class="eyebrow">Download</p>
+            <h2>Get <span class="gradient-text">Vesper.</span></h2>
+            <p class="lead">
+              Free for Windows 10 and 11. Installs for your Windows account only, without administrator rights, and
+              finds Roblox by itself.
+            </p>
             <!-- build:download -->
-            <h2>Coming soon.</h2>
-            <p class="muted">
+            <div class="cta"><span class="btn soon" aria-disabled="true">Coming soon</span></div>
+            <p class="note">
               Vesper 0.1.0 is in private testing. The installer will appear here, with its checksum, when it's
               published.
             </p>
             <!-- /build:download -->
           </div>
-          <div>
-            <p class="eyebrow">Install</p>
-            <ol class="steps">
+        </div>
+      </section>
+
+      <!-- ============================================================ privacy -->
+      <section id="privacy" class="wrap">
+        <p class="eyebrow reveal">Privacy and security</p>
+        <h2 class="reveal">Your account <span class="gradient-text">stays yours.</span></h2>
+        <p class="lead reveal">
+          Vesper starts the official Roblox client. It never injects anything, never keeps handles to Roblox's process,
+          and never touches its anti-cheat.
+        </p>
+        <div class="privacy-grid">
+          <ol class="steps glass reveal" aria-label="What Vesper connects to">
+            <li>
+              <b>Roblox's public client settings service</b>
+              <code>clientsettingscdn.roblox.com</code>, for the latest Roblox version and the Fast Flag values Roblox
+              publishes. No account, cookie or identifier is sent.
+            </li>
+            <li>
+              <b>xan.gripe, for updates</b>
+              Once when Vesper starts, if you leave automatic checks on. Updates are signed, so only real ones install,
+              and only after you click.
+            </li>
+            <li>
+              <b>Discord on your PC, if you turn it on</b>
+              Rich Presence talks to the Discord app running locally, never to a server of Vesper's.
+            </li>
+          </ol>
+          <div class="never glass reveal">
+            <h3>What Vesper never does</h3>
+            <ul>
               <li>
-                <strong>Run the installer.</strong> It installs for your Windows account only, without administrator
-                rights, and adds Start menu and desktop shortcuts.
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Read Roblox cookies, sign-in tickets, passwords or tokens.
               </li>
               <li>
-                <strong>Let Vesper find Roblox.</strong> If it isn't installed yet, install it from roblox.com and open
-                it once.
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Track you. There's no telemetry, analytics, account or ads.
               </li>
-              <li><strong>Pick a profile and launch.</strong> The Last check card shows what Roblox accepted.</li>
-            </ol>
-            <p class="small muted">
-              Prefer no installer? The portable build keeps everything in a folder next to Vesper.exe.
-            </p>
+              <li>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Change Roblox files it didn't write. Anything it replaces is backed up first.
+              </li>
+              <li>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Put your Windows user name in logs or diagnostics.
+              </li>
+            </ul>
+            <div class="links"><a href="privacy/">Privacy statement →</a></div>
           </div>
         </div>
       </section>
 
-      <section id="privacy" class="wrap section split">
-        <div>
-          <p class="eyebrow">Privacy and security</p>
-          <h2>Your account stays yours.</h2>
-          <p class="muted">
-            Vesper starts the official Roblox client. It doesn't inject anything, doesn't keep handles to Roblox's
-            process, and doesn't touch its anti-cheat.
-          </p>
-          <p><a href="privacy/">Read the privacy notice</a></p>
-        </div>
-        <ul class="checks">
-          <li>No telemetry, analytics, accounts or ads.</li>
-          <li>Never reads Roblox cookies, auth tickets, passwords or tokens.</li>
-          <li>Talks only to Roblox's public version service and xan.gripe for updates, both anonymously.</li>
-          <li>Updates are signed and only install after you confirm.</li>
-          <li>Only changes Roblox files it wrote itself, and backs up anything else first.</li>
-          <li>Logs and diagnostics remove your Windows user name before they're written.</li>
-        </ul>
-      </section>
-
-      <section id="faq" class="band">
-        <div class="wrap section faq">
-          <p class="eyebrow">FAQ</p>
-          <h2>Questions</h2>
+      <!-- ============================================================ FAQ -->
+      <section id="faq" class="wrap">
+        <p class="eyebrow reveal">FAQ</p>
+        <h2 class="reveal">Questions</h2>
+        <div class="faq glass reveal">
           <details>
             <summary>Can I get banned for using Vesper?</summary>
             <p>
-              Vesper launches the normal Roblox client and only changes settings files and content files, the same way
-              other launchers have for years. It never injects code, reads memory or touches Roblox's anti-cheat. Roblox
-              doesn't officially endorse any third-party launcher, so we can't promise anything on Roblox's behalf.
+              Vesper launches the normal Roblox client and only changes settings and content files, the way launchers
+              have for years. It never injects code, reads memory or touches Roblox's anti-cheat. Roblox doesn't endorse
+              third-party launchers, so nobody can promise anything on Roblox's behalf.
             </p>
           </details>
           <details>
             <summary>Where's the FPS unlocker flag?</summary>
             <p>
               Roblox stopped honouring <code>DFIntTaskSchedulerTargetFps</code> in 2025. Vesper sets Roblox's own
-              frame-rate cap setting instead, which still works. If another launcher has locked Roblox's settings file
-              as read-only, Vesper tells you and leaves the lock alone.
+              frame-rate cap instead, which still works. If another launcher has locked that settings file, Vesper tells
+              you and leaves the lock alone.
+            </p>
+          </details>
+          <details>
+            <summary>Can I use my own picture for the emote wheel?</summary>
+            <p>
+              Yes. Vesper cuts it into a circle, darkens it a little so emotes stay readable, and draws Roblox-style
+              slots over it. The preview shows exactly what you'll get in game.
             </p>
           </details>
           <details>
@@ -541,33 +820,29 @@
             </p>
           </details>
           <details>
-            <summary>Mac or Linux?</summary>
-            <p>Not yet. Vesper is Windows-only for now.</p>
-          </details>
-          <details>
             <summary>How do I remove it?</summary>
             <p>
-              Uninstall from Windows' Installed apps. The uninstaller removes the flags and customisations Vesper
-              applied to Roblox and restores its original frame-rate setting.
+              Uninstall it from Windows' Installed apps. The uninstaller removes the flags and customisations Vesper
+              applied and restores Roblox's original frame-rate setting.
             </p>
           </details>
         </div>
       </section>
     </main>
 
-    <footer class="foot">
-      <div class="wrap foot-inner">
-        <a class="brand" href="./"
-          ><img src="assets/brand/logo.svg" alt="" width="24" height="24" /><span>vesper</span></a
-        >
+    <footer>
+      <div class="wrap">
+        <a class="brand" href="./"><img src="assets/brand/icon.svg" alt="" width="24" height="24" />Vesper</a>
+        <span>A free Roblox launcher for Windows.</span>
         <nav aria-label="Footer">
           <a href="privacy/">Privacy</a>
           <!-- build:footer-links -->
 
           <!-- /build:footer-links -->
         </nav>
-        <p class="small muted">Not affiliated with Roblox Corporation. Roblox is a trademark of Roblox Corporation.</p>
+        <p class="disclaimer">Not affiliated with Roblox Corporation. Roblox is a trademark of Roblox Corporation.</p>
       </div>
     </footer>
+    <script src="assets/site.js" defer></script>
   </body>
 </html>

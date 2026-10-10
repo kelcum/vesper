@@ -1,73 +1,83 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Privacy · Vesper</title>
     <meta name="description" content="What Vesper does and doesn't do with your data." />
-    <meta name="theme-color" content="#0b0a14" />
+    <meta name="theme-color" content="#07060d" />
     <link rel="icon" href="../assets/brand/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="../assets/tokens.css" />
     <link rel="stylesheet" href="../assets/site.css" />
   </head>
   <body>
-    <header class="nav">
-      <div class="wrap nav-inner">
-        <a class="brand" href="../"
-          ><img src="../assets/brand/logo.svg" alt="" width="30" height="30" /><span>vesper</span></a
-        >
-      </div>
+    <div class="backdrop" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="nav glass">
+      <a class="brand" href="../"><img src="../assets/brand/icon.svg" alt="" width="28" height="28" />Vesper</a>
+      <a class="btn btn-ghost" href="../" style="margin-left: auto">Back to Vesper</a>
     </header>
-    <main class="wrap doc">
+
+    <main class="legal">
       <p class="eyebrow">Privacy</p>
-      <h1>Vesper doesn't collect your data.</h1>
-      <p>Last updated 10 October 2026. This notice covers the Vesper app for Windows and this website.</p>
+      <h1><span class="gradient-text">Vesper doesn't collect your data.</span></h1>
+      <p class="updated">Last updated 10 October 2026. This covers the Vesper app for Windows and this website.</p>
 
-      <h2>What Vesper sends</h2>
-      <ul>
-        <li>
-          <strong>Roblox's public client settings service</strong> (<code>clientsettingscdn.roblox.com</code>): to see
-          the latest Roblox version and the Fast Flag values Roblox publishes. No account, cookie or identifier is sent.
-        </li>
-        <li>
-          <strong>xan.gripe</strong>: to check for Vesper updates, if you leave automatic checks on, and to download an
-          update when you choose to install it. Like any web request, this reveals your IP address to the host, GitHub
-          Pages.
-        </li>
-        <li>
-          <strong>Discord, on your PC</strong>: only if you turn on Rich Presence. Vesper talks to the Discord app
-          running locally, which shows “Using Vesper”, a button to this site, whether Roblox is running and, if you
-          choose, your profile's name.
-        </li>
-      </ul>
+      <div class="glass">
+        <h2>What Vesper sends</h2>
+        <ul>
+          <li>
+            <strong>Roblox's public client settings service</strong> (<code>clientsettingscdn.roblox.com</code>): to see
+            the latest Roblox version and the Fast Flag values Roblox publishes. No account, cookie or identifier is
+            sent.
+          </li>
+          <li>
+            <strong>xan.gripe</strong>: to check for Vesper updates, if you leave automatic checks on, and to download
+            an update when you choose to install it. Like any web request, this reveals your IP address to the host,
+            GitHub Pages.
+          </li>
+          <li>
+            <strong>Discord, on your PC</strong>: only if you turn on Rich Presence. Vesper talks to the Discord app
+            running locally, which shows “Using Vesper”, a button to this site, whether Roblox is running and, if you
+            choose, your profile's name.
+          </li>
+        </ul>
 
-      <h2>What Vesper never does</h2>
-      <ul>
-        <li>Collect telemetry, analytics or crash reports.</li>
-        <li>Read Roblox cookies, authentication tickets, passwords or tokens.</li>
-        <li>Read your Roblox account, friends, inventory or chat.</li>
-        <li>Inject code into Roblox or interfere with its anti-cheat.</li>
-        <li>Install anything else or run hidden processes.</li>
-      </ul>
+        <h2>What Vesper never does</h2>
+        <ul>
+          <li>Collect telemetry, analytics or crash reports.</li>
+          <li>Read Roblox cookies, authentication tickets, passwords or tokens.</li>
+          <li>Read your Roblox account, friends, inventory or chat.</li>
+          <li>Inject code into Roblox or interfere with its anti-cheat.</li>
+          <li>Install anything else or run hidden processes.</li>
+        </ul>
 
-      <h2>What stays on your PC</h2>
-      <p>
-        Settings, profiles, backups and logs are stored in <code>%APPDATA%\Vesper</code> and
-        <code>%LOCALAPPDATA%\gripe.xan.vesper</code> (or next to Vesper.exe in portable mode). Logs and the diagnostics
-        you can copy remove your Windows user name and anything that looks like a secret. Uninstalling with “Delete the
-        application data” ticked removes these folders.
-      </p>
+        <h2>What stays on your PC</h2>
+        <p>
+          Settings, profiles, backups and logs are stored in <code>%APPDATA%\Vesper</code> and
+          <code>%LOCALAPPDATA%\gripe.xan.vesper</code> (or next to Vesper.exe in portable mode). Pictures you pick for
+          the emote wheel or cursor are copied there too, and only into Roblox's own files on your PC. Logs and the
+          diagnostics you can copy remove your Windows user name and anything that looks like a secret. Uninstalling
+          with “Delete the application data” ticked removes these folders.
+        </p>
 
-      <h2>This website</h2>
-      <p>This page uses no cookies, analytics or third-party scripts. Fonts and images are served from this site.</p>
+        <h2>This website</h2>
+        <p>This page uses no cookies, analytics or third-party scripts. Fonts and images are served from this site.</p>
 
-      <h2>Changes and contact</h2>
-      <p>
-        If this changes, for example if an optional feature ever needs to send data, it will be off by default,
-        explained in the app, and listed here first. Questions or concerns: open an issue on Vesper's GitHub page, or
-        report privately as described in its security policy.
-      </p>
-      <p><a href="../">Back to Vesper</a></p>
+        <h2>Changes and contact</h2>
+        <p>
+          If this changes, for example if an optional feature ever needs to send data, it will be off by default,
+          explained in the app, and listed here first. Questions or concerns: use the contact link on
+          <a href="https://xan.gripe/">xan.gripe</a>.
+        </p>
+      </div>
     </main>
+
+    <footer>
+      <div class="wrap">
+        <a class="brand" href="../"><img src="../assets/brand/icon.svg" alt="" width="24" height="24" />Vesper</a>
+        <span>A free Roblox launcher for Windows.</span>
+        <p class="disclaimer">Not affiliated with Roblox Corporation. Roblox is a trademark of Roblox Corporation.</p>
+      </div>
+    </footer>
   </body>
 </html>

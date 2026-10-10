@@ -2,7 +2,7 @@
 //
 //   node scripts/site/build.mjs
 //
-// - copies the app's design tokens and fonts, so the site and app always match
+// - copies the app's fonts, so the site and app use the same type
 // - converts docs/screenshots/*.png to WebP (needs Python with Pillow)
 // - renders the Fast Flag table from the real catalog
 // - renders download, version and changelog blocks from website/vesper/release.json
@@ -60,9 +60,8 @@ function changelogHtml(md) {
   return out.join('\n');
 }
 
-// 1. Tokens and fonts
+// 1. Fonts
 ensure(join(site, 'assets/fonts'));
-copyFileSync(join(root, 'src/styles/tokens.css'), join(site, 'assets/tokens.css'));
 for (const f of ['Geist-Variable.woff2', 'GeistMono-Variable.woff2', 'OFL.txt']) {
   copyFileSync(join(root, 'src/assets/fonts', f), join(site, 'assets/fonts', f));
 }
@@ -98,10 +97,10 @@ const rows = catalog.flags
   .map((f) => {
     const confidence =
       f.status === 'removal-announced'
-        ? '<span class="pill warn">Being removed</span>'
+        ? '<span class="chip warn">Being removed</span>'
         : f.behavior === 'established'
-          ? '<span class="pill ok">Established</span>'
-          : '<span class="pill neutral">Uncertain</span>';
+          ? '<span class="chip ok">Established</span>'
+          : '<span class="chip neutral">Uncertain</span>';
     const cats = f.categories.map((c) => label[c] ?? c).join(', ');
     return `<tr><td><strong>${esc(f.title)}</strong><span class="name">${esc(f.name)}</span></td><td><p>${esc(f.summary)}</p></td><td>${esc(cats)}</td><td>${confidence}</td></tr>`;
   })
@@ -111,16 +110,19 @@ const table = `<div class="table-wrap"><table>
 <tbody>
 ${rows}
 </tbody></table></div>
-<p class="small muted">Catalog reviewed ${esc(catalog.reviewed)}. Source: <a href="${esc(catalog.allowlist.url)}">Roblox's allowlist announcement</a>.</p>`;
+<p class="table-note">Catalog reviewed ${esc(catalog.reviewed)}. Source: <a href="${esc(catalog.allowlist.url)}">Roblox's allowlist announcement</a>.</p>`;
 
 // 4. Release blocks
 const release = JSON.parse(readFileSync(join(site, 'release.json'), 'utf8'));
 let html = readFileSync(join(site, 'index.html'), 'utf8');
 html = replaceBlock(html, 'flags', table);
 
+// GitHub links only once the repository is public.
 const footerLinks = release.repoPublic
   ? `<a href="${esc(release.repo)}">GitHub</a>\n<a href="${esc(release.repo)}/releases">Changelog</a>`
   : '';
+const downloadIcon =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
 html = replaceBlock(html, 'footer-links', footerLinks);
 
 if (release.status === 'released' && release.installer) {
@@ -133,45 +135,43 @@ if (release.status === 'released' && release.installer) {
     }
   }
   const href = `download/${encodeURIComponent(inst.file)}`;
-  html = replaceBlock(html, 'nav-cta', `<a class="btn primary small" href="${href}">Download</a>`);
+  html = replaceBlock(html, 'nav-cta', `<a class="btn btn-primary" href="${href}" download>Download</a>`);
   html = replaceBlock(
     html,
     'hero-cta',
-    `<a class="btn primary" href="${href}">Download for Windows <span class="sub">v${esc(release.version)} · ${sizeLabel(inst.size)}</span></a>` +
-      (release.repoPublic ? `\n<a class="btn ghost" href="${esc(release.repo)}">GitHub</a>` : ''),
+    `<a class="btn btn-primary" href="${href}" download>${downloadIcon} Download for Windows</a>`,
   );
   html = replaceBlock(
     html,
     'hero-meta',
-    `<p class="meta">Version ${esc(release.version)} · Windows 10 and 11 · 64-bit · free and open source (MIT)</p>`,
+    `<p class="cta-meta reveal">Version ${esc(release.version)} · ${sizeLabel(inst.size)} · Windows 10 &amp; 11 (64-bit) · updates itself</p>`,
   );
-  const files = [
-    `<li><a href="${href}">${esc(inst.file)}</a><span>Installer · ${sizeLabel(inst.size)}</span><span class="sha">SHA-256 ${esc(inst.sha256)}</span></li>`,
-    release.portable
-      ? `<li><a href="download/${encodeURIComponent(release.portable.file)}">${esc(release.portable.file)}</a><span>Portable · ${sizeLabel(release.portable.size)}</span><span class="sha">SHA-256 ${esc(release.portable.sha256)}</span></li>`
-      : '',
-  ].join('\n');
+  const portable = release.portable
+    ? `<li><b>Portable:</b> <a href="download/${encodeURIComponent(release.portable.file)}" download>${esc(release.portable.file)}</a> (${sizeLabel(release.portable.size)}), keeps everything in a folder next to Vesper.exe</li>`
+    : '';
   const notes = sectionFor(read('CHANGELOG.md'), release.version);
   html = replaceBlock(
     html,
     'download',
-    `<h2>Vesper ${esc(release.version)}</h2>
-<div class="download">
-<p class="muted">Released ${esc(release.date)} · Windows 10 and 11 (64-bit) · installs per user, no administrator rights.</p>
-<a class="btn primary" href="${href}">Download installer <span class="sub">${sizeLabel(inst.size)}</span></a>
-<ul class="files">${files}</ul>
+    `<div class="cta"><a class="btn btn-primary" href="${href}" download>${downloadIcon} Download Vesper ${esc(release.version)}</a></div>
+<ul class="facts">
+<li><b>${sizeLabel(inst.size)}</b> installer, released ${esc(release.date)}, no administrator rights needed</li>
+<li><b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your settings stay.</li>
+${portable}
+<li><b>SHA-256</b> <code>${esc(inst.sha256)}</code></li>
+</ul>
 ${notes ? `<details><summary>What's new in ${esc(release.version)}</summary>${changelogHtml(notes)}</details>` : ''}
-</div>`,
+<p class="note">Vesper is new and its installer isn't code-signed yet, so Windows may show <b>“Windows protected your PC”</b>. Choose <b>More info</b>, then <b>Run anyway</b>.</p>`,
   );
 } else {
-  html = replaceBlock(html, 'nav-cta', '<a class="btn primary small" href="#download">Coming soon</a>');
-  html = replaceBlock(html, 'hero-cta', '<span class="btn primary disabled" aria-disabled="true">Coming soon</span>');
-  html = replaceBlock(html, 'hero-meta', '<p class="meta">Windows 10 and 11 · 64-bit · free and open source (MIT)</p>');
+  html = replaceBlock(html, 'nav-cta', '<a class="btn btn-primary" href="#download">Coming soon</a>');
+  html = replaceBlock(html, 'hero-cta', '<span class="btn soon" aria-disabled="true">Coming soon</span>');
+  html = replaceBlock(html, 'hero-meta', '<p class="cta-meta reveal">Windows 10 &amp; 11 · 64-bit · free</p>');
   html = replaceBlock(
     html,
     'download',
-    `<h2>Coming soon.</h2>
-<p class="muted">Vesper ${esc(release.version)} is in private testing. The installer will appear here, with its checksum, when it's published.</p>`,
+    `<div class="cta"><span class="btn soon" aria-disabled="true">Coming soon</span></div>
+<p class="note">Vesper ${esc(release.version)} is in private testing. The installer will appear here, with its checksum, when it's published.</p>`,
   );
 }
 
