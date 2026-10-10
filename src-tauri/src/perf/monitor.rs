@@ -101,7 +101,8 @@ impl Monitor {
             if let Some((prev, at)) = self.last_cpu.get(&p.pid) {
                 let wall = now.duration_since(*at).as_secs_f64() * 10_000_000.0;
                 if wall > 0.0 {
-                    let pct = (p.cpu_time.saturating_sub(*prev) as f64 / (wall * self.logical) * 100.0).clamp(0.0, 100.0);
+                    let pct =
+                        (p.cpu_time.saturating_sub(*prev) as f64 / (wall * self.logical) * 100.0).clamp(0.0, 100.0);
                     cpu_total = Some(cpu_total.unwrap_or(0.0) + pct);
                 }
             }
@@ -115,9 +116,10 @@ impl Monitor {
             cpu_percent: cpu_total,
             working_set: players.iter().map(|p| p.working_set).sum(),
             private_bytes: players.iter().map(|p| p.private_bytes).sum(),
-            gpu_percent: self.gpu.as_ref().map(|_| {
-                players.iter().filter_map(|p| gpu.per_pid_percent.get(&p.pid)).cloned().fold(0.0, f64::max)
-            }),
+            gpu_percent: self
+                .gpu
+                .as_ref()
+                .map(|_| players.iter().filter_map(|p| gpu.per_pid_percent.get(&p.pid)).cloned().fold(0.0, f64::max)),
             gpu_memory: self
                 .gpu
                 .as_ref()

@@ -9,14 +9,24 @@
   import Segmented from '../components/ui/Segmented.svelte';
   import Select from '../components/ui/Select.svelte';
   import { api } from '../lib/api';
-  import { buildRows, CATEGORY_LABELS, categoryCounts, filterRows, normalizeValue, parseFlagJson, type Show } from '../lib/flags';
+  import {
+    buildRows,
+    CATEGORY_LABELS,
+    categoryCounts,
+    filterRows,
+    normalizeValue,
+    parseFlagJson,
+    type Show,
+  } from '../lib/flags';
   import { relativeTime } from '../lib/format';
   import { flagsTarget } from '../lib/selection.svelte';
   import { app } from '../lib/store.svelte';
   import type { FlagSet, InstalledFlags, Issue, PublishedValues } from '../lib/types';
 
   const catalog = $derived(app.boot!.catalog);
-  const profileId = $derived(flagsTarget.id && app.profiles.profiles.some((p) => p.id === flagsTarget.id) ? flagsTarget.id : app.profiles.active);
+  const profileId = $derived(
+    flagsTarget.id && app.profiles.profiles.some((p) => p.id === flagsTarget.id) ? flagsTarget.id : app.profiles.active,
+  );
   const profile = $derived(app.profiles.profiles.find((p) => p.id === profileId)!);
 
   let query = $state('');
@@ -36,14 +46,23 @@
   let pasteError = $state<string | null>(null);
 
   onMount(() => {
-    api.flagsPublished(false).then((p) => (published = p)).catch(() => {});
-    api.flagsInstalled().then((i) => (installed = i)).catch(() => {});
+    api
+      .flagsPublished(false)
+      .then((p) => (published = p))
+      .catch(() => {});
+    api
+      .flagsInstalled()
+      .then((i) => (installed = i))
+      .catch(() => {});
   });
 
   $effect(() => {
     const flags = profile?.flags;
     if (!flags) return;
-    api.flagsValidate(flags).then((r) => (issues = r)).catch(() => (issues = []));
+    api
+      .flagsValidate(flags)
+      .then((r) => (issues = r))
+      .catch(() => (issues = []));
   });
 
   const rows = $derived(buildRows(catalog, profile?.flags ?? {}, app.boot?.verification.flags ?? {}, issues));
@@ -113,7 +132,10 @@
   }
 
   async function exportJson() {
-    const path = await save({ defaultPath: `${profile.name}.vesper-profile.json`, filters: [{ name: 'Vesper profile', extensions: ['json'] }] });
+    const path = await save({
+      defaultPath: `${profile.name}.vesper-profile.json`,
+      filters: [{ name: 'Vesper profile', extensions: ['json'] }],
+    });
     if (!path) return;
     await app.attempt(() => api.profilesExport(profile.id, path), 'Exported this profile');
   }
@@ -124,7 +146,7 @@
   }
 
   async function refreshPublished() {
-    published = await app.attempt(() => api.flagsPublished(true)) ?? published;
+    published = (await app.attempt(() => api.flagsPublished(true))) ?? published;
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -147,7 +169,10 @@
     <Select
       label="Profile to edit"
       value={profileId}
-      options={app.profiles.profiles.map((p) => ({ value: p.id, label: p.id === app.profiles.active ? `${p.name} (active)` : p.name }))}
+      options={app.profiles.profiles.map((p) => ({
+        value: p.id,
+        label: p.id === app.profiles.active ? `${p.name} (active)` : p.name,
+      }))}
       onchange={(id) => (flagsTarget.id = id)}
     />
   </div>
@@ -156,16 +181,26 @@
 <section class="banner glass">
   <div class="banner-copy">
     <p>
-      <strong>Since {new Date(catalog.allowlist.effective).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}, Roblox only reads {catalog.flags.length} allowlisted Fast Flags.</strong>
-      Everything else in ClientAppSettings.json is ignored. After each launch, Vesper reads Roblox's own log to confirm which flags it accepted.
+      <strong
+        >Since {new Date(catalog.allowlist.effective).toLocaleDateString(undefined, {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })}, Roblox only reads {catalog.flags.length} allowlisted Fast Flags.</strong
+      >
+      Everything else in ClientAppSettings.json is ignored. After each launch, Vesper reads Roblox's own log to confirm which
+      flags it accepted.
     </p>
     <p class="faint small">
-      Roblox's current values {published ? `fetched ${relativeTime(published.fetchedAt)}` : 'not fetched yet'} · catalog reviewed {catalog.reviewed}
+      Roblox's current values {published ? `fetched ${relativeTime(published.fetchedAt)}` : 'not fetched yet'} · catalog reviewed
+      {catalog.reviewed}
     </p>
   </div>
   <div class="row">
     <Button size="sm" variant="ghost" icon={RefreshCw} onclick={refreshPublished}>Refresh values</Button>
-    <Button size="sm" variant="ghost" icon={ExternalLink} onclick={() => api.openUrl(catalog.allowlist.url)}>Roblox announcement</Button>
+    <Button size="sm" variant="ghost" icon={ExternalLink} onclick={() => api.openUrl(catalog.allowlist.url)}
+      >Roblox announcement</Button
+    >
   </div>
 </section>
 
@@ -178,7 +213,9 @@
         <span>{issue.message}</span>
         {#if issue.fix}
           <Button size="sm" icon={Wand} onclick={() => applyFix(issue)}>
-            {issue.fix.kind === 'remove' ? `Remove ${issue.fix.flag === issue.flag ? 'it' : issue.fix.flag}` : `Set ${issue.fix.flag} to ${issue.fix.value}`}
+            {issue.fix.kind === 'remove'
+              ? `Remove ${issue.fix.flag === issue.flag ? 'it' : issue.fix.flag}`
+              : `Set ${issue.fix.flag} to ${issue.fix.value}`}
           </Button>
         {/if}
       </div>
@@ -189,7 +226,13 @@
 <div class="toolbar">
   <label class="search">
     <Search size={15} aria-hidden="true" />
-    <input bind:this={searchEl} bind:value={query} placeholder="Search flags (Ctrl+F)" aria-label="Search flags" spellcheck="false" />
+    <input
+      bind:this={searchEl}
+      bind:value={query}
+      placeholder="Search flags (Ctrl+F)"
+      aria-label="Search flags"
+      spellcheck="false"
+    />
   </label>
   <Segmented
     size="sm"
@@ -204,7 +247,14 @@
   <span class="spacer"></span>
   <Button size="sm" icon={Plus} onclick={() => (addOpen = true)}>Custom flag</Button>
   <Button size="sm" variant="ghost" icon={ClipboardPaste} onclick={() => (pasteOpen = true)}>Paste JSON</Button>
-  <Button size="sm" variant="ghost" icon={Upload} label="Import JSON as a profile" title="Import JSON as a new profile" onclick={importJson} />
+  <Button
+    size="sm"
+    variant="ghost"
+    icon={Upload}
+    label="Import JSON as a profile"
+    title="Import JSON as a new profile"
+    onclick={importJson}
+  />
   <Button size="sm" variant="ghost" icon={Download} label="Export JSON" title="Export" onclick={exportJson} />
 </div>
 
@@ -222,8 +272,8 @@
     <div class="empty">
       <h3>No {CATEGORY_LABELS[category]} flags are allowed</h3>
       <p class="muted">
-        Roblox's allowlist has no {CATEGORY_LABELS[category].toLowerCase()} flags, so local changes in this area are ignored by the client.
-        Flags you may have seen in old guides for this category no longer do anything.
+        Roblox's allowlist has no {CATEGORY_LABELS[category].toLowerCase()} flags, so local changes in this area are ignored
+        by the client. Flags you may have seen in old guides for this category no longer do anything.
       </p>
     </div>
   {:else if visible.length === 0}
@@ -251,7 +301,9 @@
         {installed.writtenByVesper ? '· written by Vesper' : '· not written by Vesper (kept as is)'}
       </p>
     {:else}
-      <p class="muted small">No flags file. Roblox uses its defaults until Vesper launches it with a profile that sets flags.</p>
+      <p class="muted small">
+        No flags file. Roblox uses its defaults until Vesper launches it with a profile that sets flags.
+      </p>
     {/if}
   </div>
   <div class="row">
@@ -260,10 +312,27 @@
   </div>
 </section>
 
-<Dialog bind:open={addOpen} title="Add a custom flag" description="Flags that aren't on Roblox's allowlist are ignored by Roblox. Vesper will show what Roblox says after your next launch.">
+<Dialog
+  bind:open={addOpen}
+  title="Add a custom flag"
+  description="Flags that aren't on Roblox's allowlist are ignored by Roblox. Vesper will show what Roblox says after your next launch."
+>
   <div class="form">
-    <input class="text mono" placeholder="FFlagExample" bind:value={addName} spellcheck="false" aria-label="Flag name" />
-    <input class="text mono" placeholder="True, 100 or text" bind:value={addValue} spellcheck="false" aria-label="Flag value" onkeydown={(e) => e.key === 'Enter' && addCustom()} />
+    <input
+      class="text mono"
+      placeholder="FFlagExample"
+      bind:value={addName}
+      spellcheck="false"
+      aria-label="Flag name"
+    />
+    <input
+      class="text mono"
+      placeholder="True, 100 or text"
+      bind:value={addValue}
+      spellcheck="false"
+      aria-label="Flag value"
+      onkeydown={(e) => e.key === 'Enter' && addCustom()}
+    />
     {#if addError}<p class="small bad">{addError}</p>{/if}
   </div>
   {#snippet actions()}
@@ -272,8 +341,18 @@
   {/snippet}
 </Dialog>
 
-<Dialog bind:open={pasteOpen} title="Paste flags" description="Paste a ClientAppSettings.json-style object. The flags are merged into “{profile?.name}”." width={560}>
-  <textarea class="text mono" rows="9" bind:value={pasteText} placeholder={'{\n  "FIntDebugForceMSAASamples": "4"\n}'} aria-label="Flags JSON"></textarea>
+<Dialog
+  bind:open={pasteOpen}
+  title="Paste flags"
+  description="Paste a ClientAppSettings.json-style object. The flags are merged into “{profile?.name}”."
+  width={560}
+>
+  <textarea
+    class="text mono"
+    rows="9"
+    bind:value={pasteText}
+    placeholder={'{\n  "FIntDebugForceMSAASamples": "4"\n}'}
+    aria-label="Flags JSON"></textarea>
   {#if pasteError}<p class="small bad">{pasteError}</p>{/if}
   {#snippet actions()}
     <Button variant="ghost" onclick={() => (pasteOpen = false)}>Cancel</Button>

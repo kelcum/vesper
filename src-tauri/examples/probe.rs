@@ -79,7 +79,9 @@ fn main() {
     }
     println!("  Frame timing: {:?}", s.fps_status);
     match &s.roblox {
-        Some(r) => println!("  Roblox running: pid {} cpu {:?} mem {:.0} MB", r.pid, r.cpu_percent, r.working_set as f64 / 1e6),
+        Some(r) => {
+            println!("  Roblox running: pid {} cpu {:?} mem {:.0} MB", r.pid, r.cpu_percent, r.working_set as f64 / 1e6)
+        }
         None => println!("  Roblox is not running"),
     }
 }

@@ -86,9 +86,11 @@ describe('flag rows', () => {
     expect(filterRows(rows, 'anti aliasing', null, 'all').map((r) => r.name)).toEqual(['FIntDebugForceMSAASamples']);
     expect(filterRows(rows, 'vulkan', null, 'all').map((r) => r.name)).toEqual(['FFlagDebugGraphicsPreferVulkan']);
     expect(filterRows(rows, '', 'engine', 'all').length).toBe(3);
-    expect(filterRows(rows, '', null, 'set').map((r) => r.name).sort()).toEqual(
-      ['DFIntTaskSchedulerTargetFps', 'FFlagMyCustom', 'FIntDebugForceMSAASamples'].sort(),
-    );
+    expect(
+      filterRows(rows, '', null, 'set')
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(['DFIntTaskSchedulerTargetFps', 'FFlagMyCustom', 'FIntDebugForceMSAASamples'].sort());
   });
 
   it('counts categories including empty ones', () => {

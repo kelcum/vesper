@@ -32,7 +32,15 @@
     editorOpen = true;
   }
 
-  async function patch(p: Partial<{ name: string; description: string; fpsCap: FpsCap | null; priority: Priority; affinity: number | null }>) {
+  async function patch(
+    p: Partial<{
+      name: string;
+      description: string;
+      fpsCap: FpsCap | null;
+      priority: Priority;
+      affinity: number | null;
+    }>,
+  ) {
     if (!editing) return;
     const store = await app.attempt(() => api.profilesUpdate(editing!.id, p));
     if (store) {
@@ -47,7 +55,10 @@
   }
 
   async function exportProfile(p: Profile) {
-    const path = await save({ defaultPath: `${p.name}.vesper-profile.json`, filters: [{ name: 'Vesper profile', extensions: ['json'] }] });
+    const path = await save({
+      defaultPath: `${p.name}.vesper-profile.json`,
+      filters: [{ name: 'Vesper profile', extensions: ['json'] }],
+    });
     if (path) await app.attempt(() => api.profilesExport(p.id, path), `Exported “${p.name}”`);
   }
 
@@ -113,7 +124,10 @@
   <div>
     <p class="eyebrow">Profiles</p>
     <h1>Tune Roblox for the moment.</h1>
-    <p class="muted lede">A profile bundles Fast Flags, a frame-rate limit and process options. The active one is applied each time Vesper launches Roblox.</p>
+    <p class="muted lede">
+      A profile bundles Fast Flags, a frame-rate limit and process options. The active one is applied each time Vesper
+      launches Roblox.
+    </p>
   </div>
   <div class="row">
     <Button icon={Upload} onclick={importProfile}>Import</Button>
@@ -129,7 +143,9 @@
     <article class="profile glass" class:active>
       <div class="top">
         <h3>{p.name}</h3>
-        {#if isDefault}<span class="star" title="Default profile"><Star size={14} fill="currentColor" aria-label="Default" /></span>{/if}
+        {#if isDefault}<span class="star" title="Default profile"
+            ><Star size={14} fill="currentColor" aria-label="Default" /></span
+          >{/if}
         <span class="spacer"></span>
         {#if active}<Badge tone="accent" dot>Active</Badge>{:else if p.builtin}<Badge>Built-in</Badge>{/if}
       </div>
@@ -142,34 +158,91 @@
       </div>
       <div class="actions">
         {#if !active}
-          <Button size="sm" icon={Check} onclick={() => app.attempt(() => api.profilesSetActive(p.id)).then((s) => app.setProfiles(s))}>Use</Button>
+          <Button
+            size="sm"
+            icon={Check}
+            onclick={() => app.attempt(() => api.profilesSetActive(p.id)).then((s) => app.setProfiles(s))}>Use</Button
+          >
         {/if}
         <Button size="sm" icon={Pencil} onclick={() => edit(p)}>Edit</Button>
         <span class="spacer"></span>
-        <Button size="sm" variant="ghost" icon={Copy} label="Duplicate" title="Duplicate" onclick={() => app.attempt(() => api.profilesDuplicate(p.id)).then((s) => app.setProfiles(s))} />
-        <Button size="sm" variant="ghost" icon={Download} label="Export" title="Export" onclick={() => exportProfile(p)} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Copy}
+          label="Duplicate"
+          title="Duplicate"
+          onclick={() => app.attempt(() => api.profilesDuplicate(p.id)).then((s) => app.setProfiles(s))}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Download}
+          label="Export"
+          title="Export"
+          onclick={() => exportProfile(p)}
+        />
         {#if !isDefault}
-          <Button size="sm" variant="ghost" icon={Star} label="Make default" title="Make default" onclick={() => app.attempt(() => api.profilesSetDefault(p.id)).then((s) => app.setProfiles(s))} />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Star}
+            label="Make default"
+            title="Make default"
+            onclick={() => app.attempt(() => api.profilesSetDefault(p.id)).then((s) => app.setProfiles(s))}
+          />
         {/if}
         {#if p.builtin}
-          <Button size="sm" variant="ghost" icon={RotateCcw} label="Reset to built-in" title="Reset to built-in settings" onclick={() => app.attempt(() => api.profilesReset(p.id), `Reset “${p.name}”`).then((s) => app.setProfiles(s))} />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={RotateCcw}
+            label="Reset to built-in"
+            title="Reset to built-in settings"
+            onclick={() =>
+              app.attempt(() => api.profilesReset(p.id), `Reset “${p.name}”`).then((s) => app.setProfiles(s))}
+          />
         {:else}
-          <Button size="sm" variant="ghost" icon={Trash} label="Delete" title="Delete" onclick={() => { confirmDelete = p; confirmOpen = true; }} />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Trash}
+            label="Delete"
+            title="Delete"
+            onclick={() => {
+              confirmDelete = p;
+              confirmOpen = true;
+            }}
+          />
         {/if}
       </div>
     </article>
   {/each}
 </div>
 
-<Dialog bind:open={creating} title="New profile" description="Starts with Roblox's defaults. You can copy an existing profile with Duplicate instead.">
-  <input class="text" placeholder="Profile name" bind:value={newName} maxlength="40" onkeydown={(e) => e.key === 'Enter' && newName.trim() && create()} />
+<Dialog
+  bind:open={creating}
+  title="New profile"
+  description="Starts with Roblox's defaults. You can copy an existing profile with Duplicate instead."
+>
+  <input
+    class="text"
+    placeholder="Profile name"
+    bind:value={newName}
+    maxlength="40"
+    onkeydown={(e) => e.key === 'Enter' && newName.trim() && create()}
+  />
   {#snippet actions()}
     <Button variant="ghost" onclick={() => (creating = false)}>Cancel</Button>
     <Button variant="primary" disabled={!newName.trim()} onclick={create}>Create</Button>
   {/snippet}
 </Dialog>
 
-<Dialog bind:open={confirmOpen} title="Delete “{confirmDelete?.name}”?" description="This can't be undone, but your backups still contain it.">
+<Dialog
+  bind:open={confirmOpen}
+  title="Delete “{confirmDelete?.name}”?"
+  description="This can't be undone, but your backups still contain it."
+>
   {#snippet actions()}
     <Button variant="ghost" onclick={() => (confirmOpen = false)}>Cancel</Button>
     <Button variant="danger" onclick={remove}>Delete profile</Button>
@@ -191,7 +264,9 @@
       <Field
         label="Process priority"
         hint="How Windows schedules Roblox against other programs. Applies when Vesper starts Roblox."
-        warning={editing.priority === 'high' ? 'High priority can make other apps, voice chat and streaming stutter.' : undefined}
+        warning={editing.priority === 'high'
+          ? 'High priority can make other apps, voice chat and streaming stutter.'
+          : undefined}
       >
         <Segmented
           label="Process priority"
@@ -210,12 +285,14 @@
       <details class="advanced">
         <summary>Advanced: processor affinity</summary>
         <p class="faint small">
-          Restricts Roblox to the processors you pick. This usually makes performance worse; only change it if you know why you need it.
-          Windows or Roblox's anti-cheat may refuse the change, and Vesper will tell you if that happens.
+          Restricts Roblox to the processors you pick. This usually makes performance worse; only change it if you know
+          why you need it. Windows or Roblox's anti-cheat may refuse the change, and Vesper will tell you if that
+          happens.
         </p>
         <div class="cores">
           {#each Array.from({ length: Math.min(cpuCount, 64) }, (_, i) => i) as i (i)}
-            <button class="core" class:on={coreOn(i)} aria-pressed={coreOn(i)} onclick={() => toggleCore(i)}>{i}</button>
+            <button class="core" class:on={coreOn(i)} aria-pressed={coreOn(i)} onclick={() => toggleCore(i)}>{i}</button
+            >
           {/each}
         </div>
         {#if editing.affinity != null}
@@ -225,7 +302,13 @@
     </div>
   {/if}
   {#snippet actions()}
-    <Button variant="primary" onclick={() => { saveText(); editorOpen = false; }}>Done</Button>
+    <Button
+      variant="primary"
+      onclick={() => {
+        saveText();
+        editorOpen = false;
+      }}>Done</Button
+    >
   {/snippet}
 </Dialog>
 

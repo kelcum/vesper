@@ -35,7 +35,13 @@ class AppStore {
 
   settings = $state<Settings>(null as unknown as Settings);
   profiles = $state<ProfileStore>({ active: '', default: '', profiles: [] });
-  detection = $state<Detection>({ installs: [], preferred: null, protocol: null, storeAppPresent: false, overrideProblem: null });
+  detection = $state<Detection>({
+    installs: [],
+    preferred: null,
+    protocol: null,
+    storeAppPresent: false,
+    overrideProblem: null,
+  });
   launch = $state<LaunchStatus>({ state: 'idle' });
   robloxRunning = $state(false);
   presence = $state<PresenceStatus>({ state: 'disabled' });
@@ -131,12 +137,17 @@ class AppStore {
     this.lastReport = r;
     if (this.boot) {
       const flags = { ...this.boot.verification.flags };
-      for (const name of r.accepted) flags[name] = { verdict: 'accepted', robloxVersion: r.robloxVersion, checkedAt: r.checkedAt };
-      for (const name of r.denied) flags[name] = { verdict: 'denied', robloxVersion: r.robloxVersion, checkedAt: r.checkedAt };
+      for (const name of r.accepted)
+        flags[name] = { verdict: 'accepted', robloxVersion: r.robloxVersion, checkedAt: r.checkedAt };
+      for (const name of r.denied)
+        flags[name] = { verdict: 'denied', robloxVersion: r.robloxVersion, checkedAt: r.checkedAt };
       this.boot.verification = { flags, lastReport: r };
     }
     if (r.denied.length) {
-      this.toast(`Roblox denied ${r.denied.length} flag${r.denied.length === 1 ? '' : 's'}. See Fast Flags for details.`, 'warn');
+      this.toast(
+        `Roblox denied ${r.denied.length} flag${r.denied.length === 1 ? '' : 's'}. See Fast Flags for details.`,
+        'warn',
+      );
     } else if (r.accepted.length) {
       this.toast(`Roblox accepted all ${r.accepted.length} flag${r.accepted.length === 1 ? '' : 's'}.`, 'ok');
     }

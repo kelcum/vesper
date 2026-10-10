@@ -12,12 +12,7 @@
 </script>
 
 <div class="select">
-  <select
-    aria-label={label}
-    {disabled}
-    bind:value
-    onchange={() => onchange?.(value)}
-  >
+  <select aria-label={label} {disabled} bind:value onchange={() => onchange?.(value)}>
     {#each options as o (o.value)}
       <option value={o.value}>{o.label}</option>
     {/each}

@@ -40,8 +40,7 @@ pub fn aggregate(engines: &[(String, f64)], memory: &[(String, f64)]) -> GpuSamp
     for v in per_pid_percent.values_mut() {
         *v = v.min(100.0);
     }
-    let system_percent = (!engines.is_empty())
-        .then(|| per_type_total.values().cloned().fold(0.0, f64::max).min(100.0));
+    let system_percent = (!engines.is_empty()).then(|| per_type_total.values().cloned().fold(0.0, f64::max).min(100.0));
 
     let mut per_pid_dedicated: HashMap<u32, u64> = HashMap::new();
     for (name, value) in memory {
@@ -183,10 +182,7 @@ mod tests {
             ("pid_2_luid_a_phys_0_eng_0_engtype_3D".to_string(), 20.0),
             ("pid_2_luid_a_phys_0_eng_3_engtype_VideoDecode".to_string(), 50.0),
         ];
-        let memory = vec![
-            ("pid_1_luid_a_phys_0".to_string(), 1000.0),
-            ("pid_1_luid_b_phys_0".to_string(), 24.0),
-        ];
+        let memory = vec![("pid_1_luid_a_phys_0".to_string(), 1000.0), ("pid_1_luid_b_phys_0".to_string(), 24.0)];
         let s = aggregate(&engines, &memory);
         assert_eq!(s.per_pid_percent[&1], 40.0, "3D engines of one process add up");
         assert_eq!(s.per_pid_percent[&2], 50.0, "busiest engine type wins");

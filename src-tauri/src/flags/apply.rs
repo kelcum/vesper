@@ -62,10 +62,7 @@ impl Ownership {
     }
 
     fn record(&mut self, file: &Path, content: &[u8], flag_count: usize) {
-        self.files.insert(
-            key(file),
-            OwnedFile { sha256: sha256(content), written_at: Utc::now(), flag_count },
-        );
+        self.files.insert(key(file), OwnedFile { sha256: sha256(content), written_at: Utc::now(), flag_count });
     }
 
     fn forget(&mut self, file: &Path) {
@@ -115,10 +112,7 @@ pub struct ApplyOutcome {
 }
 
 fn backup_foreign(target: &Path, content: &[u8], version_dir: &Path, backup_dir: &Path) -> io::Result<PathBuf> {
-    let version = version_dir
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "unknown".into());
+    let version = version_dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "unknown".into());
     let stamp = Utc::now().format("%Y%m%d-%H%M%S");
     let dest = backup_dir.join(format!("ClientAppSettings-{version}-{stamp}.json"));
     std::fs::create_dir_all(backup_dir)?;
@@ -200,11 +194,8 @@ fn remove_inner(
             backup: None,
         });
     }
-    let backup = if ours {
-        None
-    } else {
-        Some(display_path(&backup_foreign(target, &bytes, version_dir, backup_dir)?))
-    };
+    let backup =
+        if ours { None } else { Some(display_path(&backup_foreign(target, &bytes, version_dir, backup_dir)?)) };
     std::fs::remove_file(target)?;
     ledger.forget(target);
     log::info!("Removed {}", display_path(target));
@@ -216,10 +207,9 @@ pub fn read_current(version_dir: &Path) -> Option<Result<FlagSet, String>> {
     let bytes = std::fs::read(settings_file(version_dir)).ok()?;
     let parsed: Result<BTreeMap<String, serde_json::Value>, _> = serde_json::from_slice(&bytes);
     Some(match parsed {
-        Ok(map) => Ok(map
-            .into_iter()
-            .filter_map(|(k, v)| super::model::json_to_flag_string(&v).map(|s| (k, s)))
-            .collect()),
+        Ok(map) => {
+            Ok(map.into_iter().filter_map(|(k, v)| super::model::json_to_flag_string(&v).map(|s| (k, s))).collect())
+        }
         Err(e) => Err(format!("ClientAppSettings.json isn't valid JSON: {e}")),
     })
 }

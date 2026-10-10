@@ -10,7 +10,12 @@
 <div class="toasts" role="status" aria-live="polite">
   {#each app.toasts as t (t.id)}
     {@const Icon = icons[t.tone]}
-    <div class="toast {t.tone}" animate:flip={{ duration: 200 }} in:fly={{ y: 12, duration: 220 }} out:fly={{ x: 24, duration: 160 }}>
+    <div
+      class="toast {t.tone}"
+      animate:flip={{ duration: 200 }}
+      in:fly={{ y: 12, duration: 220 }}
+      out:fly={{ x: 24, duration: 160 }}
+    >
       <Icon size={16} strokeWidth={2} aria-hidden="true" />
       <span>{t.message}</span>
     </div>

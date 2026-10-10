@@ -103,7 +103,9 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
                     log::info!("Left a ClientAppSettings.json Vesper didn't write in place");
                 }
                 if let Some(b) = o.backup {
-                    lock(&state.notices).push(format!("Roblox already had a Fast Flags file. Vesper kept a copy at {b} before replacing it."));
+                    lock(&state.notices).push(format!(
+                        "Roblox already had a Fast Flags file. Vesper kept a copy at {b} before replacing it."
+                    ));
                 }
                 expected = profile.flags.clone();
             }
@@ -145,9 +147,23 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
                         }
                     }
                     Err(gbs::CapError::NoSettingsFile) => {
-                        log::info!("Roblox hasn't created its settings file yet; the limit applies from the next launch");
+                        log::info!(
+                            "Roblox hasn't created its settings file yet; the limit applies from the next launch"
+                        );
                     }
-                    Err(e) => log::warn!("Couldn't set the frame-rate limit: {e}"),
+                    Err(gbs::CapError::Invalid(reason)) if reason.contains("read-only") => {
+                        log::warn!("Couldn't set the frame-rate limit: {reason}");
+                        lock(&state.notices).push(
+                            "The frame-rate limit wasn't applied: Roblox's settings file is locked read-only, usually by \
+                             another launcher's \"lock settings\" option. Vesper leaves that lock alone; turn it off there to \
+                             let Vesper set the limit."
+                                .into(),
+                        );
+                    }
+                    Err(e) => {
+                        log::warn!("Couldn't set the frame-rate limit: {e}");
+                        lock(&state.notices).push(format!("The frame-rate limit wasn't applied: {e}."));
+                    }
                 },
                 Err(e) => log::warn!("Frame-rate limit skipped: {e}"),
             }
@@ -183,7 +199,9 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         profile.priority
     );
     if let Some(err) = &spawned.affinity_error {
-        lock(&state.notices).push(format!("Windows didn't allow changing which processors Roblox uses ({err}). Roblox started normally."));
+        lock(&state.notices).push(format!(
+            "Windows didn't allow changing which processors Roblox uses ({err}). Roblox started normally."
+        ));
     }
 
     // 5. Wait for the player window process (Roblox may update itself first).
@@ -195,12 +213,11 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     crate::tray::refresh(app);
     after_launch(app, settings.general.after_launch);
 
-    // 6. Confirm with Roblox's own log.
-    let version = if settings.roblox.verify_after_launch {
-        verify(app, launched_at, &expected)
-    } else {
-        None
-    };
+    // 6. Confirm with Roblox's own log. Read the log of the client that is
+    // actually running: if Roblox updated itself, the first client's short
+    // log (written before it handed off to the updater) must be ignored.
+    let since = process::start_time(pid).map_or(launched_at, |t| t.max(launched_at));
+    let version = if settings.roblox.verify_after_launch { verify(app, since, &expected) } else { None };
     drop(temp_watch);
     record_last(app, target, "started", version);
     state.redetect(app);
@@ -258,7 +275,9 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
                 return Err(Problem::new("roblox.update_incomplete", "Roblox's update didn't finish")
                     .what("Roblox's installer closed without opening Roblox.")
                     .why("The update may have been cancelled, or the download failed.")
-                    .fix("Launch again to let Roblox retry its update. If that fails, reinstall Roblox from roblox.com.")
+                    .fix(
+                        "Launch again to let Roblox retry its update. If that fails, reinstall Roblox from roblox.com.",
+                    )
                     .action(ProblemAction::Retry)
                     .action(ProblemAction::OpenUrl("https://www.roblox.com/download".into())));
             }
@@ -354,4 +373,5 @@ fn record_last(app: &AppHandle, target: &LaunchTarget, outcome: &str, version: O
     lock(&state.settings).last_launch =
         Some(LastLaunch { at: chrono::Utc::now(), roblox_version: version, profile, target, outcome: outcome.into() });
     let _ = state.save_settings();
+    let _ = app.emit(events::SETTINGS, &state.settings());
 }

@@ -32,7 +32,9 @@
 
 <div class="picker">
   <div class="chips" role="radiogroup" aria-label="Frame-rate limit">
-    <button role="radio" aria-checked={isSel(null)} class:sel={isSel(null)} onclick={() => onchange(null)}>Don't change</button>
+    <button role="radio" aria-checked={isSel(null)} class:sel={isSel(null)} onclick={() => onchange(null)}
+      >Don't change</button
+    >
     {#each FPS_PRESETS as fps (fps)}
       {@const cap: FpsCap = { mode: 'fixed', value: fps }}
       <button role="radio" aria-checked={isSel(cap)} class:sel={isSel(cap)} onclick={() => onchange(cap)}>{fps}</button>
@@ -43,8 +45,18 @@
       class:sel={isSel({ mode: 'matchDisplay' })}
       onclick={() => onchange({ mode: 'matchDisplay' })}>Match display{displayHz ? ` · ${displayHz}` : ''}</button
     >
-    <button role="radio" aria-checked={isSel({ mode: 'unlimited' })} class:sel={isSel({ mode: 'unlimited' })} onclick={() => onchange({ mode: 'unlimited' })}>Unlimited</button>
-    <button role="radio" aria-checked={isSel({ mode: 'robloxDefault' })} class:sel={isSel({ mode: 'robloxDefault' })} onclick={() => onchange({ mode: 'robloxDefault' })}>Roblox default</button>
+    <button
+      role="radio"
+      aria-checked={isSel({ mode: 'unlimited' })}
+      class:sel={isSel({ mode: 'unlimited' })}
+      onclick={() => onchange({ mode: 'unlimited' })}>Unlimited</button
+    >
+    <button
+      role="radio"
+      aria-checked={isSel({ mode: 'robloxDefault' })}
+      class:sel={isSel({ mode: 'robloxDefault' })}
+      onclick={() => onchange({ mode: 'robloxDefault' })}>Roblox default</button
+    >
   </div>
   <div class="custom" class:sel={customSelected}>
     <label for="fps-custom">Custom</label>
@@ -60,8 +72,8 @@
     <span class="faint small">FPS (15–1000)</span>
   </div>
   <p class="faint small">
-    Sets Roblox's own frame-rate cap before it starts. A limit is a ceiling, not a promise: Roblox still renders as fast as your PC
-    allows below it. “Unlimited” writes a cap of 9999.
+    Sets Roblox's own frame-rate cap before it starts. A limit is a ceiling, not a promise: Roblox still renders as fast
+    as your PC allows below it. “Unlimited” writes a cap of 9999.
   </p>
 </div>
 

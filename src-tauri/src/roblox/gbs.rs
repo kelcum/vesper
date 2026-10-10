@@ -88,9 +88,8 @@ pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
         return Ok(CAP_RE.replace(xml, format!("${{1}}{value}${{3}}")).into_owned());
     }
     // Insert into the UserGameSettings properties, matching the file's style.
-    let item = xml
-        .find(r#"<Item class="UserGameSettings""#)
-        .ok_or("This settings file has no UserGameSettings section.")?;
+    let item =
+        xml.find(r#"<Item class="UserGameSettings""#).ok_or("This settings file has no UserGameSettings section.")?;
     let props_rel = xml[item..].find("<Properties>").ok_or("This settings file has no Properties section.")?;
     let props_at = item + props_rel;
     let insert_at = props_at + "<Properties>".len();
@@ -101,11 +100,7 @@ pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
     };
     let item_indent = indent_before(item);
     let props_indent = indent_before(props_at);
-    let unit = props_indent
-        .strip_prefix(item_indent.as_str())
-        .filter(|u| !u.is_empty())
-        .unwrap_or("  ")
-        .to_owned();
+    let unit = props_indent.strip_prefix(item_indent.as_str()).filter(|u| !u.is_empty()).unwrap_or("  ").to_owned();
     let element = format!(r#"{newline}{props_indent}{unit}<int name="FramerateCap">{value}</int>"#);
     let mut out = String::with_capacity(xml.len() + element.len());
     out.push_str(&xml[..insert_at]);
@@ -156,9 +151,7 @@ pub fn set_cap(roblox_data: &Path, value: i32) -> Result<Option<i32>, CapError> 
     // Fishstrap and others can mark the file read-only; respect that choice.
     let meta = std::fs::metadata(&path).map_err(CapError::Io)?;
     if meta.permissions().readonly() {
-        return Err(CapError::Invalid(
-            "Roblox's settings file is read-only (another tool may have locked it).".into(),
-        ));
+        return Err(CapError::Invalid("Roblox's settings file is read-only (another tool may have locked it).".into()));
     }
     write_atomic(&path, &bytes).map_err(CapError::Io)?;
     log::info!("Set Roblox FramerateCap {previous:?} -> {value}");

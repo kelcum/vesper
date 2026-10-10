@@ -68,11 +68,7 @@ pub enum FlagStatus {
 pub enum InputSpec {
     Toggle,
     Choice { options: Vec<ChoiceOption> },
-    Number {
-        min: i64,
-        max: i64,
-        step: i64,
-    },
+    Number { min: i64, max: i64, step: i64 },
     Text,
 }
 
@@ -139,18 +135,8 @@ pub struct KnownIgnored {
     pub replacement: Option<String>,
 }
 
-pub const CATEGORIES: &[&str] = &[
-    "rendering",
-    "graphics",
-    "performance",
-    "networking",
-    "physics",
-    "ui",
-    "debug",
-    "experimental",
-    "engine",
-    "misc",
-];
+pub const CATEGORIES: &[&str] =
+    &["rendering", "graphics", "performance", "networking", "physics", "ui", "debug", "experimental", "engine", "misc"];
 
 static CATALOG: LazyLock<Catalog> =
     LazyLock::new(|| serde_json::from_str(CATALOG_JSON).expect("embedded flag catalog is valid"));

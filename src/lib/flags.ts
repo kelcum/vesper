@@ -168,7 +168,8 @@ export function parseFlagJson(text: string): { flags?: FlagSet; error?: string }
   } catch {
     return { error: "That isn't valid JSON." };
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { error: 'Expected a JSON object of flags.' };
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    return { error: 'Expected a JSON object of flags.' };
   const flags: FlagSet = {};
   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
     if (typeof v === 'boolean') flags[k] = v ? 'True' : 'False';

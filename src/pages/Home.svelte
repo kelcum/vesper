@@ -1,5 +1,14 @@
 <script lang="ts">
-  import { ArrowRight, CircleCheck, FolderOpen, Play, RefreshCw, ShieldCheck, TriangleAlert, Download } from '@lucide/svelte';
+  import {
+    ArrowRight,
+    CircleCheck,
+    FolderOpen,
+    Play,
+    RefreshCw,
+    ShieldCheck,
+    TriangleAlert,
+    Download,
+  } from '@lucide/svelte';
   import { onDestroy, onMount } from 'svelte';
   import Badge from '../components/ui/Badge.svelte';
   import Button from '../components/ui/Button.svelte';
@@ -9,7 +18,16 @@
   import Sparkline from '../components/ui/Sparkline.svelte';
   import Toggle from '../components/ui/Toggle.svelte';
   import { api } from '../lib/api';
-  import { bytes, compareVersions, fpsCapShort, minorVersion, percent, priorityLabel, relativeTime, sourceLabel } from '../lib/format';
+  import {
+    bytes,
+    compareVersions,
+    fpsCapShort,
+    minorVersion,
+    percent,
+    priorityLabel,
+    relativeTime,
+    sourceLabel,
+  } from '../lib/format';
   import { app } from '../lib/store.svelte';
   import type { LatestVersion, LaunchTarget } from '../lib/types';
 
@@ -20,7 +38,10 @@
 
   onMount(() => {
     api.perfWatch('home', true);
-    api.robloxLatest(false).then((l) => (latest = l)).catch(() => {});
+    api
+      .robloxLatest(false)
+      .then((l) => (latest = l))
+      .catch(() => {});
   });
   onDestroy(() => {
     api.perfWatch('home', false);
@@ -49,9 +70,7 @@
 
   const busy = $derived(['preparing', 'starting', 'updating'].includes(app.launch.state));
   const install = $derived(app.install);
-  const outdated = $derived(
-    !!(install?.version && latest && compareVersions(latest.version, install.version) > 0),
-  );
+  const outdated = $derived(!!(install?.version && latest && compareVersions(latest.version, install.version) > 0));
   const profile = $derived(app.activeProfile);
   const flagCount = $derived(profile ? Object.keys(profile.flags).length : 0);
   const report = $derived(app.lastReport);
@@ -106,7 +125,14 @@
 <section class="hero glass">
   <div class="launch">
     <div class="launch-row">
-      <Button variant="primary" size="lg" icon={Play} loading={busy} disabled={!install || !!parseError} onclick={launch}>
+      <Button
+        variant="primary"
+        size="lg"
+        icon={Play}
+        loading={busy}
+        disabled={!install || !!parseError}
+        onclick={launch}
+      >
         {launchLabel}
       </Button>
       <div class="join">
@@ -130,14 +156,22 @@
         <Button size="sm" variant="ghost" onclick={() => api.robloxDismissLaunch()}>Dismiss</Button>
       </div>
     {:else if app.robloxRunning}
-      <p class="state ok"><CircleCheck size={15} aria-hidden="true" /> Roblox is running. Flag and frame-rate changes apply the next time it starts.</p>
+      <p class="state ok">
+        <CircleCheck size={15} aria-hidden="true" /> Roblox is running. Flag and frame-rate changes apply the next time it
+        starts.
+      </p>
     {:else if install && !busy}
       <p class="state">
-        Ready to start Roblox {install.version ?? ''} with the {profile?.name ?? ''} profile{flagCount ? `, applying ${flagCount} flag${flagCount === 1 ? '' : 's'}` : ''}.
+        Ready to start Roblox {install.version ?? ''} with the {profile?.name ?? ''} profile{flagCount
+          ? `, applying ${flagCount} flag${flagCount === 1 ? '' : 's'}`
+          : ''}.
       </p>
     {/if}
     {#if !install}
-      <p class="state bad"><TriangleAlert size={15} aria-hidden="true" /> Roblox isn't installed for this Windows account. <button class="link" onclick={() => api.openUrl('https://www.roblox.com/download')}>Get Roblox</button></p>
+      <p class="state bad">
+        <TriangleAlert size={15} aria-hidden="true" /> Roblox isn't installed for this Windows account.
+        <button class="link" onclick={() => api.openUrl('https://www.roblox.com/download')}>Get Roblox</button>
+      </p>
     {/if}
   </div>
 
@@ -155,7 +189,9 @@
         <Badge>{flagCount} flag{flagCount === 1 ? '' : 's'}</Badge>
         {#if profile.priority !== 'normal'}<Badge>{priorityLabel(profile.priority)}</Badge>{/if}
       </div>
-      <button class="link small" onclick={() => app.go('profiles')}>Edit profile <ArrowRight size={13} aria-hidden="true" /></button>
+      <button class="link small" onclick={() => app.go('profiles')}
+        >Edit profile <ArrowRight size={13} aria-hidden="true" /></button
+      >
     {/if}
   </div>
 </section>
@@ -163,8 +199,22 @@
 <div class="grid">
   <Card title="Roblox" subtitle={install ? sourceLabel(install.source) : 'Not detected'}>
     {#snippet actions()}
-      <Button size="sm" variant="ghost" icon={RefreshCw} label="Detect again" title="Detect again" onclick={() => api.robloxDetect().then((d) => (app.detection = d))} />
-      {#if install}<Button size="sm" variant="ghost" icon={FolderOpen} label="Open Roblox folder" title="Open folder" onclick={() => api.openFolder('roblox')} />{/if}
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={RefreshCw}
+        label="Detect again"
+        title="Detect again"
+        onclick={() => api.robloxDetect().then((d) => (app.detection = d))}
+      />
+      {#if install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Open Roblox folder"
+          title="Open folder"
+          onclick={() => api.openFolder('roblox')}
+        />{/if}
     {/snippet}
     {#if install}
       <div class="kv">
@@ -172,14 +222,18 @@
         <span>Status</span>
         <span>
           {#if !latest}<span class="faint">Not checked</span>
-          {:else if outdated}<Badge tone="warn" title="Roblox updates itself when it next starts.">Update available · {minorVersion(latest.version)}</Badge>
+          {:else if outdated}<Badge tone="warn" title="Roblox updates itself when it next starts."
+              >Update available · {minorVersion(latest.version)}</Badge
+            >
           {:else}<Badge tone="ok">Up to date</Badge>{/if}
         </span>
         <span>Last launch</span>
         <span>{relativeTime(app.settings.lastLaunch?.at)}</span>
       </div>
       {#if app.detection.protocol && app.detection.protocol.owner !== 'Roblox' && app.detection.protocol.owner !== 'Vesper'}
-        <p class="note">Game links from the website open in {app.detection.protocol.owner}. Launch from Vesper to use your profile.</p>
+        <p class="note">
+          Game links from the website open in {app.detection.protocol.owner}. Launch from Vesper to use your profile.
+        </p>
       {/if}
     {:else}
       <p class="muted">Install Roblox, open it once, then press Detect again.</p>
@@ -192,20 +246,37 @@
         {#if report.denied.length === 0}
           <ShieldCheck size={18} aria-hidden="true" class="okc" /> {report.accepted.length} accepted
         {:else}
-          <TriangleAlert size={18} aria-hidden="true" class="warnc" /> {report.denied.length} denied, {report.accepted.length} accepted
+          <TriangleAlert size={18} aria-hidden="true" class="warnc" />
+          {report.denied.length} denied, {report.accepted.length} accepted
         {/if}
       </p>
-      <p class="muted small">Roblox {report.robloxVersion ?? '?'} · {relativeTime(report.checkedAt)}{report.complete ? '' : ' · log incomplete'}</p>
-      {#if report.notRead.length}<p class="note">{report.notRead.length} flag(s) weren't read, likely because a different Roblox copy was launched.</p>{/if}
-      <button class="link small" onclick={() => app.go('flags')}>See flags <ArrowRight size={13} aria-hidden="true" /></button>
+      <p class="muted small">
+        Roblox {report.robloxVersion ?? '?'} · {relativeTime(report.checkedAt)}{report.complete
+          ? ''
+          : ' · log incomplete'}
+      </p>
+      {#if report.notRead.length}<p class="note">
+          {report.notRead.length} flag(s) weren't read, likely because a different Roblox copy was launched.
+        </p>{/if}
+      <button class="link small" onclick={() => app.go('flags')}
+        >See flags <ArrowRight size={13} aria-hidden="true" /></button
+      >
     {:else}
-      <p class="muted">Launch Roblox with flags set and Vesper will read Roblox's own log to confirm which ones it accepted.</p>
+      <p class="muted">
+        Launch Roblox with flags set and Vesper will read Roblox's own log to confirm which ones it accepted.
+      </p>
     {/if}
   </Card>
 
   <Card title="Performance" subtitle={app.robloxRunning ? 'Roblox' : 'This PC'}>
     {#snippet actions()}
-      <Button size="sm" variant="ghost" icon={ArrowRight} label="Open performance" onclick={() => app.go('performance')} />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={ArrowRight}
+        label="Open performance"
+        onclick={() => app.go('performance')}
+      />
     {/snippet}
     {#if perf}
       {#if app.robloxRunning && perf.roblox}
@@ -218,7 +289,8 @@
       {:else}
         <div class="kv">
           <span>CPU</span><span class="mono">{percent(perf.system.cpuPercent)}</span>
-          <span>Memory</span><span class="mono">{bytes(perf.system.memoryUsed)} / {bytes(perf.system.memoryTotal)}</span>
+          <span>Memory</span><span class="mono">{bytes(perf.system.memoryUsed)} / {bytes(perf.system.memoryTotal)}</span
+          >
           <span>GPU</span><span class="mono">{percent(perf.system.gpuPercent)}</span>
         </div>
         <Sparkline label="CPU usage" values={series((s) => s.system.cpuPercent)} max={100} />
@@ -233,7 +305,10 @@
 
 <section class="quick glass">
   <div class="q">
-    <div><div class="ql">Discord Rich Presence</div><div class="qh">Show “Using Vesper” on your profile</div></div>
+    <div>
+      <div class="ql">Discord Rich Presence</div>
+      <div class="qh">Show “Using Vesper” on your profile</div>
+    </div>
     <Toggle
       label="Discord Rich Presence"
       checked={app.settings.discord.richPresence}
@@ -242,7 +317,10 @@
     />
   </div>
   <div class="q">
-    <div><div class="ql">Keep flags applied</div><div class="qh">Re-apply after Roblox updates itself</div></div>
+    <div>
+      <div class="ql">Keep flags applied</div>
+      <div class="qh">Re-apply after Roblox updates itself</div>
+    </div>
     <Toggle
       label="Keep flags applied"
       checked={app.settings.roblox.flagMode === 'keepApplied'}
@@ -250,7 +328,10 @@
     />
   </div>
   <div class="q">
-    <div><div class="ql">Frame-rate limit</div><div class="qh">Use the profile's limit</div></div>
+    <div>
+      <div class="ql">Frame-rate limit</div>
+      <div class="qh">Use the profile's limit</div>
+    </div>
     <Toggle
       label="Apply frame-rate limit"
       checked={app.settings.roblox.applyFpsCap}
@@ -277,9 +358,7 @@
     gap: var(--space-6);
     padding: var(--space-6);
     border-radius: var(--radius-xl);
-    background:
-      radial-gradient(120% 140% at 0% 0%, rgba(149, 132, 255, 0.16), transparent 50%),
-      var(--surface);
+    background: radial-gradient(120% 140% at 0% 0%, rgba(149, 132, 255, 0.16), transparent 50%), var(--surface);
   }
   .launch-row {
     display: flex;

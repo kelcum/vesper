@@ -25,14 +25,25 @@ pub enum UpdateState {
     Idle,
     Checking,
     #[serde(rename_all = "camelCase")]
-    UpToDate { checked_at: DateTime<Utc> },
+    UpToDate {
+        checked_at: DateTime<Utc>,
+    },
     #[serde(rename_all = "camelCase")]
-    Available { version: String, notes: Option<String>, date: Option<String> },
+    Available {
+        version: String,
+        notes: Option<String>,
+        date: Option<String>,
+    },
     #[serde(rename_all = "camelCase")]
-    Downloading { downloaded: u64, total: Option<u64> },
+    Downloading {
+        downloaded: u64,
+        total: Option<u64>,
+    },
     Installing,
     #[serde(rename_all = "camelCase")]
-    Failed { message: String },
+    Failed {
+        message: String,
+    },
 }
 
 impl UpdateState {
@@ -40,7 +51,9 @@ impl UpdateState {
         match self {
             UpdateState::Idle => "Not checked yet".into(),
             UpdateState::Checking => "Checking".into(),
-            UpdateState::UpToDate { checked_at } => format!("Up to date (checked {})", checked_at.format("%Y-%m-%d %H:%M UTC")),
+            UpdateState::UpToDate { checked_at } => {
+                format!("Up to date (checked {})", checked_at.format("%Y-%m-%d %H:%M UTC"))
+            }
             UpdateState::Available { version, .. } => format!("Version {version} available"),
             UpdateState::Downloading { .. } => "Downloading".into(),
             UpdateState::Installing => "Installing".into(),

@@ -75,9 +75,13 @@ fn wheel_preset(id: &str) -> Option<(&'static [u8], &'static [u8])> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Source {
-    Preset { id: String },
+    Preset {
+        id: String,
+    },
     /// A file the user picked; `name` is its original file name, for display.
-    File { name: String },
+    File {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -330,6 +334,10 @@ pub struct AppliedFile {
     pub sha256: String,
     /// Backup of the Roblox file this replaced, if there was one.
     pub original: Option<PathBuf>,
+    /// The file's exact path. Ledger keys are lowercased for lookup, but
+    /// writing through a lowercased path would rename the file on NTFS.
+    #[serde(default)]
+    pub path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -374,17 +382,23 @@ struct Desired {
     create: bool,
 }
 
-fn desired_files(cfg: &ModsConfig, p: &ModPaths, install: &Path, originals: &Path) -> (BTreeMap<String, Desired>, Vec<String>) {
+fn desired_files(
+    cfg: &ModsConfig,
+    p: &ModPaths,
+    install: &Path,
+    originals: &Path,
+) -> (BTreeMap<String, Desired>, Vec<String>) {
     let mut out = BTreeMap::new();
     let mut errors = Vec::new();
-    let mut add_prepared = |rel: &str, kind: &'static str, create: bool, out: &mut BTreeMap<String, Desired>| {
-        match std::fs::read(p.prepared(rel)) {
+    let mut add_prepared =
+        |rel: &str, kind: &'static str, create: bool, out: &mut BTreeMap<String, Desired>| match std::fs::read(
+            p.prepared(rel),
+        ) {
             Ok(bytes) => {
                 out.insert(rel.to_owned(), Desired { kind, bytes, create });
             }
             Err(_) => errors.push(format!("{kind}: prepared file {rel} is missing; choose the {kind} again.")),
-        }
-    };
+        };
     if cfg.cursor.is_some() {
         for rel in CURSOR_FILES {
             add_prepared(rel, "cursor", false, &mut out);
@@ -533,7 +547,15 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
         }
         match write_atomic(&target, &want.bytes) {
             Ok(()) => {
-                ledger.files.insert(k, AppliedFile { kind: want.kind.into(), sha256: sha(&want.bytes), original });
+                ledger.files.insert(
+                    k,
+                    AppliedFile {
+                        kind: want.kind.into(),
+                        sha256: sha(&want.bytes),
+                        original,
+                        path: Some(target.clone()),
+                    },
+                );
                 report.written += 1;
             }
             Err(e) => report.errors.push(format!("Couldn't write {rel}: {e}")),
@@ -563,7 +585,8 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
 /// Restores one file. `Ok(false)` if it was changed by something else and left alone.
 fn restore_one(k: &str, ledger: &mut ModLedger) -> Result<bool, String> {
     let Some(entry) = ledger.files.get(k).cloned() else { return Ok(true) };
-    let target = PathBuf::from(k);
+    // Restore through the exact path; the lowercased key would rename the file.
+    let target = entry.path.clone().unwrap_or_else(|| PathBuf::from(k));
     match std::fs::read(&target) {
         Ok(cur) if sha(&cur) != entry.sha256 => {
             ledger.files.remove(k);
@@ -652,7 +675,10 @@ mod tests {
         std::fs::write(&src, png(200, 100, [255, 0, 0, 255])).unwrap();
         prepare_cursor(&e.mods, &Source::File { name: "pick.png".into() }, Some(&src), 50).unwrap();
 
-        let cfg = ModsConfig { cursor: Some(CursorMod { source: Source::File { name: "pick.png".into() }, scale: 50 }), ..Default::default() };
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod { source: Source::File { name: "pick.png".into() }, scale: 50 }),
+            ..Default::default()
+        };
         let mut ledger = ModLedger::default();
         let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
         assert_eq!(r.written, 2, "{r:?}");
@@ -676,7 +702,10 @@ mod tests {
         let e = env();
         prepare_wheel(&e.mods, &Source::Preset { id: "dusk".into() }, None).unwrap();
         let cfg = ModsConfig {
-            emote_wheel: Some(WheelMod { source: Some(Source::Preset { id: "dusk".into() }), accent: Some("#a596ff".into()) }),
+            emote_wheel: Some(WheelMod {
+                source: Some(Source::Preset { id: "dusk".into() }),
+                accent: Some("#a596ff".into()),
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -690,7 +719,10 @@ mod tests {
 
         // Changing only the accent recolours from the backed-up original, not from our own output.
         let cfg2 = ModsConfig {
-            emote_wheel: Some(WheelMod { source: Some(Source::Preset { id: "dusk".into() }), accent: Some("#ff0000".into()) }),
+            emote_wheel: Some(WheelMod {
+                source: Some(Source::Preset { id: "dusk".into() }),
+                accent: Some("#ff0000".into()),
+            }),
             ..Default::default()
         };
         apply(&cfg2, &e.mods, &e.install, &mut ledger);
@@ -807,6 +839,27 @@ mod tests {
         let r = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(r.restored, 0);
         assert_ne!(std::fs::read(sibling.join(rel)).unwrap(), png(64, 64, [1, 1, 1, 255]), "sibling keeps its mod");
+    }
+
+    /// Regression: restoring through the lowercased ledger key renamed
+    /// "ArrowCursor.png" to "arrowcursor.png" on a real Roblox install.
+    #[test]
+    fn restore_keeps_original_file_name_case() {
+        let e = env();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100).unwrap();
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100 }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        apply(&cfg, &e.mods, &e.install, &mut ledger);
+        let r = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
+        assert_eq!(r.restored, 2);
+        let dir = e.install.join(r"content\textures\Cursors\KeyboardMouse");
+        let mut names: Vec<String> =
+            std::fs::read_dir(dir).unwrap().map(|x| x.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        assert_eq!(names, vec!["ArrowCursor.png", "ArrowFarCursor.png"]);
     }
 
     #[test]

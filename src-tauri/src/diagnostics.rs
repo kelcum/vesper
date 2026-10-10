@@ -82,7 +82,12 @@ pub fn render(s: &Snapshot) -> String {
     let _ = writeln!(o);
     let _ = writeln!(o, "Profile     {}", s.profile);
     let _ = writeln!(o, "Flag mode   {}", s.flag_mode);
-    let _ = writeln!(o, "FPS limit   {} (Roblox setting now: {})", s.fps_cap, s.current_frame_cap.map(|c| c.to_string()).unwrap_or_else(|| "unknown".into()));
+    let _ = writeln!(
+        o,
+        "FPS limit   {} (Roblox setting now: {})",
+        s.fps_cap,
+        s.current_frame_cap.map(|c| c.to_string()).unwrap_or_else(|| "unknown".into())
+    );
     if s.flags.is_empty() {
         let _ = writeln!(o, "Flags       none");
     } else {

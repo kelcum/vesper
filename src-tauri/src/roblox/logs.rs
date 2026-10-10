@@ -24,8 +24,7 @@ const LOADED_MARKER: &str = "Successfully loaded flags";
 
 static DENIED: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"Denied local configuration for: ([A-Za-z0-9_]+)").expect("valid regex"));
-static VERSION: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\d+\.\d+\.\d+\.\d+)_").expect("valid regex"));
+static VERSION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d+\.\d+\.\d+\.\d+)_").expect("valid regex"));
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FlagLoad {
@@ -44,14 +43,11 @@ pub fn parse_flag_load(text: &str) -> FlagLoad {
         let rest = &text[start + LOCAL_MARKER.len()..];
         if rest.starts_with('"') {
             out.loaded = Some(FlagSet::new());
-        } else if let Some(end) = rest.find("}\"") {
+        } else if let Some(end) = closing_brace(rest) {
             let json = &rest[..=end];
             if let Ok(map) = serde_json::from_str::<BTreeMap<String, serde_json::Value>>(json) {
-                out.loaded = Some(
-                    map.into_iter()
-                        .filter_map(|(k, v)| json_to_flag_string(&v).map(|s| (k, s)))
-                        .collect(),
-                );
+                out.loaded =
+                    Some(map.into_iter().filter_map(|(k, v)| json_to_flag_string(&v).map(|s| (k, s))).collect());
             }
         }
     }
@@ -60,12 +56,18 @@ pub fn parse_flag_load(text: &str) -> FlagLoad {
 
     if let Some(pos) = text.find(LOADED_MARKER) {
         let after = &text[pos..];
-        out.finished = after
-            .lines()
-            .skip(1)
-            .any(|l| !l.trim().is_empty() && !DENIED.is_match(l));
+        out.finished = after.lines().skip(1).any(|l| !l.trim().is_empty() && !DENIED.is_match(l));
     }
     out
+}
+
+/// Finds the `}` that closes the echoed settings file. Roblox prints the file
+/// verbatim, so a trailing newline in the file puts whitespace between the
+/// brace and the closing quote (`}\n"`).
+fn closing_brace(rest: &str) -> Option<usize> {
+    rest.match_indices('}')
+        .map(|(i, _)| i)
+        .find(|&i| rest[i + 1..].trim_start_matches([' ', '\t', '\r', '\n']).starts_with('"'))
 }
 
 /// Extracts the Roblox version from a log file name,
@@ -145,6 +147,17 @@ mod tests {
         assert_eq!(loaded.len(), 3);
         assert_eq!(loaded["FFlagHandleAltEnterFullscreenManually"], "False");
         assert_eq!(load.denied, vec!["FFlagDebugDisablePostFx", "FIntRenderShadowIntensity"]);
+        assert!(load.finished);
+    }
+
+    /// Real Roblox 0.742 output for a file written by Vesper (ends with a newline).
+    #[test]
+    fn parses_settings_echoed_with_trailing_newline() {
+        let log = "2026-10-10T13:41:18.584Z,0.584861,774c,6 [FLog::Output] LoadClientSettingsFromLocal: \"{\n  \"FFlagHandleAltEnterFullscreenManually\": \"False\"\n}\n\"\n2026-10-10T13:41:18.585Z,0.585861,774c,6,Warning [FLog::FlagFetchingStarterModule] Successfully loaded flags\n2026-10-10T13:41:18.590Z,0.590000,774c,6,Info [FLog::Other] next line\n";
+        let load = parse_flag_load(log);
+        let loaded = load.loaded.expect("settings were read");
+        assert_eq!(loaded["FFlagHandleAltEnterFullscreenManually"], "False");
+        assert!(load.denied.is_empty());
         assert!(load.finished);
     }
 

@@ -322,10 +322,8 @@ impl Settings {
                 Loaded { settings: s, recovered_from: None }
             }
             Err(e) => {
-                let aside = path.with_file_name(format!(
-                    "settings.unreadable-{}.json",
-                    Utc::now().format("%Y%m%d-%H%M%S")
-                ));
+                let aside =
+                    path.with_file_name(format!("settings.unreadable-{}.json", Utc::now().format("%Y%m%d-%H%M%S")));
                 let moved = std::fs::rename(path, &aside).is_ok();
                 log::warn!("settings.json was unreadable ({e}); using defaults");
                 Loaded { settings: Settings::default(), recovered_from: moved.then_some(aside) }

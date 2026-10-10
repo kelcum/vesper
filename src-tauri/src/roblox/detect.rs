@@ -216,17 +216,12 @@ pub fn resolve_custom(dir: &Path) -> Result<RobloxInstall, String> {
     }
     let mut found = scan_versions(dir, InstallSource::Custom, None);
     found.sort_by_key(|i| std::cmp::Reverse(i.modified));
-    found
-        .into_iter()
-        .next()
-        .ok_or_else(|| format!("{} doesn't contain {PLAYER_EXE}.", display_path(dir)))
+    found.into_iter().next().ok_or_else(|| format!("{} doesn't contain {PLAYER_EXE}.", display_path(dir)))
 }
 
 pub fn detect(env: &DetectEnv, override_dir: Option<&Path>) -> Detection {
     let reg = env.registry.as_ref();
-    let registered_exe = reg
-        .string(Hive::CurrentUser, ENV_KEY, "clientExe")
-        .map(PathBuf::from);
+    let registered_exe = reg.string(Hive::CurrentUser, ENV_KEY, "clientExe").map(PathBuf::from);
     let registered_dir = registered_exe.as_deref().and_then(Path::parent).map(Path::to_path_buf);
 
     let mut installs = Vec::new();
@@ -254,8 +249,16 @@ pub fn detect(env: &DetectEnv, override_dir: Option<&Path>) -> Detection {
     if let Some(pf) = &env.program_files_x86 {
         installs.extend(scan_versions(&pf.join("Roblox").join("Versions"), InstallSource::AllUsers, None));
     }
-    installs.extend(scan_versions(&env.local_appdata.join("Fishstrap").join("Versions"), InstallSource::Fishstrap, None));
-    installs.extend(scan_versions(&env.local_appdata.join("Bloxstrap").join("Versions"), InstallSource::Bloxstrap, None));
+    installs.extend(scan_versions(
+        &env.local_appdata.join("Fishstrap").join("Versions"),
+        InstallSource::Fishstrap,
+        None,
+    ));
+    installs.extend(scan_versions(
+        &env.local_appdata.join("Bloxstrap").join("Versions"),
+        InstallSource::Bloxstrap,
+        None,
+    ));
 
     // Remove duplicates (a custom folder that is also an official one).
     let mut seen = Vec::<PathBuf>::new();
@@ -347,11 +350,7 @@ mod tests {
         // Folder without the player exe is ignored.
         std::fs::create_dir_all(versions.join("version-empty")).unwrap();
 
-        let reg = FakeRegistry::default().with(
-            ENV_KEY,
-            "clientExe",
-            &registered.join(PLAYER_EXE).to_string_lossy(),
-        );
+        let reg = FakeRegistry::default().with(ENV_KEY, "clientExe", &registered.join(PLAYER_EXE).to_string_lossy());
         let d = detect(&env(dir.path(), reg), None);
         assert_eq!(d.installs.len(), 2);
         let p = d.preferred_install().unwrap();

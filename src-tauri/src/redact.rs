@@ -20,18 +20,12 @@ static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
     };
     vec![
         // Roblox security cookie (value includes the well-known warning prefix).
-        rule(
-            r"_\|WARNING:-DO-NOT-SHARE-THIS[^|]*\|_[A-Za-z0-9]+",
-            "[redacted roblox cookie]",
-        ),
+        rule(r"_\|WARNING:-DO-NOT-SHARE-THIS[^|]*\|_[A-Za-z0-9]+", "[redacted roblox cookie]"),
         rule(r"(?i)\.ROBLOSECURITY\s*[=:]\s*[^;\s]+", ".ROBLOSECURITY=[redacted]"),
         // roblox-player: launch URIs carry an authentication ticket in `gameinfo:`.
         rule(r"(?i)gameinfo:[^+\s&]+", "gameinfo:[redacted]"),
         // Discord user tokens.
-        rule(
-            r"\b[MNO][A-Za-z\d_-]{23,27}\.[A-Za-z\d_-]{6}\.[A-Za-z\d_-]{27,}\b",
-            "[redacted discord token]",
-        ),
+        rule(r"\b[MNO][A-Za-z\d_-]{23,27}\.[A-Za-z\d_-]{6}\.[A-Za-z\d_-]{27,}\b", "[redacted discord token]"),
         rule(r"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [redacted]"),
         // key=value / key: value pairs whose key looks secret.
         rule(
@@ -69,10 +63,7 @@ mod tests {
         let s = redact(r"C:\Users\alex\AppData\Local\Roblox\Versions\version-1\RobloxPlayerBeta.exe");
         assert_eq!(s, r"%USERPROFILE%\AppData\Local\Roblox\Versions\version-1\RobloxPlayerBeta.exe");
         assert_eq!(redact("c:/users/Some One/x"), "%USERPROFILE%/x");
-        assert_eq!(
-            redact(r#"open "C:\Users\Some One\a.txt""#),
-            r#"open "%USERPROFILE%\a.txt""#
-        );
+        assert_eq!(redact(r#"open "C:\Users\Some One\a.txt""#), r#"open "%USERPROFILE%\a.txt""#);
     }
 
     #[test]

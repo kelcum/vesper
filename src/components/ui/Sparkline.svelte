@@ -14,7 +14,11 @@
     const n = values.length;
     if (n < 2) return '';
     return values
-      .map((v, i) => (v == null ? null : `${((i / (n - 1)) * W).toFixed(1)},${(height - (Math.min(v, top) / top) * (height - 2) - 1).toFixed(1)}`))
+      .map((v, i) =>
+        v == null
+          ? null
+          : `${((i / (n - 1)) * W).toFixed(1)},${(height - (Math.min(v, top) / top) * (height - 2) - 1).toFixed(1)}`,
+      )
       .filter(Boolean)
       .join(' ');
   });
@@ -31,7 +35,14 @@
   </defs>
   {#if points}
     <polygon points={area} fill="url(#{id})" />
-    <polyline {points} fill="none" stroke={color} stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+    <polyline
+      {points}
+      fill="none"
+      stroke={color}
+      stroke-width="1.6"
+      vector-effect="non-scaling-stroke"
+      stroke-linejoin="round"
+    />
   {/if}
 </svg>
 

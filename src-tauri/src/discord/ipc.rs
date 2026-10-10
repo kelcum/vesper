@@ -23,7 +23,10 @@ pub enum IpcError {
     /// No Discord pipe exists: Discord is closed, still starting, or not installed.
     NotRunning,
     /// Discord closed the connection, with its reason (e.g. invalid client ID).
-    Closed { code: i64, message: String },
+    Closed {
+        code: i64,
+        message: String,
+    },
     Io(io::Error),
     Protocol(String),
 }
@@ -229,7 +232,8 @@ pub(crate) mod tests {
                     let _ = log.send(hello);
                     match behaviour {
                         Behaviour::RejectClientId => {
-                            let _ = pipe.write_all(&encode(OP_CLOSE, &json!({"code": 4000, "message": "Invalid Client ID"})));
+                            let _ = pipe
+                                .write_all(&encode(OP_CLOSE, &json!({"code": 4000, "message": "Invalid Client ID"})));
                             continue;
                         }
                         Behaviour::Accept => {

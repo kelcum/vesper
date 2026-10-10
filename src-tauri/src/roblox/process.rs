@@ -36,11 +36,24 @@ pub fn named<'a>(all: &'a [ProcessSample], name: &str) -> impl Iterator<Item = &
     all.iter().filter(move |p| p.name.eq_ignore_ascii_case(&name))
 }
 
+/// Converts a Windows FILETIME (100 ns since 1601) to `SystemTime`.
+pub fn filetime_to_system(ft: i64) -> Option<std::time::SystemTime> {
+    const UNIX_EPOCH_AS_FILETIME: i64 = 116_444_736_000_000_000;
+    let since_unix = ft.checked_sub(UNIX_EPOCH_AS_FILETIME)?;
+    let since_unix = u64::try_from(since_unix).ok()?;
+    Some(std::time::UNIX_EPOCH + std::time::Duration::from_nanos(since_unix * 100))
+}
+
+/// When a process started, from a snapshot (no handle needed).
+pub fn start_time(pid: u32) -> Option<std::time::SystemTime> {
+    let all = snapshot().ok()?;
+    let p = all.iter().find(|p| p.pid == pid)?;
+    filetime_to_system(p.create_time)
+}
+
 /// PIDs of running Roblox player processes.
 pub fn roblox_pids() -> Vec<u32> {
-    snapshot()
-        .map(|all| named(&all, PLAYER_PROCESS).map(|p| p.pid).collect())
-        .unwrap_or_default()
+    snapshot().map(|all| named(&all, PLAYER_PROCESS).map(|p| p.pid).collect()).unwrap_or_default()
 }
 
 #[cfg(windows)]
@@ -130,7 +143,11 @@ mod imp {
             // SAFETY: offset is within the buffer the kernel filled, and entries are 8-byte aligned.
             let info = unsafe { &*(base.add(offset) as *const SystemProcessInfo) };
             let name = if info.image_name.buffer.is_null() || info.image_name.length == 0 {
-                if info.unique_process_id == 0 { "System Idle Process".to_owned() } else { "System".to_owned() }
+                if info.unique_process_id == 0 {
+                    "System Idle Process".to_owned()
+                } else {
+                    "System".to_owned()
+                }
             } else {
                 // SAFETY: the kernel points ImageName into the same buffer.
                 let chars = unsafe {
@@ -191,6 +208,14 @@ mod tests {
         std::hint::black_box(x);
         let after = snapshot().unwrap().into_iter().find(|p| p.pid == std::process::id()).unwrap().cpu_time;
         assert!(after > before, "{after} > {before}");
+    }
+
+    #[test]
+    fn start_time_of_this_process_is_recent() {
+        let t = start_time(std::process::id()).expect("own start time");
+        let age = std::time::SystemTime::now().duration_since(t).expect("in the past");
+        assert!(age < std::time::Duration::from_secs(600), "{age:?}");
+        assert!(filetime_to_system(0).is_none(), "before 1970 is rejected");
     }
 
     #[test]

@@ -28,9 +28,7 @@
         "visible": false,
         "dragDropEnabled": false,
         "windowEffects": {
-          "effects": [
-            "mica"
-          ]
+          "effects": ["mica"]
         }
       }
     ],
@@ -41,22 +39,14 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
+    "targets": ["nsis"],
     "publisher": "The Vesper Authors",
     "copyright": "Copyright © 2026 The Vesper Authors. MIT License.",
     "category": "Utility",
     "homepage": "https://xan.gripe/vesper",
     "shortDescription": "A calm, honest Roblox launcher for Windows.",
     "longDescription": "Vesper launches Roblox with verified Fast Flags, performance profiles, a frame-rate limit, live performance monitoring and Discord Rich Presence. Privacy-first: no telemetry, no cookies, no tokens.",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.png",
-      "icons/icon.ico"
-    ],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
     "createUpdaterArtifacts": true,
     "windows": {
       "webviewInstallMode": {
@@ -77,9 +67,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExQjA1MjdEMUFFNzVCQjMKUldTelcrY2FmVkt3b1FJcWw1N0dVSHp4S2pUbXkxN2MyRm4xeTVYdHF0WWhmQU4xWjJmS293OFoK",
-      "endpoints": [
-        "https://xan.gripe/vesper/updates/latest.json"
-      ],
+      "endpoints": ["https://xan.gripe/vesper/updates/latest.json"],
       "windows": {
         "installMode": "passive"
       }

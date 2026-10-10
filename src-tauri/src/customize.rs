@@ -103,9 +103,7 @@ fn problem(what: impl Into<String>) -> Problem {
 
 /// Saves the config and applies it to Roblox if Roblox is closed.
 fn commit(app: &AppHandle, state: &AppState) -> Result<bool> {
-    lock(&state.mods)
-        .save(&state.mod_paths)
-        .map_err(|e| Problem::io("Couldn't save your customisations.", &e))?;
+    lock(&state.mods).save(&state.mod_paths).map_err(|e| Problem::io("Couldn't save your customisations.", &e))?;
     if state.roblox_running.load(Ordering::Relaxed) {
         return Ok(false);
     }
@@ -115,7 +113,10 @@ fn commit(app: &AppHandle, state: &AppState) -> Result<bool> {
     Ok(true)
 }
 
-async fn blocking<T: Send + 'static>(app: AppHandle, f: impl FnOnce(&AppHandle) -> Result<T> + Send + 'static) -> Result<T> {
+async fn blocking<T: Send + 'static>(
+    app: AppHandle,
+    f: impl FnOnce(&AppHandle) -> Result<T> + Send + 'static,
+) -> Result<T> {
     tauri::async_runtime::spawn_blocking(move || f(&app))
         .await
         .map_err(|e| Problem::internal("A background task stopped unexpectedly.", e))?
@@ -129,7 +130,8 @@ pub fn mods_get(state: State<'_, AppState>) -> ModsView {
 /// Keeps a copy of a picked image so size or colour changes don't need it picked again.
 fn store_source(state: &AppState, kind: &str, path: &Path) -> Result<PathBuf> {
     let dest = state.mod_paths.root.join("sources").join(kind);
-    std::fs::create_dir_all(dest.parent().expect("has parent")).map_err(|e| Problem::io("Couldn't keep a copy of the image.", &e))?;
+    std::fs::create_dir_all(dest.parent().expect("has parent"))
+        .map_err(|e| Problem::io("Couldn't keep a copy of the image.", &e))?;
     std::fs::copy(path, &dest).map_err(|e| Problem::io("Couldn't read that image.", &e))?;
     Ok(dest)
 }

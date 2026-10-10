@@ -15,7 +15,10 @@
 
   onMount(() => {
     api.perfWatch('performance', true);
-    api.fpsCapStatus().then((c) => (cap = c)).catch(() => {});
+    api
+      .fpsCapStatus()
+      .then((c) => (cap = c))
+      .catch(() => {});
   });
   onDestroy(() => {
     api.perfWatch('performance', false);
@@ -45,11 +48,18 @@
   <div>
     <p class="eyebrow">Performance</p>
     <h1>Measured, not promised.</h1>
-    <p class="muted lede">Live numbers from Windows. Vesper never opens a handle to Roblox to read them, and shows a dash rather than a guess when something can't be measured.</p>
+    <p class="muted lede">
+      Live numbers from Windows. Vesper never opens a handle to Roblox to read them, and shows a dash rather than a
+      guess when something can't be measured.
+    </p>
   </div>
   <div class="row">
     <span class="small muted">Live monitoring</span>
-    <Toggle label="Live monitoring" checked={app.settings.performance.monitoring} onchange={(v) => app.saveSettings({ performance: { monitoring: v } })} />
+    <Toggle
+      label="Live monitoring"
+      checked={app.settings.performance.monitoring}
+      onchange={(v) => app.saveSettings({ performance: { monitoring: v } })}
+    />
   </div>
 </header>
 
@@ -94,16 +104,37 @@
     <div class="tile glass">
       <div class="label"><Monitor size={15} aria-hidden="true" /> Roblox GPU</div>
       <div class="value">{r?.gpuPercent != null ? percent(r.gpuPercent) : '—'}</div>
-      <div class="sub">{r?.gpuMemory ? `${bytes(r.gpuMemory)} video memory` : s?.gpuError ? 'GPU counters unavailable' : 'Not running'}</div>
+      <div class="sub">
+        {r?.gpuMemory ? `${bytes(r.gpuMemory)} video memory` : s?.gpuError ? 'GPU counters unavailable' : 'Not running'}
+      </div>
     </div>
   </section>
 
   <div class="charts">
     <Card title="Roblox" subtitle="Last two minutes">
       {#if app.robloxRunning}
-        <div class="chart"><span class="small muted">Frame rate</span><Sparkline label="Frame rate history" values={series((x) => x.roblox?.frames?.fps)} /></div>
-        <div class="chart"><span class="small muted">CPU</span><Sparkline label="Roblox CPU history" values={series((x) => x.roblox?.cpuPercent)} max={100} color="var(--blue-400)" /></div>
-        <div class="chart"><span class="small muted">GPU</span><Sparkline label="Roblox GPU history" values={series((x) => x.roblox?.gpuPercent)} max={100} color="var(--ok)" /></div>
+        <div class="chart">
+          <span class="small muted">Frame rate</span><Sparkline
+            label="Frame rate history"
+            values={series((x) => x.roblox?.frames?.fps)}
+          />
+        </div>
+        <div class="chart">
+          <span class="small muted">CPU</span><Sparkline
+            label="Roblox CPU history"
+            values={series((x) => x.roblox?.cpuPercent)}
+            max={100}
+            color="var(--blue-400)"
+          />
+        </div>
+        <div class="chart">
+          <span class="small muted">GPU</span><Sparkline
+            label="Roblox GPU history"
+            values={series((x) => x.roblox?.gpuPercent)}
+            max={100}
+            color="var(--ok)"
+          />
+        </div>
       {:else}
         <p class="muted">Roblox isn't running. Charts fill in once it starts.</p>
       {/if}
@@ -111,11 +142,27 @@
     <Card title="This PC" subtitle="Whole system">
       <div class="kv">
         <span>CPU</span><span class="mono">{percent(s?.system.cpuPercent)}</span>
-        <span>Memory</span><span class="mono">{s ? `${bytes(s.system.memoryUsed)} of ${bytes(s.system.memoryTotal)}` : '—'}</span>
+        <span>Memory</span><span class="mono"
+          >{s ? `${bytes(s.system.memoryUsed)} of ${bytes(s.system.memoryTotal)}` : '—'}</span
+        >
         <span>GPU</span><span class="mono">{percent(s?.system.gpuPercent)}</span>
       </div>
-      <div class="chart"><span class="small muted">CPU</span><Sparkline label="System CPU history" values={series((x) => x.system.cpuPercent)} max={100} color="var(--blue-400)" /></div>
-      <div class="chart"><span class="small muted">GPU</span><Sparkline label="System GPU history" values={series((x) => x.system.gpuPercent)} max={100} color="var(--ok)" /></div>
+      <div class="chart">
+        <span class="small muted">CPU</span><Sparkline
+          label="System CPU history"
+          values={series((x) => x.system.cpuPercent)}
+          max={100}
+          color="var(--blue-400)"
+        />
+      </div>
+      <div class="chart">
+        <span class="small muted">GPU</span><Sparkline
+          label="System GPU history"
+          values={series((x) => x.system.gpuPercent)}
+          max={100}
+          color="var(--ok)"
+        />
+      </div>
     </Card>
   </div>
 {/if}
@@ -123,12 +170,15 @@
 {#if app.latestPerf?.fpsStatus.state === 'needsPermission'}
   <Card title="Turning on the frame-rate counter" icon={Gauge}>
     <p class="muted">
-      Vesper measures frame rate by counting Direct3D present events, the same signal PresentMon uses. Windows only lets administrators
-      and members of the <strong>Performance Log Users</strong> group read those events. Vesper doesn't change Windows security settings for
-      you; if you want the counter:
+      Vesper measures frame rate by counting Direct3D present events, the same signal PresentMon uses. Windows only lets
+      administrators and members of the <strong>Performance Log Users</strong> group read those events. Vesper doesn't change
+      Windows security settings for you; if you want the counter:
     </p>
     <ol class="muted steps">
-      <li>Open <span class="mono">Terminal (Admin)</span> and run <span class="mono">net localgroup "Performance Log Users" %USERNAME% /add</span>.</li>
+      <li>
+        Open <span class="mono">Terminal (Admin)</span> and run
+        <span class="mono">net localgroup "Performance Log Users" %USERNAME% /add</span>.
+      </li>
       <li>Sign out of Windows and back in.</li>
       <li>Reopen Vesper. The counter starts the next time this page or the dashboard is open.</li>
     </ol>
@@ -147,9 +197,16 @@
     <div class="row">
       <Button size="sm" onclick={() => app.go('profiles')}>Change in profile</Button>
       {#if cap?.original != null}
-        <Button size="sm" variant="ghost" icon={RotateCcw} onclick={restoreCap} disabled={app.robloxRunning}>Restore original</Button>
+        <Button size="sm" variant="ghost" icon={RotateCcw} onclick={restoreCap} disabled={app.robloxRunning}
+          >Restore original</Button
+        >
       {/if}
       {#if !app.settings.roblox.applyFpsCap}<Badge tone="warn">Applying limits is off in Settings</Badge>{/if}
+      {#if cap?.locked}<Badge
+          tone="warn"
+          title="Another launcher's lock option usually does this. Vesper won't override it."
+          >Roblox's settings file is read-only</Badge
+        >{/if}
     </div>
   </Card>
   <Card title="Hardware">

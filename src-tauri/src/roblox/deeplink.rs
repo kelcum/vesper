@@ -68,11 +68,7 @@ pub fn parse(input: &str) -> Result<LaunchTarget, String> {
         return Err(HELP.into());
     }
     let segments: Vec<&str> = url.path_segments().map(|s| s.filter(|p| !p.is_empty()).collect()).unwrap_or_default();
-    let query = |key: &str| {
-        url.query_pairs()
-            .find(|(k, _)| k.eq_ignore_ascii_case(key))
-            .map(|(_, v)| v.into_owned())
-    };
+    let query = |key: &str| url.query_pairs().find(|(k, _)| k.eq_ignore_ascii_case(key)).map(|(_, v)| v.into_owned());
     match segments.as_slice() {
         ["share", ..] | ["share-links", ..] => Ok(LaunchTarget::ShareLink { url: url.to_string() }),
         ["games", "start"] => {
@@ -88,10 +84,8 @@ fn parse_app_link(rest: &str) -> Result<LaunchTarget, String> {
     // Documented form: roblox://placeId=1&launchData=x
     // Also seen:       roblox://experiences/start?placeId=1
     let rest = rest.trim_end_matches('/');
-    let query = rest
-        .strip_prefix("experiences/start?")
-        .or_else(|| rest.strip_prefix("experiences/start/?"))
-        .unwrap_or(rest);
+    let query =
+        rest.strip_prefix("experiences/start?").or_else(|| rest.strip_prefix("experiences/start/?")).unwrap_or(rest);
     if query.is_empty() {
         return Ok(LaunchTarget::App);
     }
@@ -107,11 +101,8 @@ fn experience(
     link_code: Option<String>,
     launch_data: Option<String>,
 ) -> Result<LaunchTarget, String> {
-    let place_id: u64 = place
-        .parse()
-        .ok()
-        .filter(|n| *n > 0)
-        .ok_or_else(|| "That place ID isn't a valid number.".to_string())?;
+    let place_id: u64 =
+        place.parse().ok().filter(|n| *n > 0).ok_or_else(|| "That place ID isn't a valid number.".to_string())?;
     let game_instance_id = match instance.filter(|s| !s.is_empty()) {
         Some(id) if is_guid(&id) => Some(id.to_ascii_lowercase()),
         Some(_) => return Err("The server ID must look like 1a2b3c4d-....".into()),
@@ -190,10 +181,7 @@ mod tests {
     fn start_links_and_app_links() {
         let guid = "1A2B3C4D-1111-2222-3333-444455556666";
         let t = parse(&format!("https://www.roblox.com/games/start?placeId=5&gameInstanceId={guid}")).unwrap();
-        assert_eq!(
-            launch_argument(&t).unwrap(),
-            format!("roblox://placeId=5&gameInstanceId={}", guid.to_lowercase())
-        );
+        assert_eq!(launch_argument(&t).unwrap(), format!("roblox://placeId=5&gameInstanceId={}", guid.to_lowercase()));
         assert_eq!(parse("roblox://placeId=77").unwrap(), place(77));
         assert_eq!(parse("roblox://experiences/start?placeId=77").unwrap(), place(77));
         assert_eq!(parse("roblox://").unwrap(), LaunchTarget::App);

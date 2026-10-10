@@ -25,10 +25,7 @@ pub const MAX_STRING_LEN: usize = 1024;
 /// Prefixes: `FFlag`/`DFFlag`/`SFFlag` (bool), `FInt`/`DFInt`/`FLog`/`DFLog` (int),
 /// `FString`/`DFString` (string).
 pub fn kind_of(name: &str) -> Option<ValueKind> {
-    let rest = name
-        .strip_prefix("DF")
-        .or_else(|| name.strip_prefix("SF"))
-        .or_else(|| name.strip_prefix('F'))?;
+    let rest = name.strip_prefix("DF").or_else(|| name.strip_prefix("SF")).or_else(|| name.strip_prefix('F'))?;
     let (kind, suffix) = if let Some(s) = rest.strip_prefix("Flag") {
         (ValueKind::Bool, s)
     } else if let Some(s) = rest.strip_prefix("Int") {
@@ -52,9 +49,8 @@ pub fn validate_name(name: &str) -> Result<ValueKind, String> {
     if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         return Err("Flag names may only contain letters, digits and underscores.".into());
     }
-    kind_of(name).ok_or_else(|| {
-        "Flag names start with FFlag, DFFlag, FInt, DFInt, FString, DFString, FLog or DFLog.".into()
-    })
+    kind_of(name)
+        .ok_or_else(|| "Flag names start with FFlag, DFFlag, FInt, DFInt, FString, DFString, FLog or DFLog.".into())
 }
 
 /// Normalises a value for its type, e.g. `true` → `True`, ` 042 ` → `42`.

@@ -42,12 +42,18 @@ pub mod events {
 #[serde(rename_all = "camelCase", tag = "state")]
 pub enum LaunchStatus {
     Idle,
-    Preparing { step: String },
+    Preparing {
+        step: String,
+    },
     Starting,
     /// Roblox's own installer is updating Roblox before it opens.
     Updating,
-    Running { pid: u32 },
-    Failed { problem: Problem },
+    Running {
+        pid: u32,
+    },
+    Failed {
+        problem: Problem,
+    },
 }
 
 impl LaunchStatus {

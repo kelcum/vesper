@@ -115,7 +115,16 @@ mod tests {
     #[test]
     fn extracts_only_requested_flags() {
         let json = r#"{"applicationSettings":{"DFIntCSGLevelOfDetailSwitchingDistance":"250","FFlagHandleAltEnterFullscreenManually":"True","FFlagUnrelated":"False","FIntNum":12}}"#;
-        let p = parse_published(json, &["DFIntCSGLevelOfDetailSwitchingDistance", "FFlagHandleAltEnterFullscreenManually", "FIntNum", "FFlagMissing"]).unwrap();
+        let p = parse_published(
+            json,
+            &[
+                "DFIntCSGLevelOfDetailSwitchingDistance",
+                "FFlagHandleAltEnterFullscreenManually",
+                "FIntNum",
+                "FFlagMissing",
+            ],
+        )
+        .unwrap();
         assert_eq!(p.values.len(), 3);
         assert_eq!(p.values["DFIntCSGLevelOfDetailSwitchingDistance"], "250");
         assert_eq!(p.values["FIntNum"], "12");

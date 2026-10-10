@@ -93,12 +93,7 @@
 
 <Toasts />
 
-<Dialog
-  bind:open={problemOpen}
-  title="Something went wrong"
-  width={520}
-  onclose={() => (app.problem = null)}
->
+<Dialog bind:open={problemOpen} title="Something went wrong" width={520} onclose={() => (app.problem = null)}>
   {#if app.problem}
     <ProblemView problem={app.problem} />
   {/if}

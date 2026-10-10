@@ -119,8 +119,9 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
     let old = state.settings();
     let mut json = serde_json::to_value(&old).map_err(|e| Problem::internal("Couldn't read settings.", e))?;
     merge(&mut json, patch);
-    let mut new: Settings = serde_json::from_value(json)
-        .map_err(|e| Problem::invalid("One of the settings has an unexpected value.", "Reload Vesper and try again.").details(e))?;
+    let mut new: Settings = serde_json::from_value(json).map_err(|e| {
+        Problem::invalid("One of the settings has an unexpected value.", "Reload Vesper and try again.").details(e)
+    })?;
     new.sanitize();
     // Fields the interface can't change directly.
     new.last_launch = old.last_launch.clone();
@@ -200,7 +201,8 @@ pub fn roblox_detect(app: AppHandle, state: State<'_, AppState>) -> Detection {
 
 #[tauri::command]
 pub fn roblox_parse_target(input: String) -> Result<LaunchTarget> {
-    deeplink::parse(&input).map_err(|e| Problem::invalid(e, "Paste a Roblox game link, a place ID, or leave it empty to open Roblox."))
+    deeplink::parse(&input)
+        .map_err(|e| Problem::invalid(e, "Paste a Roblox game link, a place ID, or leave it empty to open Roblox."))
 }
 
 #[tauri::command]
@@ -221,7 +223,8 @@ pub fn roblox_dismiss_launch(app: AppHandle, state: State<'_, AppState>) {
 #[tauri::command]
 pub async fn roblox_latest(state: State<'_, AppState>, refresh: bool) -> Result<Option<LatestVersion>> {
     let cached = lock(&state.latest).clone();
-    let fresh = cached.as_ref().is_some_and(|c| chrono::Utc::now().signed_duration_since(c.fetched_at).num_minutes() < 10);
+    let fresh =
+        cached.as_ref().is_some_and(|c| chrono::Utc::now().signed_duration_since(c.fetched_at).num_minutes() < 10);
     if fresh && !refresh {
         return Ok(cached);
     }
@@ -247,7 +250,8 @@ pub fn flags_validate(flags: FlagSet) -> Vec<Issue> {
 #[tauri::command]
 pub async fn flags_published(state: State<'_, AppState>, refresh: bool) -> Result<Option<PublishedValues>> {
     let cached = lock(&state.published).clone();
-    let fresh = cached.as_ref().is_some_and(|c| chrono::Utc::now().signed_duration_since(c.fetched_at).num_hours() < 12);
+    let fresh =
+        cached.as_ref().is_some_and(|c| chrono::Utc::now().signed_duration_since(c.fetched_at).num_hours() < 12);
     if fresh && !refresh {
         return Ok(cached);
     }
@@ -330,7 +334,12 @@ pub fn profiles_set_default(app: AppHandle, state: State<'_, AppState>, id: Stri
 }
 
 #[tauri::command]
-pub fn profiles_create(app: AppHandle, state: State<'_, AppState>, name: String, from: Option<String>) -> Result<ProfileStore> {
+pub fn profiles_create(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    from: Option<String>,
+) -> Result<ProfileStore> {
     lock(&state.profiles).create(&name, from.as_deref()).map_err(profile_problem)?;
     after_profiles_change(&app, &state)
 }
@@ -342,7 +351,12 @@ pub fn profiles_duplicate(app: AppHandle, state: State<'_, AppState>, id: String
 }
 
 #[tauri::command]
-pub fn profiles_update(app: AppHandle, state: State<'_, AppState>, id: String, patch: ProfilePatch) -> Result<ProfileStore> {
+pub fn profiles_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    patch: ProfilePatch,
+) -> Result<ProfileStore> {
     lock(&state.profiles).update(&id, patch).map_err(profile_problem)?;
     after_profiles_change(&app, &state)
 }
@@ -391,6 +405,8 @@ pub struct FpsCapStatus {
     pub original: Option<i32>,
     pub display_hz: Option<u32>,
     pub error: Option<String>,
+    /// Roblox's settings file is read-only (often another launcher's lock).
+    pub locked: bool,
 }
 
 fn fps_status(state: &AppState) -> FpsCapStatus {
@@ -398,7 +414,16 @@ fn fps_status(state: &AppState) -> FpsCapStatus {
         Ok(c) => (c, None),
         Err(e) => (None, Some(e.to_string())),
     };
-    FpsCapStatus { current, original: lock(&state.settings).original_fps_cap, display_hz: state.system.display_hz, error }
+    let locked = gbs::settings_path(&state.env.roblox_data())
+        .and_then(|p| std::fs::metadata(p).ok())
+        .is_some_and(|m| m.permissions().readonly());
+    FpsCapStatus {
+        current,
+        original: lock(&state.settings).original_fps_cap,
+        display_hz: state.system.display_hz,
+        error,
+        locked,
+    }
 }
 
 #[tauri::command]
@@ -496,8 +521,9 @@ pub fn backups_create(state: State<'_, AppState>) -> Result<BackupInfo> {
 
 #[tauri::command]
 pub fn backups_restore(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<RestoreOutcome> {
-    let bundle = backup::load(&state.paths.backups, &id)
-        .map_err(|e| Problem::new("backup.unreadable", "That backup can't be restored").what(e).fix("Choose another backup."))?;
+    let bundle = backup::load(&state.paths.backups, &id).map_err(|e| {
+        Problem::new("backup.unreadable", "That backup can't be restored").what(e).fix("Choose another backup.")
+    })?;
     restore_bundle(&app, &state, bundle, Reason::BeforeRestore)
 }
 
@@ -508,15 +534,18 @@ pub fn backups_delete(state: State<'_, AppState>, id: String) -> Result<()> {
 
 #[tauri::command]
 pub fn backups_export(state: State<'_, AppState>, id: String, path: PathBuf) -> Result<()> {
-    backup::export(&state.paths.backups, &id, &path)
-        .map_err(|e| Problem::new("backup.export", "Couldn't export the backup").what(e).fix("Choose another location."))
+    backup::export(&state.paths.backups, &id, &path).map_err(|e| {
+        Problem::new("backup.export", "Couldn't export the backup").what(e).fix("Choose another location.")
+    })
 }
 
 #[tauri::command]
 pub fn backups_import(app: AppHandle, state: State<'_, AppState>, path: PathBuf) -> Result<RestoreOutcome> {
     let bytes = std::fs::read(&path).map_err(|e| Problem::io("Couldn't read that file.", &e))?;
     let bundle = Bundle::parse(&bytes).map_err(|e| {
-        Problem::new("backup.invalid", "That file can't be restored").what(e).fix("Choose a .json backup created by Vesper.")
+        Problem::new("backup.invalid", "That file can't be restored")
+            .what(e)
+            .fix("Choose a .json backup created by Vesper.")
     })?;
     restore_bundle(&app, &state, bundle, Reason::BeforeImport)
 }
@@ -537,10 +566,9 @@ pub fn open_folder(app: AppHandle, state: State<'_, AppState>, kind: String) -> 
         "config" => state.paths.config.clone(),
         "logs" => state.paths.logs.clone(),
         "backups" => state.paths.backups.clone(),
-        "roblox" => state
-            .preferred_install()
-            .map(|i| i.dir)
-            .ok_or_else(|| Problem::new("roblox.not_installed", "Roblox isn't installed").what("There's no Roblox folder to open."))?,
+        "roblox" => state.preferred_install().map(|i| i.dir).ok_or_else(|| {
+            Problem::new("roblox.not_installed", "Roblox isn't installed").what("There's no Roblox folder to open.")
+        })?,
         "robloxLogs" => state.env.roblox_data().join("logs"),
         _ => return Err(Problem::invalid("Unknown folder.", "This is a bug in Vesper.")),
     };
@@ -565,12 +593,15 @@ const ALLOWED_HOSTS: &[&str] = &[
 
 #[tauri::command]
 pub fn open_url(app: AppHandle, url: String) -> Result<()> {
-    let parsed = url::Url::parse(&url).map_err(|_| Problem::invalid("That link isn't valid.", "This is a bug in Vesper."))?;
+    let parsed =
+        url::Url::parse(&url).map_err(|_| Problem::invalid("That link isn't valid.", "This is a bug in Vesper."))?;
     let host = parsed.host_str().unwrap_or_default();
     if parsed.scheme() != "https" || !ALLOWED_HOSTS.contains(&host) {
         return Err(Problem::invalid("Vesper only opens links to sites it knows.", "This is a bug in Vesper."));
     }
-    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| Problem::internal("Couldn't open your browser.", e))
+    app.opener()
+        .open_url(parsed.as_str(), None::<&str>)
+        .map_err(|e| Problem::internal("Couldn't open your browser.", e))
 }
 
 #[tauri::command]
@@ -605,7 +636,11 @@ pub fn diagnostics_text(state: State<'_, AppState>) -> String {
         current_frame_cap: gbs::current_cap(&state.env.roblox_data()).ok().flatten(),
         flag_mode: format!("{:?}", settings.roblox.flag_mode),
         last_report: lock(&state.verification).last_report.clone(),
-        discord: format!("{:?}{}", state.presence_status(), if crate::discord::client_id().is_some() { "" } else { " (no application ID in this build)" }),
+        discord: format!(
+            "{:?}{}",
+            state.presence_status(),
+            if crate::discord::client_id().is_some() { "" } else { " (no application ID in this build)" }
+        ),
         updates: lock(&state.update).describe(),
         log_tail: logging::tail(40),
     };
@@ -644,10 +679,11 @@ pub async fn updates_check(app: AppHandle, state: State<'_, AppState>) -> Result
     set_update(&app, &state, UpdateState::Checking);
     let channel = lock(&state.settings).updates.channel;
     let url = url::Url::parse(updates::endpoint(channel)).map_err(|e| Problem::internal("Bad update URL.", e))?;
-    let result = match app.updater_builder().endpoints(vec![url]).and_then(|b| b.timeout(Duration::from_secs(20)).build()) {
-        Ok(updater) => updater.check().await.map_err(|e| e.to_string()),
-        Err(e) => Err(e.to_string()),
-    };
+    let result =
+        match app.updater_builder().endpoints(vec![url]).and_then(|b| b.timeout(Duration::from_secs(20)).build()) {
+            Ok(updater) => updater.check().await.map_err(|e| e.to_string()),
+            Err(e) => Err(e.to_string()),
+        };
     let next = match result {
         Ok(Some(update)) => {
             let s = UpdateState::Available {
@@ -672,7 +708,9 @@ pub async fn updates_check(app: AppHandle, state: State<'_, AppState>) -> Result
 #[tauri::command]
 pub async fn updates_install(app: AppHandle, state: State<'_, AppState>) -> Result<()> {
     let update = lock(&state.pending_update).take().ok_or_else(|| {
-        Problem::new("update.none", "No update to install").what("Check for updates first.").fix("Press “Check for updates”.")
+        Problem::new("update.none", "No update to install")
+            .what("Check for updates first.")
+            .fix("Press “Check for updates”.")
     })?;
     let mut downloaded = 0u64;
     let progress_app = app.clone();

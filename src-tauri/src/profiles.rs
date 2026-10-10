@@ -247,7 +247,9 @@ fn clean_name(name: &str) -> Result<String, ProfileError> {
 }
 
 fn check_flags(f: &FlagSet) -> Result<FlagSet, ProfileError> {
-    normalize(f).map_err(|issues| ProfileError::InvalidFlags(issues.into_iter().map(|i| format!("{}: {}", i.flag, i.message)).collect()))
+    normalize(f).map_err(|issues| {
+        ProfileError::InvalidFlags(issues.into_iter().map(|i| format!("{}: {}", i.flag, i.message)).collect())
+    })
 }
 
 fn check_options(fps: Option<FpsCap>, affinity: Option<u64>) -> Result<(), ProfileError> {
@@ -268,7 +270,10 @@ impl ProfileStore {
                 Ok(s) => Some(s),
                 Err(e) => {
                     log::warn!("profiles.json was unreadable ({e}); restoring built-in profiles");
-                    let _ = std::fs::rename(path, path.with_extension(format!("unreadable-{}.json", Utc::now().format("%Y%m%d-%H%M%S"))));
+                    let _ = std::fs::rename(
+                        path,
+                        path.with_extension(format!("unreadable-{}.json", Utc::now().format("%Y%m%d-%H%M%S"))),
+                    );
                     None
                 }
             })
@@ -366,10 +371,7 @@ impl ProfileStore {
         let new_name = patch.name.as_deref().map(clean_name).transpose()?;
         let new_flags = patch.flags.as_ref().map(check_flags).transpose()?;
         let current = self.get(id).ok_or(ProfileError::NotFound)?;
-        check_options(
-            patch.fps_cap.unwrap_or(current.fps_cap),
-            patch.affinity.unwrap_or(current.affinity),
-        )?;
+        check_options(patch.fps_cap.unwrap_or(current.fps_cap), patch.affinity.unwrap_or(current.affinity))?;
         if let Some(n) = &new_name {
             if self.profiles.iter().any(|p| p.id != id && p.name.eq_ignore_ascii_case(n)) {
                 return Err(ProfileError::InvalidName("Another profile already has that name.".into()));
@@ -450,9 +452,7 @@ impl ProfileStore {
         }
         let value: serde_json::Value = serde_json::from_str(json)
             .map_err(|e| ProfileError::InvalidImport(format!("The file isn't valid JSON ({e}).")))?;
-        let obj = value
-            .as_object()
-            .ok_or_else(|| ProfileError::InvalidImport("Expected a JSON object.".into()))?;
+        let obj = value.as_object().ok_or_else(|| ProfileError::InvalidImport("Expected a JSON object.".into()))?;
 
         let mut profile = builtin(BuiltinId::Custom);
         if obj.get("format").and_then(|f| f.as_str()) == Some(EXPORT_FORMAT) {
@@ -472,8 +472,9 @@ impl ProfileStore {
         } else {
             let mut f = BTreeMap::new();
             for (k, v) in obj {
-                let s = json_to_flag_string(v)
-                    .ok_or_else(|| ProfileError::InvalidImport(format!("{k} has a value that isn't text, a number or true/false.")))?;
+                let s = json_to_flag_string(v).ok_or_else(|| {
+                    ProfileError::InvalidImport(format!("{k} has a value that isn't text, a number or true/false."))
+                })?;
                 f.insert(k.clone(), s);
             }
             profile.name = clean_name(fallback_name).unwrap_or_else(|_| "Imported".into());
@@ -544,9 +545,10 @@ mod tests {
 
         let renamed = s.update(&p.id, ProfilePatch { name: Some("  Ranked  ".into()), ..Default::default() }).unwrap();
         assert_eq!(renamed.name, "Ranked");
-        assert!(s
-            .update(&again.id, ProfilePatch { name: Some("ranked".into()), ..Default::default() })
-            .is_err(), "names are unique, case-insensitively");
+        assert!(
+            s.update(&again.id, ProfilePatch { name: Some("ranked".into()), ..Default::default() }).is_err(),
+            "names are unique, case-insensitively"
+        );
 
         s.set_active(&p.id).unwrap();
         s.set_default(&p.id).unwrap();
@@ -560,11 +562,8 @@ mod tests {
     fn builtins_cannot_be_deleted_but_can_be_reset() {
         let mut s = ProfileStore::default();
         assert_eq!(s.delete("potato"), Err(ProfileError::BuiltinNotDeletable));
-        s.update(
-            "potato",
-            ProfilePatch { name: Some("Toaster".into()), fps_cap: Some(None), ..Default::default() },
-        )
-        .unwrap();
+        s.update("potato", ProfilePatch { name: Some("Toaster".into()), fps_cap: Some(None), ..Default::default() })
+            .unwrap();
         let reset = s.reset("potato").unwrap();
         assert_eq!(reset.name, "Potato");
         assert_eq!(reset.fps_cap, Some(FpsCap::Fixed(60)));
@@ -578,18 +577,14 @@ mod tests {
         let before = s.get("balanced").unwrap().clone();
         let mut bad = FlagSet::new();
         bad.insert("FIntDebugForceMSAASamples".into(), "lots".into());
-        let r = s.update(
-            "balanced",
-            ProfilePatch { name: Some("New name".into()), flags: Some(bad), ..Default::default() },
-        );
+        let r = s
+            .update("balanced", ProfilePatch { name: Some("New name".into()), flags: Some(bad), ..Default::default() });
         assert!(matches!(r, Err(ProfileError::InvalidFlags(_))));
         assert_eq!(s.get("balanced").unwrap(), &before);
         assert!(s
             .update("balanced", ProfilePatch { fps_cap: Some(Some(FpsCap::Fixed(2))), ..Default::default() })
             .is_err());
-        assert!(s
-            .update("balanced", ProfilePatch { affinity: Some(Some(0)), ..Default::default() })
-            .is_err());
+        assert!(s.update("balanced", ProfilePatch { affinity: Some(Some(0)), ..Default::default() }).is_err());
     }
 
     #[test]
@@ -637,7 +632,11 @@ mod tests {
         assert!(s.import(r#"{"FFlagX": [1]}"#, "x", c).is_err());
         assert!(s.import(r#"{"Not a flag": "1"}"#, "x", c).is_err());
         assert!(s
-            .import(r#"{"format":"vesper-profile","version":9,"name":"x","description":"","flags":{},"fpsCap":null}"#, "x", c)
+            .import(
+                r#"{"format":"vesper-profile","version":9,"name":"x","description":"","flags":{},"fpsCap":null}"#,
+                "x",
+                c
+            )
             .is_err());
         assert_eq!(s.profiles.len(), 5, "nothing was added");
     }

@@ -58,10 +58,7 @@ export type SettingsPatch = { [K in keyof Settings]?: Settings[K] extends object
 // ---------------------------------------------------------------- profiles
 
 export type FpsCap =
-  | { mode: 'robloxDefault' }
-  | { mode: 'matchDisplay' }
-  | { mode: 'fixed'; value: number }
-  | { mode: 'unlimited' };
+  { mode: 'robloxDefault' } | { mode: 'matchDisplay' } | { mode: 'fixed'; value: number } | { mode: 'unlimited' };
 export type Priority = 'normal' | 'aboveNormal' | 'high';
 export type BuiltinId = 'competitive' | 'balanced' | 'quality' | 'potato' | 'custom';
 
@@ -242,6 +239,7 @@ export interface FpsCapStatus {
   original: number | null;
   displayHz: number | null;
   error: string | null;
+  locked: boolean;
 }
 
 // ---------------------------------------------------------------- performance
@@ -263,10 +261,7 @@ export interface FrameStats {
 }
 
 export type FpsStatus =
-  | { state: 'off' }
-  | { state: 'measuring' }
-  | { state: 'needsPermission' }
-  | { state: 'unavailable'; detail: string };
+  { state: 'off' } | { state: 'measuring' } | { state: 'needsPermission' } | { state: 'unavailable'; detail: string };
 
 export interface PerfSample {
   at: number;

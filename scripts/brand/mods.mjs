@@ -40,7 +40,10 @@ const cursors = {
     ];
     const lines = (stroke, width) =>
       arms
-        .map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round"/>`)
+        .map(
+          ([x1, y1, x2, y2]) =>
+            `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round"/>`,
+        )
         .join('');
     return `${lines('#0a0914', 4.6)}${lines('#ffffff', 2.4)}
       <circle cx="32" cy="32" r="2.4" fill="#0a0914"/><circle cx="32" cy="32" r="1.4" fill="#c9bdff"/>`;
@@ -89,7 +92,13 @@ const wheels = {
       <circle cx="${C}" cy="${C}" r="${R * 0.995}" fill="url(#bg)"/>
       <circle cx="${C}" cy="${C}" r="${R * 0.99}" fill="none" stroke="#a596ff" stroke-opacity="0.38" stroke-width="${R * 0.006}"/>`,
     ring: () => {
-      const d = dividers({ color: '#c9bdff', inner: INNER + R * 0.015, outer: R * 0.97, width: R * 0.0062, startOpacity: 0.85 });
+      const d = dividers({
+        color: '#c9bdff',
+        inner: INNER + R * 0.015,
+        outer: R * 0.97,
+        width: R * 0.0062,
+        startOpacity: 0.85,
+      });
       return `<defs>${d.defs}</defs>${d.lines}
         <circle cx="${C}" cy="${C}" r="${INNER}" fill="#0d0c1a"/>
         <circle cx="${C}" cy="${C}" r="${INNER}" fill="none" stroke="#a596ff" stroke-opacity="0.6" stroke-width="${R * 0.006}"/>`;
@@ -103,7 +112,13 @@ const wheels = {
       <circle cx="${C}" cy="${C}" r="${R * 0.995}" fill="url(#bg)"/>
       <circle cx="${C}" cy="${C}" r="${R * 0.99}" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="${R * 0.006}"/>`,
     ring: () => {
-      const d = dividers({ color: '#ffffff', inner: INNER + R * 0.015, outer: R * 0.97, width: R * 0.006, startOpacity: 0.6 });
+      const d = dividers({
+        color: '#ffffff',
+        inner: INNER + R * 0.015,
+        outer: R * 0.97,
+        width: R * 0.006,
+        startOpacity: 0.6,
+      });
       return `<defs>${d.defs}</defs>${d.lines}
         <circle cx="${C}" cy="${C}" r="${INNER}" fill="#0c0c14" fill-opacity="0.62"/>
         <circle cx="${C}" cy="${C}" r="${INNER}" fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="${R * 0.005}"/>`;
@@ -116,7 +131,8 @@ const wheels = {
 };
 
 for (const [id, w] of Object.entries(wheels)) {
-  const doc = (body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${body}</svg>`;
+  const doc = (body) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${body}</svg>`;
   writeFileSync(out(`wheels/${id}/CircleBackground.png`), render(doc(w.background), S));
   writeFileSync(out(`wheels/${id}/SegmentedCircle.png`), render(doc(w.ring()), S));
 }

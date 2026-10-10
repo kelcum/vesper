@@ -133,9 +133,7 @@ export function markBody({ detail = 'full', container = 'squircle', id = 'v' } =
   const scene = [
     withSky ? `<rect width="${S}" height="${S}" fill="url(#${id}-sky)"/>` : '',
     withSky && soft ? `<rect width="${S}" height="${S}" fill="url(#${id}-atmo)"/>` : '',
-    withSky
-      ? `<circle cx="${CX}" cy="${g.planetCy}" r="${g.planetR}" fill="url(#${id}-ground)"/>`
-      : '',
+    withSky ? `<circle cx="${CX}" cy="${g.planetCy}" r="${g.planetR}" fill="url(#${id}-ground)"/>` : '',
     `<rect width="${S}" height="${S}" fill="url(#${id}-limb)" mask="url(#${id}-limbmask)"/>`,
     soft ? `<circle cx="${g.star.x}" cy="${g.star.y}" r="${g.star.r * 5}" fill="url(#${id}-halo)"/>` : '',
     `<circle cx="${g.star.x}" cy="${g.star.y}" r="${g.star.r}" fill="${withSky ? palette.star : palette.limbMid}"/>`,

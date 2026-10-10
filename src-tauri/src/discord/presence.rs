@@ -130,7 +130,11 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(pipe_base: String, status: Arc<Mutex<PresenceStatus>>, on_status: Box<dyn Fn(PresenceStatus) + Send>) -> Self {
+    fn new(
+        pipe_base: String,
+        status: Arc<Mutex<PresenceStatus>>,
+        on_status: Box<dyn Fn(PresenceStatus) + Send>,
+    ) -> Self {
         Self {
             pipe_base,
             status,

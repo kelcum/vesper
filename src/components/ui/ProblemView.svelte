@@ -61,7 +61,9 @@
       {#if a.kind === 'retry' && onretry}
         <Button size="sm" variant="primary" icon={RotateCcw} onclick={onretry}>Try again</Button>
       {:else if a.kind === 'openUrl'}
-        <Button size="sm" icon={ExternalLink} onclick={() => api.openUrl(a.value)}>Open {new URL(a.value).hostname}</Button>
+        <Button size="sm" icon={ExternalLink} onclick={() => api.openUrl(a.value)}
+          >Open {new URL(a.value).hostname}</Button
+        >
       {:else if a.kind === 'openSettings'}
         <Button size="sm" icon={SettingsIcon} onclick={() => openSettings(a.value)}>Open settings</Button>
       {:else if a.kind === 'openConfigFolder'}

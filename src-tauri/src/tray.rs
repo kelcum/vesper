@@ -20,7 +20,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let launch = MenuItem::with_id(app, "launch", launch_label, !running, None::<&str>)?;
     let profiles = Submenu::with_id(app, "profiles", format!("Profile: {}", store.active().name), true)?;
     for p in &store.profiles {
-        let item = CheckMenuItem::with_id(app, format!("profile:{}", p.id), &p.name, true, p.id == store.active, None::<&str>)?;
+        let item = CheckMenuItem::with_id(
+            app,
+            format!("profile:{}", p.id),
+            &p.name,
+            true,
+            p.id == store.active,
+            None::<&str>,
+        )?;
         profiles.append(&item)?;
     }
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;

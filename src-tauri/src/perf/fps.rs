@@ -79,10 +79,8 @@ impl Presents {
 
 /// Current time in seconds on the ETW event clock (FILETIME epoch).
 pub fn event_clock_now() -> f64 {
-    let unix = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0);
+    let unix =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0);
     unix + 11_644_473_600.0
 }
 
@@ -201,7 +199,11 @@ mod imp {
             let shared = Arc::new(Mutex::new(Presents::default()));
             let context = Arc::into_raw(shared.clone()) as *mut core::ffi::c_void;
             let mut logger_name = wide(SESSION);
-            let mut logfile = EVENT_TRACE_LOGFILEW { LoggerName: PWSTR(logger_name.as_mut_ptr()), Context: context, ..Default::default() };
+            let mut logfile = EVENT_TRACE_LOGFILEW {
+                LoggerName: PWSTR(logger_name.as_mut_ptr()),
+                Context: context,
+                ..Default::default()
+            };
             logfile.Anonymous1.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD;
             logfile.Anonymous2.EventRecordCallback = Some(on_event);
 

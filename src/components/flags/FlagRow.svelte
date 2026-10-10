@@ -37,7 +37,9 @@
     if (r.value !== undefined && r.value !== row.value) onset(row.name, r.value);
   }
 
-  const boolValue = $derived<'default' | 'True' | 'False'>(row.value === 'True' ? 'True' : row.value === 'False' ? 'False' : 'default');
+  const boolValue = $derived<'default' | 'True' | 'False'>(
+    row.value === 'True' ? 'True' : row.value === 'False' ? 'False' : 'default',
+  );
   const defaultText = $derived.by(() => {
     if (!info) return null;
     if (published != null) return `Roblox ships ${published} today.`;
@@ -48,15 +50,24 @@
 
 <div class="row" class:set={row.value !== null} class:open>
   <div class="main">
-    <button class="expand" aria-expanded={open} aria-label="Details for {info?.title ?? row.name}" onclick={() => (open = !open)}>
+    <button
+      class="expand"
+      aria-expanded={open}
+      aria-label="Details for {info?.title ?? row.name}"
+      onclick={() => (open = !open)}
+    >
       <ChevronDown size={15} strokeWidth={2} aria-hidden="true" />
     </button>
     <div class="copy">
       <div class="title">
         {info?.title ?? row.name}
-        {#if info?.risk === 'medium'}<Badge tone="warn" title="Can noticeably change how Roblox looks or performs.">Medium risk</Badge>{/if}
+        {#if info?.risk === 'medium'}<Badge tone="warn" title="Can noticeably change how Roblox looks or performs."
+            >Medium risk</Badge
+          >{/if}
         {#if info?.risk === 'high'}<Badge tone="bad">High risk</Badge>{/if}
-        {#if info?.status === 'removal-announced'}<Badge tone="warn" title="Roblox said it will remove this flag.">Being removed</Badge>{/if}
+        {#if info?.status === 'removal-announced'}<Badge tone="warn" title="Roblox said it will remove this flag."
+            >Being removed</Badge
+          >{/if}
       </div>
       <div class="name mono">{row.name}</div>
       {#if info}<p class="summary">{info.summary}</p>{/if}
@@ -93,7 +104,9 @@
         >
           <option value="">Default</option>
           {#each info.input.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-          {#if row.value && !info.input.options.some((o) => o.value === row.value)}<option value={row.value}>{row.value} (custom)</option>{/if}
+          {#if row.value && !info.input.options.some((o) => o.value === row.value)}<option value={row.value}
+              >{row.value} (custom)</option
+            >{/if}
         </select>
       {:else}
         <div class="num">
@@ -108,12 +121,26 @@
             onkeydown={(e) => e.key === 'Enter' && commitDraft()}
           />
           {#if row.value !== null}
-            <Button size="sm" variant="ghost" icon={Trash} label="Remove {row.name}" title={info ? 'Back to default' : 'Remove'} onclick={() => onset(row.name, null)} />
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Trash}
+              label="Remove {row.name}"
+              title={info ? 'Back to default' : 'Remove'}
+              onclick={() => onset(row.name, null)}
+            />
           {/if}
         </div>
       {/if}
       {#if row.custom && kind === 'bool'}
-        <Button size="sm" variant="ghost" icon={Trash} label="Remove {row.name}" title="Remove" onclick={() => onset(row.name, null)} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Trash}
+          label="Remove {row.name}"
+          title="Remove"
+          onclick={() => onset(row.name, null)}
+        />
       {/if}
     </div>
   </div>
@@ -125,8 +152,12 @@
         <p>{info.details}</p>
         {#if info.input.kind === 'number'}<p class="faint">Usual range {info.input.min}–{info.input.max}.</p>{/if}
         <p class="faint">{defaultText}</p>
-        {#each info.requires as r (r.flag)}<p class="faint">Needs <span class="mono">{r.flag}</span> = {r.when}. {r.reason}</p>{/each}
-        {#each info.conflicts as c (c.flag)}<p class="faint">Conflicts with <span class="mono">{c.flag}</span>. {c.reason}</p>{/each}
+        {#each info.requires as r (r.flag)}<p class="faint">
+            Needs <span class="mono">{r.flag}</span> = {r.when}. {r.reason}
+          </p>{/each}
+        {#each info.conflicts as c (c.flag)}<p class="faint">
+            Conflicts with <span class="mono">{c.flag}</span>. {c.reason}
+          </p>{/each}
         {#if info.observations.length}
           {#each info.observations as o (o.robloxVersion + o.date)}
             <p class="faint">Seen {o.result} on Roblox {o.robloxVersion} ({o.date}): {o.method}</p>
@@ -136,15 +167,22 @@
           {#each info.references as ref (ref)}
             {@const s = catalog.sources[ref]}
             {#if s}
-              <button class="ref" onclick={() => api.openUrl(s.url)}>{s.label} <ExternalLink size={12} aria-hidden="true" /></button>
+              <button class="ref" onclick={() => api.openUrl(s.url)}
+                >{s.label} <ExternalLink size={12} aria-hidden="true" /></button
+              >
             {/if}
           {/each}
         </div>
-        <p class="faint xs">Behaviour {info.behavior === 'established' ? 'is consistent across independent sources' : "isn't documented by Roblox"} · catalog reviewed {catalog.reviewed}</p>
+        <p class="faint xs">
+          Behaviour {info.behavior === 'established'
+            ? 'is consistent across independent sources'
+            : "isn't documented by Roblox"} · catalog reviewed {catalog.reviewed}
+        </p>
       {:else}
         <p>
-          This flag isn't on Roblox's allowlist. Since September 2025 the Roblox client ignores local flags like it and logs
-          “Denied local configuration”. Vesper keeps it in the profile so you can see what Roblox says after a launch.
+          This flag isn't on Roblox's allowlist. Since September 2025 the Roblox client ignores local flags like it and
+          logs “Denied local configuration”. Vesper keeps it in the profile so you can see what Roblox says after a
+          launch.
         </p>
       {/if}
     </div>

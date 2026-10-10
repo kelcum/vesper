@@ -53,7 +53,9 @@
 
   async function finish(launch: boolean) {
     finishing = true;
-    const b = await app.attempt(() => api.firstRunFinish({ appearance, profile, richPresence: presence && !!app.boot?.discordConfigured }));
+    const b = await app.attempt(() =>
+      api.firstRunFinish({ appearance, profile, richPresence: presence && !!app.boot?.discordConfigured }),
+    );
     finishing = false;
     if (!b) return;
     app.applyBoot(b);
@@ -77,7 +79,10 @@
         {#if step === 0}
           <img class="logo" src={iconUrl} alt="" width="84" height="84" />
           <h1>Welcome to Vesper</h1>
-          <p class="lead">A calm launcher for Roblox: the Fast Flags Roblox still accepts, a frame-rate limit, customisation and honest performance numbers.</p>
+          <p class="lead">
+            A calm launcher for Roblox: the Fast Flags Roblox still accepts, a frame-rate limit, customisation and
+            honest performance numbers.
+          </p>
           <p class="muted small">No accounts, no telemetry. Vesper never touches your Roblox login.</p>
         {:else if step === 1}
           <h2>Finding Roblox</h2>
@@ -89,14 +94,18 @@
                 <div class="muted small">{sourceLabel(install.source)} · {install.location}</div>
               </div>
             </div>
-            {#if app.detection.installs.length > 1}<p class="muted small">{app.detection.installs.length - 1} other copies were found; Vesper uses the one Roblox registered.</p>{/if}
+            {#if app.detection.installs.length > 1}<p class="muted small">
+                {app.detection.installs.length - 1} other copies were found; Vesper uses the one Roblox registered.
+              </p>{/if}
           {:else}
             <div class="found">
               <TriangleAlert size={22} aria-hidden="true" class="warn" />
               <div>
                 <div class="strong">Roblox isn't installed for this account</div>
                 <div class="muted small">
-                  {app.detection.storeAppPresent ? "Only the Microsoft Store edition is installed, and launchers can't use it." : 'Install Roblox, open it once, then detect again.'}
+                  {app.detection.storeAppPresent
+                    ? "Only the Microsoft Store edition is installed, and launchers can't use it."
+                    : 'Install Roblox, open it once, then detect again.'}
                 </div>
               </div>
             </div>
@@ -105,26 +114,62 @@
             </div>
           {/if}
           <div class="row">
-            <Button size="sm" variant="ghost" icon={RefreshCw} loading={detecting} onclick={detect}>Detect again</Button>
+            <Button size="sm" variant="ghost" icon={RefreshCw} loading={detecting} onclick={detect}>Detect again</Button
+            >
             <Button size="sm" variant="ghost" icon={FolderOpen} onclick={chooseFolder}>It's somewhere else…</Button>
           </div>
         {:else if step === 2}
           <h2>How should Vesper look?</h2>
           <div class="opts">
             <span class="ol">Theme</span>
-            <Segmented label="Theme" value={appearance.theme} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'System' }]} onchange={(v) => preview({ theme: v })} />
+            <Segmented
+              label="Theme"
+              value={appearance.theme}
+              options={[
+                { value: 'dark', label: 'Dark' },
+                { value: 'light', label: 'Light' },
+                { value: 'system', label: 'System' },
+              ]}
+              onchange={(v) => preview({ theme: v })}
+            />
             <span class="ol">Transparency</span>
-            <Segmented label="Transparency" value={appearance.transparency} options={[{ value: 'full', label: 'Glass' }, { value: 'reduced', label: 'Subtle' }, { value: 'off', label: 'Solid' }]} onchange={(v) => preview({ transparency: v })} />
+            <Segmented
+              label="Transparency"
+              value={appearance.transparency}
+              options={[
+                { value: 'full', label: 'Glass' },
+                { value: 'reduced', label: 'Subtle' },
+                { value: 'off', label: 'Solid' },
+              ]}
+              onchange={(v) => preview({ transparency: v })}
+            />
             <span class="ol">Animations</span>
-            <Segmented label="Animations" value={appearance.motion} options={[{ value: 'system', label: 'System' }, { value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }]} onchange={(v) => preview({ motion: v })} />
+            <Segmented
+              label="Animations"
+              value={appearance.motion}
+              options={[
+                { value: 'system', label: 'System' },
+                { value: 'full', label: 'Full' },
+                { value: 'reduced', label: 'Reduced' },
+              ]}
+              onchange={(v) => preview({ motion: v })}
+            />
           </div>
           <p class="muted small">You can change these, add a background image and adjust the interface size later.</p>
         {:else if step === 3}
           <h2>Pick a starting profile</h2>
-          <p class="muted small">Profiles change Fast Flags, the frame-rate limit and process priority. Switch any time.</p>
+          <p class="muted small">
+            Profiles change Fast Flags, the frame-rate limit and process priority. Switch any time.
+          </p>
           <div class="profiles" role="radiogroup" aria-label="Starting profile">
             {#each builtins as p (p.id)}
-              <button class="pcard" class:sel={profile === p.id} role="radio" aria-checked={profile === p.id} onclick={() => (profile = p.id)}>
+              <button
+                class="pcard"
+                class:sel={profile === p.id}
+                role="radio"
+                aria-checked={profile === p.id}
+                onclick={() => (profile = p.id)}
+              >
                 <span class="pn">{p.name}</span>
                 <span class="pd">{p.description}</span>
                 <Badge>{fpsCapShort(p.fpsCap, app.boot?.system.displayHz)}</Badge>
@@ -133,18 +178,38 @@
           </div>
         {:else if step === 4}
           <h2>Discord Rich Presence</h2>
-          <p class="lead">Show friends that you're using Vesper, with a button to get it. Nothing else about you or your games is shared.</p>
+          <p class="lead">
+            Show friends that you're using Vesper, with a button to get it. Nothing else about you or your games is
+            shared.
+          </p>
           <div class="row toggle-row">
-            <Toggle label="Discord Rich Presence" checked={presence} disabled={!app.boot?.discordConfigured} onchange={(v) => (presence = v)} />
+            <Toggle
+              label="Discord Rich Presence"
+              checked={presence}
+              disabled={!app.boot?.discordConfigured}
+              onchange={(v) => (presence = v)}
+            />
             <span>{presence ? 'On' : 'Off'}</span>
           </div>
-          {#if !app.boot?.discordConfigured}<p class="muted small">This build has no Discord application ID, so Rich Presence is unavailable.</p>{/if}
+          {#if !app.boot?.discordConfigured}<p class="muted small">
+              This build has no Discord application ID, so Rich Presence is unavailable.
+            </p>{/if}
         {:else}
           <img class="logo" src={iconUrl} alt="" width="72" height="72" />
           <h2>You're set</h2>
-          <p class="lead">Vesper will apply the {app.profiles.profiles.find((p) => p.id === profile)?.name} profile each time it launches Roblox, then check Roblox's log to confirm what it accepted.</p>
+          <p class="lead">
+            Vesper will apply the {app.profiles.profiles.find((p) => p.id === profile)?.name} profile each time it launches
+            Roblox, then check Roblox's log to confirm what it accepted.
+          </p>
           <div class="row">
-            <Button variant="primary" size="lg" icon={Play} loading={finishing} disabled={!install} onclick={() => finish(true)}>Launch Roblox</Button>
+            <Button
+              variant="primary"
+              size="lg"
+              icon={Play}
+              loading={finishing}
+              disabled={!install}
+              onclick={() => finish(true)}>Launch Roblox</Button
+            >
             <Button size="lg" loading={finishing} onclick={() => finish(false)}>Open Vesper</Button>
           </div>
         {/if}
@@ -153,9 +218,11 @@
 
     {#if step < steps.length - 1}
       <div class="nav">
-        {#if step > 0}<Button variant="ghost" icon={ArrowLeft} onclick={() => go(step - 1)}>Back</Button>{:else}<span></span>{/if}
+        {#if step > 0}<Button variant="ghost" icon={ArrowLeft} onclick={() => go(step - 1)}>Back</Button>{:else}<span
+          ></span>{/if}
         <Button variant="primary" onclick={() => go(step + 1)}>
-          {step === 0 ? 'Get started' : 'Continue'} <ArrowRight size={15} aria-hidden="true" />
+          {step === 0 ? 'Get started' : 'Continue'}
+          <ArrowRight size={15} aria-hidden="true" />
         </Button>
       </div>
     {/if}

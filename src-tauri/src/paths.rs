@@ -107,14 +107,9 @@ fn env_dir(name: &str) -> io::Result<PathBuf> {
 /// A crash mid-write leaves the previous file intact instead of a truncated one.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     use std::io::Write;
-    let dir = path
-        .parent()
-        .ok_or_else(|| io::Error::other("path has no parent directory"))?;
+    let dir = path.parent().ok_or_else(|| io::Error::other("path has no parent directory"))?;
     std::fs::create_dir_all(dir)?;
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     let tmp = dir.join(format!(".{file_name}.{}.tmp", std::process::id()));
     {
         let mut f = std::fs::File::create(&tmp)?;

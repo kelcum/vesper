@@ -61,10 +61,7 @@ fn verdict_name(v: Verdict) -> &'static str {
 
 impl VerificationStore {
     pub fn load(path: &Path) -> Self {
-        std::fs::read(path)
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default()
+        std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
     }
 
     pub fn save(&self, path: &Path) -> io::Result<()> {

@@ -130,13 +130,15 @@ pub fn validate(flags: &FlagSet, catalog: &Catalog) -> Vec<Issue> {
 
         for rel in &info.conflicts {
             // Report each pair once, from the alphabetically first flag.
-            if value == &rel.when
-                && normalized.get(&rel.flag) == Some(&rel.when)
-                && name.as_str() < rel.flag.as_str()
-            {
+            if value == &rel.when && normalized.get(&rel.flag) == Some(&rel.when) && name.as_str() < rel.flag.as_str() {
                 issues.push(
-                    Issue::new(name, Severity::Error, "conflict", format!("Conflicts with {}: {}", rel.flag, rel.reason))
-                        .with_fix(Fix::Remove { flag: rel.flag.clone() }),
+                    Issue::new(
+                        name,
+                        Severity::Error,
+                        "conflict",
+                        format!("Conflicts with {}: {}", rel.flag, rel.reason),
+                    )
+                    .with_fix(Fix::Remove { flag: rel.flag.clone() }),
                 );
             }
         }

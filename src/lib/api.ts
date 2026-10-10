@@ -82,8 +82,7 @@ export const api = {
   profilesGet: () => call<ProfileStore>('profiles_get'),
   profilesSetActive: (id: string) => call<ProfileStore>('profiles_set_active', { id }),
   profilesSetDefault: (id: string) => call<ProfileStore>('profiles_set_default', { id }),
-  profilesCreate: (name: string, from?: string) =>
-    call<ProfileStore>('profiles_create', { name, from: from ?? null }),
+  profilesCreate: (name: string, from?: string) => call<ProfileStore>('profiles_create', { name, from: from ?? null }),
   profilesDuplicate: (id: string) => call<ProfileStore>('profiles_duplicate', { id }),
   profilesUpdate: (id: string, patch: ProfilePatch) => call<ProfileStore>('profiles_update', { id, patch }),
   profilesDelete: (id: string) => call<ProfileStore>('profiles_delete', { id }),

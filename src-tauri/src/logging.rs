@@ -62,11 +62,7 @@ fn usize_to_level(v: usize) -> LevelFilter {
 pub fn init(dir: &Path, level: LevelFilter) {
     let logger = LOGGER.get_or_init(|| Logger {
         level: AtomicUsize::new(level_to_usize(level)),
-        sink: Mutex::new(Sink {
-            dir: dir.to_path_buf(),
-            day: String::new(),
-            file: None,
-        }),
+        sink: Mutex::new(Sink { dir: dir.to_path_buf(), day: String::new(), file: None }),
         tail: Mutex::new(VecDeque::with_capacity(TAIL_CAPACITY)),
     });
     if log::set_logger(logger).is_ok() {
@@ -104,10 +100,7 @@ pub fn parse_level(s: &str) -> LevelFilter {
 }
 
 fn area(target: &str) -> String {
-    target
-        .trim_start_matches("vesper_lib::")
-        .trim_start_matches("vesper::")
-        .replace("::", ".")
+    target.trim_start_matches("vesper_lib::").trim_start_matches("vesper::").replace("::", ".")
 }
 
 fn level_name(l: Level) -> &'static str {
@@ -123,11 +116,7 @@ fn level_name(l: Level) -> &'static str {
 impl Logger {
     fn accepts(&self, metadata: &Metadata) -> bool {
         let ours = metadata.target().starts_with("vesper");
-        let limit = if ours {
-            usize_to_level(self.level.load(Ordering::Relaxed))
-        } else {
-            LevelFilter::Warn
-        };
+        let limit = if ours { usize_to_level(self.level.load(Ordering::Relaxed)) } else { LevelFilter::Warn };
         metadata.level() <= limit
     }
 }
@@ -190,9 +179,7 @@ pub fn prune(dir: &Path, keep: usize) {
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with("vesper-") && n.ends_with(".log"))
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("vesper-") && n.ends_with(".log"))
         })
         .collect();
     // Names embed the date, so lexical order is chronological.
