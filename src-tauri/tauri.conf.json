@@ -59,7 +59,6 @@
         "headerImage": "installer/header.bmp",
         "sidebarImage": "installer/sidebar.bmp",
         "displayLanguageSelector": false,
-        "startMenuFolder": "Vesper",
         "installerHooks": "installer/hooks.nsh"
       }
     }
