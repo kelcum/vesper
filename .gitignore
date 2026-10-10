@@ -23,3 +23,6 @@ src-tauri/gen/
 *.log
 Thumbs.db
 .DS_Store
+
+# Release downloads staged by scripts/site/publish.mjs (they live in the Pages repo)
+website/vesper/download/

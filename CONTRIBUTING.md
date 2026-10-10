@@ -112,3 +112,24 @@ short first line and detail below if it helps a reviewer.
 Use the issue templates. Attach diagnostics from Settings → Advanced → Copy
 diagnostics. They contain no secrets and no Windows user name. Security
 problems go through [SECURITY.md](SECURITY.md), not public issues.
+
+## Releasing (maintainers)
+
+1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and
+   `src-tauri/tauri.conf.json`, and move the "Unreleased" changelog entries
+   under the new version.
+2. Push a tag such as `v0.2.0`. The Release workflow builds the signed
+   installer, a portable zip, `latest.json` and `SHA256SUMS.txt` into a
+   **draft** GitHub release. It needs the repository secrets
+   `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+3. Test the draft's installer, then stage it on the website:
+
+   ```bash
+   gh release download v0.2.0 -D release-files
+   node scripts/site/publish.mjs release-files ../kelcum.github.io
+   ```
+
+   This checks every file against `SHA256SUMS.txt` and the update signature,
+   then copies the page, downloads and update manifests into the Pages clone.
+   It never commits or pushes: review the clone and push it yourself, then
+   commit `website/vesper/release.json` here and publish the draft release.
