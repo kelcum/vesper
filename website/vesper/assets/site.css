@@ -98,6 +98,10 @@ img {
 .band > .split {
   padding: clamp(64px, 9vw, 110px) 0;
 }
+/* Download and install read top-down; their eyebrows line up. */
+#install .split {
+  align-items: start;
+}
 .eyebrow {
   margin-bottom: 14px;
   font-size: 12.5px;
@@ -451,6 +455,7 @@ img {
   border-radius: 999px;
   font-size: 12.5px;
   font-weight: 650;
+  white-space: nowrap;
 }
 .pill.ok {
   color: var(--ok);
@@ -471,7 +476,7 @@ img {
 
 /* Flag table */
 .table-wrap {
-  margin-top: 32px;
+  margin: 32px 0 14px;
   overflow-x: auto;
   border-radius: 18px;
   border: 1px solid var(--border);
@@ -601,6 +606,9 @@ td p {
 .faq details[open] summary::after {
   transform: rotate(45deg);
 }
+.faq details:last-of-type {
+  border-bottom: 1px solid var(--border);
+}
 .faq details p {
   margin: 12px 0 0;
   color: var(--text-2);
@@ -654,12 +662,71 @@ td p {
     grid-template-columns: 1fr;
   }
   .features,
-  .profiles,
-  .proof {
+  .profiles {
     grid-template-columns: 1fr;
+  }
+  .proof div {
+    padding: 18px;
   }
   .foot p {
     margin-left: 0;
+  }
+
+  /* Keep the star clear of the headline, and the horizon just behind the screenshot. */
+  .star {
+    top: 22px;
+    right: 14%;
+  }
+  .limb {
+    top: calc(100% - 210px);
+  }
+
+  .log pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* Flag table as stacked rows: name, description, then area and effect. */
+  table {
+    min-width: 0;
+  }
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  tbody,
+  tr,
+  td {
+    display: block;
+  }
+  tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+    align-items: center;
+    padding: 16px 18px;
+    border-top: 1px solid var(--border);
+  }
+  tbody tr:first-child {
+    border-top: 0;
+  }
+  td {
+    padding: 0;
+    border: 0;
+  }
+  td:nth-child(1),
+  td:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+  td:nth-child(3) {
+    font-size: 13.5px;
+    color: var(--text-3);
+  }
+  td .name {
+    overflow-wrap: anywhere;
   }
 }
 
