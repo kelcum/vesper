@@ -1160,9 +1160,9 @@ footer .brand {
 }
 
 /* ------------------------------------------------------------ reveal */
-/* Hidden only once the script runs (it adds .js), so nothing is blank without it. */
+/* Starts faint (never invisible) once the script runs (it adds .js), then settles in. */
 .js .reveal {
-  opacity: 0;
+  opacity: 0.25;
   transform: translateY(26px);
   transition:
     opacity 1s var(--ease),
