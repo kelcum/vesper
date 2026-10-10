@@ -34,10 +34,15 @@ First release.
 - Customisation: cursor and emote wheel (built-in styles or your own image,
   generated at every size Roblox uses, with a highlight colour), font, death
   sound and a custom files folder. Originals are backed up and restored.
+  Your own picture becomes a round emote wheel with Roblox-style slots,
+  adjustable darkening and optional dividers; cursor styles can be resized
+  and recoloured. Both are previewed on a Roblox-style baseplate.
 - Keeping flags and customisations applied when Roblox updates itself.
 - Performance page: system and Roblox CPU, memory and GPU, and frame rate and
   frame timing from Direct3D present events when Windows permits.
-- Discord Rich Presence with a "Get Vesper" button, built in.
+- Discord Rich Presence with a "Get Vesper" button, built in, with its own
+  artwork and a status badge that follows the "show whether Roblox is
+  running" setting.
 - Backups with history, import and export; recovery tools for flags,
   customisations, the frame-rate setting and Vesper's own settings.
 - Diagnostics and structured logs with secrets and user names removed.
