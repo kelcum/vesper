@@ -731,4 +731,14 @@ pub fn app_ready(app: AppHandle, state: State<'_, AppState>) {
     if state.settings().roblox.flag_mode == FlagMode::KeepApplied {
         state.sync_keep_applied(&app);
     }
+    // "Launch Roblox when Vesper starts": once per run, not on every window reload.
+    static LAUNCHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if state.settings().general.launch_roblox_on_start
+        && !state.roblox_running.load(Ordering::Relaxed)
+        && !LAUNCHED.swap(true, Ordering::Relaxed)
+    {
+        if let Err(problem) = crate::session::begin(app.clone(), LaunchTarget::App) {
+            state.set_launch(&app, LaunchStatus::Failed { problem });
+        }
+    }
 }

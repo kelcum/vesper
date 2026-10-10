@@ -121,4 +121,19 @@ for (const [id, w] of Object.entries(wheels)) {
   writeFileSync(out(`wheels/${id}/SegmentedCircle.png`), render(doc(w.ring()), S));
 }
 
+// Small thumbnails for the Customize page (the 1920 px masters are too heavy to bundle twice).
+const thumbs = (p) => {
+  const full = join(root, 'src/assets/mods', p);
+  mkdirSync(dirname(full), { recursive: true });
+  return full;
+};
+for (const [id, body] of Object.entries(cursors)) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${body}</svg>`;
+  writeFileSync(thumbs(`cursor-${id}.png`), render(svg, 64));
+}
+for (const [id, w] of Object.entries(wheels)) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${w.background}${w.ring()}</svg>`;
+  writeFileSync(thumbs(`wheel-${id}.png`), render(svg, 192));
+}
+
 console.log('Mod presets rendered.');

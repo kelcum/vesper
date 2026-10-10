@@ -24,6 +24,7 @@ pub const MAX_LAUNCH_DATA_BYTES: usize = 200;
 pub enum LaunchTarget {
     /// Opens the Roblox app home screen.
     App,
+    #[serde(rename_all = "camelCase")]
     Experience {
         place_id: u64,
         game_instance_id: Option<String>,

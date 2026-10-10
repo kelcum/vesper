@@ -126,18 +126,47 @@ pub fn mods_get(state: State<'_, AppState>) -> ModsView {
     view(&state, false)
 }
 
-/// `preset` picks a built-in style; otherwise `path` is an image file.
+/// Keeps a copy of a picked image so size or colour changes don't need it picked again.
+fn store_source(state: &AppState, kind: &str, path: &Path) -> Result<PathBuf> {
+    let dest = state.mod_paths.root.join("sources").join(kind);
+    std::fs::create_dir_all(dest.parent().expect("has parent")).map_err(|e| Problem::io("Couldn't keep a copy of the image.", &e))?;
+    std::fs::copy(path, &dest).map_err(|e| Problem::io("Couldn't read that image.", &e))?;
+    Ok(dest)
+}
+
+fn stored_source(state: &AppState, kind: &str) -> Option<PathBuf> {
+    let p = state.mod_paths.root.join("sources").join(kind);
+    p.is_file().then_some(p)
+}
+
+/// `preset` picks a built-in style, `path` a new image. With neither and
+/// `reuse`, the previously picked image is rendered again (e.g. at a new size).
 #[tauri::command]
-pub async fn mods_set_cursor(app: AppHandle, preset: Option<String>, path: Option<PathBuf>, scale: Option<u8>) -> Result<ModsView> {
+pub async fn mods_set_cursor(
+    app: AppHandle,
+    preset: Option<String>,
+    path: Option<PathBuf>,
+    scale: Option<u8>,
+    reuse: Option<bool>,
+) -> Result<ModsView> {
     blocking(app, move |app| {
         let state = app.state::<AppState>();
         let scale = scale.unwrap_or(100).clamp(20, 100);
-        let source = match (&preset, &path) {
-            (Some(id), _) => Source::Preset { id: id.clone() },
-            (None, Some(p)) => Source::File { name: file_name(p) },
+        let previous = lock(&state.mods).cursor.clone();
+        let (source, file) = match (&preset, &path) {
+            (Some(id), _) => (Source::Preset { id: id.clone() }, None),
+            (None, Some(p)) => (Source::File { name: file_name(p) }, Some(store_source(&state, "cursor", p)?)),
+            (None, None) if reuse == Some(true) => match previous.map(|c| c.source) {
+                Some(s @ Source::File { .. }) => (s, stored_source(&state, "cursor")),
+                Some(s) => (s, None),
+                None => return Err(problem("Choose a style or an image.")),
+            },
             _ => return Err(problem("Choose a style or an image.")),
         };
-        mods::prepare_cursor(&state.mod_paths, &source, path.as_deref(), scale).map_err(problem)?;
+        if matches!(source, Source::File { .. }) && file.is_none() {
+            return Err(problem("The image you picked earlier is gone. Choose it again."));
+        }
+        mods::prepare_cursor(&state.mod_paths, &source, file.as_deref(), scale).map_err(problem)?;
         lock(&state.mods).cursor = Some(CursorMod { source, scale });
         let applied = commit(app, &state)?;
         Ok(view(&state, applied))
@@ -145,21 +174,36 @@ pub async fn mods_set_cursor(app: AppHandle, preset: Option<String>, path: Optio
     .await
 }
 
-/// With no preset and no path, keeps Roblox's wheel and only changes the accent.
+/// With no preset and no path, keeps Roblox's wheel and only changes the accent,
+/// unless `reuse` asks to keep the previously picked image.
 #[tauri::command]
-pub async fn mods_set_wheel(app: AppHandle, preset: Option<String>, path: Option<PathBuf>, accent: Option<String>) -> Result<ModsView> {
+pub async fn mods_set_wheel(
+    app: AppHandle,
+    preset: Option<String>,
+    path: Option<PathBuf>,
+    accent: Option<String>,
+    reuse: Option<bool>,
+) -> Result<ModsView> {
     blocking(app, move |app| {
         let state = app.state::<AppState>();
         if let Some(a) = &accent {
             mods::parse_hex(a).ok_or_else(|| problem("Colours look like #a596ff."))?;
         }
-        let source = match (&preset, &path) {
-            (Some(id), _) => Some(Source::Preset { id: id.clone() }),
-            (None, Some(p)) => Some(Source::File { name: file_name(p) }),
-            (None, None) => None,
+        let previous = lock(&state.mods).emote_wheel.clone().and_then(|w| w.source);
+        let (source, file) = match (&preset, &path) {
+            (Some(id), _) => (Some(Source::Preset { id: id.clone() }), None),
+            (None, Some(p)) => (Some(Source::File { name: file_name(p) }), Some(store_source(&state, "wheel", p)?)),
+            (None, None) if reuse == Some(true) => match previous {
+                Some(s @ Source::File { .. }) => (Some(s), stored_source(&state, "wheel")),
+                other => (other, None),
+            },
+            (None, None) => (None, None),
         };
         match &source {
-            Some(s) => mods::prepare_wheel(&state.mod_paths, s, path.as_deref()).map_err(problem)?,
+            Some(Source::File { .. }) if file.is_none() => {
+                return Err(problem("The image you picked earlier is gone. Choose it again."));
+            }
+            Some(s) => mods::prepare_wheel(&state.mod_paths, s, file.as_deref()).map_err(problem)?,
             None => mods::clear_prepared(&state.mod_paths, "emoteWheel"),
         }
         let wheel = (source.is_some() || accent.is_some()).then_some(WheelMod { source, accent });
