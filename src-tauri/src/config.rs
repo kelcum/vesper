@@ -127,6 +127,12 @@ pub struct Appearance {
     pub density: Density,
     /// UI scale in percent (see [`UI_SCALES`]).
     pub scale: u16,
+    /// File name of a custom window background in the config folder.
+    pub background: Option<String>,
+    /// How much the background is darkened behind panels, 0-90 %.
+    pub background_dim: u8,
+    /// Background blur in pixels, 0-40.
+    pub background_blur: u8,
 }
 
 impl Default for Appearance {
@@ -137,6 +143,9 @@ impl Default for Appearance {
             motion: Motion::System,
             density: Density::Comfortable,
             scale: 100,
+            background: None,
+            background_dim: 55,
+            background_blur: 12,
         }
     }
 }
@@ -283,6 +292,14 @@ impl Settings {
             self.appearance.scale = 100;
         }
         self.performance.sample_ms = self.performance.sample_ms.clamp(500, 5000);
+        self.appearance.background_dim = self.appearance.background_dim.min(90);
+        self.appearance.background_blur = self.appearance.background_blur.min(40);
+        if let Some(b) = &self.appearance.background {
+            // Only a bare file name inside the config folder is allowed.
+            if b.contains(['/', '\\']) || b.contains("..") || !b.starts_with("background.") {
+                self.appearance.background = None;
+            }
+        }
         if !["error", "warn", "info", "debug", "trace"].contains(&self.advanced.log_level.as_str()) {
             self.advanced.log_level = "info".into();
         }

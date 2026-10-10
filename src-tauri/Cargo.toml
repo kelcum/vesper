@@ -37,6 +37,8 @@ hex = "0.4"
 regex = "1"
 notify = "8"
 url = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+base64 = "0.22"
 tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
 
@@ -70,3 +72,7 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Image decoding/resizing is unusably slow unoptimised; optimise dependencies in dev and test builds.
+[profile.dev.package."*"]
+opt-level = 2

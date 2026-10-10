@@ -51,6 +51,12 @@ pub fn run_cli() -> i32 {
     let _ = ledger.save(&paths.ownership_file());
     log::info!("Removed {} flags file(s), left {} not written by Vesper", summary.removed, summary.kept_foreign);
 
+    let mod_paths = crate::mods::ModPaths::new(&paths.config, &paths.cache);
+    let mut mod_ledger = crate::mods::ModLedger::load(&mod_paths.ledger);
+    let mods = crate::mods::restore_all(&mut mod_ledger);
+    let _ = mod_ledger.save(&mod_paths.ledger);
+    log::info!("Restored {} customised Roblox file(s)", mods.restored);
+
     let settings = crate::config::Settings::load(&paths.settings_file()).settings;
     if let (Some(original), Some(local)) = (settings.original_fps_cap, std::env::var_os("LOCALAPPDATA")) {
         if crate::roblox::process::roblox_pids().is_empty() {

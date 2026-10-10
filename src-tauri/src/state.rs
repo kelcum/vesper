@@ -8,6 +8,7 @@ use crate::discord::presence::{Presence, PresenceState, PresenceStatus};
 use crate::error::{Problem, ProblemAction, Result};
 use crate::flags::apply::{self, Ownership};
 use crate::flags::verification::VerificationStore;
+use crate::mods::{ModLedger, ModPaths, ModReport, ModsConfig};
 use crate::paths::AppPaths;
 use crate::perf::monitor::MonitorHandle;
 use crate::perf::system::SystemInfo;
@@ -80,6 +81,10 @@ pub struct AppState {
     pub pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
     pub keep_applied: Mutex<Option<VersionsWatcher>>,
     pub notices: Mutex<Vec<String>>,
+    pub mod_paths: ModPaths,
+    pub mods: Mutex<ModsConfig>,
+    pub mod_ledger: Mutex<ModLedger>,
+    pub last_mod_report: Mutex<Option<ModReport>>,
     pub roblox_running: AtomicBool,
     pub quitting: AtomicBool,
 }
@@ -103,6 +108,9 @@ impl AppState {
         let ownership = Ownership::load(&paths.ownership_file());
         let verification = VerificationStore::load(&paths.verification_file());
         let detection = detect::detect(&env, settings.roblox.install_dir.as_deref());
+        let mod_paths = ModPaths::new(&paths.config, &paths.cache);
+        let mods = ModsConfig::load(&mod_paths);
+        let mod_ledger = ModLedger::load(&mod_paths.ledger);
         Ok(Self {
             system: crate::perf::system::info(),
             http: crate::roblox::cdn::http_client(),
@@ -120,6 +128,10 @@ impl AppState {
             pending_update: Mutex::new(None),
             keep_applied: Mutex::new(None),
             notices: Mutex::new(notices),
+            mods: Mutex::new(mods),
+            mod_ledger: Mutex::new(mod_ledger),
+            mod_paths,
+            last_mod_report: Mutex::new(None),
             roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
             quitting: AtomicBool::new(false),
             env,
@@ -151,6 +163,33 @@ impl AppState {
         if let Err(e) = lock(&self.verification).save(&self.paths.verification_file()) {
             log::warn!("Couldn't save verification results: {e}");
         }
+    }
+
+    /// Brings Roblox's files in line with the mod settings. Returns `None` when
+    /// nothing is configured and nothing was applied before.
+    pub fn apply_mods(&self, dir: &std::path::Path) -> Option<ModReport> {
+        let cfg = lock(&self.mods).clone();
+        let nothing = cfg == ModsConfig::default() && lock(&self.mod_ledger).files.is_empty();
+        if nothing {
+            return None;
+        }
+        let report = {
+            let mut ledger = lock(&self.mod_ledger);
+            crate::mods::apply(&cfg, &self.mod_paths, dir, &mut ledger)
+        };
+        if let Err(e) = lock(&self.mod_ledger).save(&self.mod_paths.ledger) {
+            log::warn!("Couldn't save the mods ledger: {e}");
+        }
+        log::info!(
+            "Mods: {} written, {} unchanged, {} restored, {} missing, {} errors",
+            report.written,
+            report.unchanged,
+            report.restored,
+            report.missing.len(),
+            report.errors.len()
+        );
+        *lock(&self.last_mod_report) = Some(report.clone());
+        Some(report)
     }
 
     pub fn redetect(&self, app: &AppHandle) -> Detection {
@@ -270,6 +309,7 @@ impl AppState {
 /// Writes the active profile's flags into a version folder Roblox just created.
 pub fn apply_to_new_version(app: &AppHandle, dir: &std::path::Path) {
     let state = app.state::<AppState>();
+    state.apply_mods(dir);
     if lock(&state.settings).roblox.flag_mode == FlagMode::Off {
         return;
     }

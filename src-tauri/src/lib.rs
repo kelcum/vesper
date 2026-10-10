@@ -8,11 +8,13 @@ pub mod backup;
 pub mod cleanup;
 pub mod commands;
 pub mod config;
+pub mod customize;
 pub mod diagnostics;
 pub mod discord;
 pub mod error;
 pub mod flags;
 pub mod logging;
+pub mod mods;
 pub mod paths;
 pub mod perf;
 pub mod profiles;
@@ -167,6 +169,17 @@ pub fn run() {
             commands::app_hide,
             commands::app_quit,
             commands::app_ready,
+            customize::mods_get,
+            customize::mods_set_cursor,
+            customize::mods_set_wheel,
+            customize::mods_set_font,
+            customize::mods_set_sound,
+            customize::mods_set_custom,
+            customize::mods_clear,
+            customize::mods_open_custom_folder,
+            customize::appearance_set_background,
+            customize::appearance_clear_background,
+            customize::appearance_background_data,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Vesper")

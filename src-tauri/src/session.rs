@@ -115,7 +115,22 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 2. Frame-rate limit (Roblox's own setting; only while Roblox is closed).
+    // 2. Customisations (cursor, emote wheel, font, sounds). Roblox reads them at startup.
+    if !roblox_running {
+        if let Some(r) = state.apply_mods(&install.dir) {
+            if !r.missing.is_empty() {
+                lock(&state.notices).push(format!(
+                    "This Roblox version doesn't have {} file(s) a customisation replaces, so they were skipped. Roblox may have moved them.",
+                    r.missing.len()
+                ));
+            }
+            for e in r.errors.iter().take(3) {
+                lock(&state.notices).push(e.clone());
+            }
+        }
+    }
+
+    // 3. Frame-rate limit (Roblox's own setting; only while Roblox is closed).
     if settings.roblox.apply_fps_cap && !roblox_running {
         if let Some(cap) = profile.fps_cap {
             step(app, "Setting the frame-rate limit");
@@ -139,10 +154,11 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 3. Start Roblox.
+    // 4. Start Roblox.
     state.set_launch(app, LaunchStatus::Starting);
     // If Roblox updates itself during this launch, carry the flags into the new folder.
-    let temp_watch = (settings.roblox.flag_mode == FlagMode::ApplyOnLaunch && !expected.is_empty())
+    let has_mods = *lock(&state.mods) != crate::mods::ModsConfig::default();
+    let temp_watch = (settings.roblox.flag_mode != FlagMode::KeepApplied && (!expected.is_empty() || has_mods))
         .then(|| {
             let handle = app.clone();
             VersionsWatcher::start(&state.env.roblox_data().join("Versions"), move |dir| {
@@ -170,7 +186,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         lock(&state.notices).push(format!("Windows didn't allow changing which processors Roblox uses ({err}). Roblox started normally."));
     }
 
-    // 4. Wait for the player window process (Roblox may update itself first).
+    // 5. Wait for the player window process (Roblox may update itself first).
     let pid = wait_for_player(app, spawned.pid)?;
     state.roblox_running.store(true, Ordering::Relaxed);
     let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": true, "pids": [pid] }));
@@ -179,7 +195,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     crate::tray::refresh(app);
     after_launch(app, settings.general.after_launch);
 
-    // 5. Confirm with Roblox's own log.
+    // 6. Confirm with Roblox's own log.
     let version = if settings.roblox.verify_after_launch {
         verify(app, launched_at, &expected)
     } else {
