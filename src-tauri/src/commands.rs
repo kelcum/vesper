@@ -589,6 +589,9 @@ const ALLOWED_HOSTS: &[&str] = &[
     "discord.com",
     "learn.microsoft.com",
     "support.microsoft.com",
+    // Free fonts for the Customize page.
+    "fonts.google.com",
+    "www.fontshare.com",
 ];
 
 #[tauri::command]

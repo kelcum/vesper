@@ -424,6 +424,13 @@ fn check_header(path: &Path, max: u64, ok: impl Fn(&[u8]) -> bool, what: &str) -
 }
 
 pub fn prepare_font(p: &ModPaths, file: &Path) -> Result<(), String> {
+    let head = std::fs::File::open(file).and_then(|mut f| {
+        let mut b = [0u8; 4];
+        std::io::Read::read_exact(&mut f, &mut b).map(|_| b)
+    });
+    if matches!(head.as_ref().map(|b| &b[..]), Ok(b"wOFF" | b"wOF2")) {
+        return Err("That's a web font (.woff). Roblox needs the .ttf or .otf version of the font.".into());
+    }
     let bytes = check_header(
         file,
         MAX_FONT_BYTES,
@@ -431,6 +438,50 @@ pub fn prepare_font(p: &ModPaths, file: &Path) -> Result<(), String> {
         "font (.ttf, .otf or .ttc)",
     )?;
     write_atomic(&p.prepared(FONT_FILE), &bytes).map_err(|e| e.to_string())
+}
+
+/// The name a font file gives itself ("Poppins ExtraBold"), from its `name` table.
+pub fn font_name(bytes: &[u8]) -> Option<String> {
+    let u16_at = |at: usize| bytes.get(at..at + 2).map(|b| u16::from_be_bytes([b[0], b[1]]) as usize);
+    let u32_at = |at: usize| bytes.get(at..at + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize);
+    // A collection lists its fonts; the first one is the one Roblox uses.
+    let font = if bytes.starts_with(b"ttcf") { u32_at(12)? } else { 0 };
+    let tables = u16_at(font + 4)?;
+    let name = (0..tables).map(|i| font + 12 + i * 16).find(|&rec| bytes.get(rec..rec + 4) == Some(b"name"))?;
+    let table = u32_at(name + 8)?;
+    let count = u16_at(table + 2)?;
+    let strings = table + u16_at(table + 4)?;
+    let mut best: Option<(u8, String)> = None;
+    for i in 0..count {
+        let rec = table + 6 + i * 12;
+        let (platform, language, id) = (u16_at(rec)?, u16_at(rec + 4)?, u16_at(rec + 6)?);
+        let (len, offset) = (u16_at(rec + 8)?, u16_at(rec + 10)?);
+        // Full name first, then the family name; Windows English, then any language.
+        let rank = match (id, platform, language) {
+            (4, 3, 0x409) => 0,
+            (4, 3, _) => 1,
+            (1, 3, 0x409) => 2,
+            (1, 3, _) => 3,
+            (4, 1, _) => 4,
+            (1, 1, _) => 5,
+            _ => continue,
+        };
+        if best.as_ref().is_some_and(|(r, _)| *r <= rank) {
+            continue;
+        }
+        let Some(raw) = bytes.get(strings + offset..strings + offset + len) else { continue };
+        let text = if platform == 3 {
+            let units: Vec<u16> = raw.as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)).collect();
+            String::from_utf16_lossy(&units)
+        } else {
+            raw.iter().map(|&b| b as char).collect()
+        };
+        let text = text.trim().to_owned();
+        if !text.is_empty() {
+            best = Some((rank, text));
+        }
+    }
+    best.map(|(_, name)| name.chars().take(80).collect())
 }
 
 /// Rebuilds a picture wheel prepared by an older Vesper, which put the picture in
@@ -650,15 +701,49 @@ fn original_for(install: &Path, rel: &str, originals: &Path) -> Option<Vec<u8>> 
 }
 
 /// Points every face of a font family manifest at CustomFont.ttf.
+///
+/// Only the asset ids change: the rest of Roblox's file (key order, layout)
+/// stays as Roblox wrote it, as Bloxstrap and Fishstrap leave it.
 pub fn rewrite_family(original: &[u8]) -> Option<Vec<u8>> {
-    let mut v: serde_json::Value = serde_json::from_slice(original).ok()?;
-    let faces = v.get_mut("faces")?.as_array_mut()?;
-    for f in faces.iter_mut() {
-        if let Some(obj) = f.as_object_mut() {
-            obj.insert("assetId".into(), serde_json::Value::String(FONT_ASSET.into()));
+    const KEY: &str = "\"assetId\"";
+    let text = std::str::from_utf8(original).ok()?;
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(KEY) {
+        let tail = &rest[at + KEY.len()..];
+        let colon = tail.find(|c: char| !c.is_whitespace())?;
+        if !tail[colon..].starts_with(':') {
+            return None;
+        }
+        let value_at = colon + 1 + tail[colon + 1..].find(|c: char| !c.is_whitespace())?;
+        let value = tail[value_at..].strip_prefix('"')?;
+        let end = closing_quote(value)?;
+        out.push_str(&rest[..at + KEY.len() + value_at]);
+        out.push('"');
+        out.push_str(FONT_ASSET);
+        out.push('"');
+        rest = &value[end + 1..];
+    }
+    out.push_str(rest);
+    // The result must still be a manifest with every face on the custom font.
+    let v: serde_json::Value = serde_json::from_str(out.trim_start_matches('\u{feff}')).ok()?;
+    let faces = v.get("faces")?.as_array()?;
+    let all = faces.iter().all(|f| f.get("assetId").and_then(|a| a.as_str()) == Some(FONT_ASSET));
+    (!faces.is_empty() && all).then(|| out.into_bytes())
+}
+
+/// Index of the quote that ends a JSON string (the opening quote already consumed).
+fn closing_quote(s: &str) -> Option<usize> {
+    let mut escaped = false;
+    for (i, c) in s.char_indices() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '"' => return Some(i),
+            _ => {}
         }
     }
-    serde_json::to_vec(&v).ok()
+    None
 }
 
 fn walk(dir: &Path) -> Vec<PathBuf> {
@@ -1052,6 +1137,68 @@ mod tests {
         assert!(fam.contains("BuilderSans-Regular.otf"), "family restored");
     }
 
+    fn font_with_names(names: &[(u16, u16, u16, &str)]) -> Vec<u8> {
+        let (mut records, mut strings) = (Vec::new(), Vec::new());
+        for &(platform, language, id, text) in names {
+            let encoded: Vec<u8> = if platform == 3 {
+                text.encode_utf16().flat_map(u16::to_be_bytes).collect()
+            } else {
+                text.bytes().collect()
+            };
+            for v in [platform, u16::from(platform == 3), language, id, encoded.len() as u16, strings.len() as u16] {
+                records.extend(v.to_be_bytes());
+            }
+            strings.extend(encoded);
+        }
+        let mut table = Vec::new();
+        for v in [0u16, names.len() as u16, (6 + records.len()) as u16] {
+            table.extend(v.to_be_bytes());
+        }
+        table.extend(records);
+        table.extend(strings);
+        let mut font = vec![0, 1, 0, 0];
+        for v in [1u16, 16, 0, 0] {
+            font.extend(v.to_be_bytes());
+        }
+        font.extend(b"name");
+        for v in [0u32, 28, table.len() as u32] {
+            font.extend(v.to_be_bytes());
+        }
+        font.extend(table);
+        font
+    }
+
+    #[test]
+    fn font_names_are_read_from_the_file() {
+        let font =
+            font_with_names(&[(1, 0, 4, "Mac Name"), (3, 0x407, 4, "Deutsch"), (3, 0x409, 4, "Poppins ExtraBold")]);
+        assert_eq!(font_name(&font).as_deref(), Some("Poppins ExtraBold"));
+        let family_only = font_with_names(&[(3, 0x409, 1, "Poppins"), (3, 0x409, 2, "Bold")]);
+        assert_eq!(font_name(&family_only).as_deref(), Some("Poppins"));
+        // A collection: a 16-byte header pointing at its first font. Offsets
+        // inside a collection count from the start of the file.
+        let mut face = font_with_names(&[(3, 0x409, 4, "First Face")]);
+        face[20..24].copy_from_slice(&(28u32 + 16).to_be_bytes());
+        let mut collection = b"ttcf\0\x01\0\0\0\0\0\x01\0\0\0\x10".to_vec();
+        collection.extend(face);
+        assert_eq!(font_name(&collection).as_deref(), Some("First Face"));
+        assert_eq!(font_name(b"\0\x01\0\0garbage"), None);
+        assert_eq!(font_name(&[]), None);
+    }
+
+    #[test]
+    fn font_families_keep_roblox_layout() {
+        let original = "{\n\t\"name\": \"Builder Sans\",\n\t\"faces\": [\n\t\t{\n\t\t\t\"name\": \"Thin\",\n\t\t\t\"weight\": 100,\n\t\t\t\"style\": \"normal\",\n\t\t\t\"assetId\": \"rbxassetid://16480735997\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"Regular\",\n\t\t\t\"weight\": 400,\n\t\t\t\"style\": \"normal\",\n\t\t\t\"assetId\" : \"rbxasset://fonts/Builder\\\"Sans.otf\"\n\t\t}\n\t]\n}\n";
+        let out = String::from_utf8(rewrite_family(original.as_bytes()).unwrap()).unwrap();
+        let expected = original
+            .replace("rbxassetid://16480735997", "rbxasset://fonts/CustomFont.ttf")
+            .replace("rbxasset://fonts/Builder\\\"Sans.otf", "rbxasset://fonts/CustomFont.ttf");
+        assert_eq!(out, expected, "only the asset ids change");
+        assert!(rewrite_family(br#"{"name":"x","faces":[{"name":"Regular"}]}"#).is_none(), "faces without a file");
+        assert!(rewrite_family(br#"{"name":"assetId","faces":[]}"#).is_none());
+        assert!(rewrite_family(b"not json").is_none());
+    }
+
     #[test]
     fn picture_wheels_from_older_versions_are_rebuilt() {
         let e = env();
@@ -1106,6 +1253,9 @@ mod tests {
         let ogg = e.mods.root.join("s.ogg");
         std::fs::write(&ogg, b"OggS....").unwrap();
         assert!(prepare_sound(&e.mods, &ogg).is_ok());
+        let woff = e.mods.root.join("web.ttf");
+        std::fs::write(&woff, b"wOF2....").unwrap();
+        assert!(prepare_font(&e.mods, &woff).unwrap_err().contains("web font"));
     }
 
     #[test]

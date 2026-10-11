@@ -23,6 +23,8 @@ pub struct Previews {
     /// The highlight Roblox draws over the slot under the mouse, in the chosen colour.
     pub wheel_gradient: Option<String>,
     pub wheel_line: Option<String>,
+    /// The chosen font, so the page can show text in it.
+    pub font: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -37,12 +39,17 @@ pub struct ModsView {
     pub max_wheel_dim: u8,
     /// Launchers with a custom font Vesper can bring over (e.g. "Fishstrap").
     pub launcher_fonts: Vec<&'static str>,
+    /// The name inside the chosen font file ("Poppins ExtraBold").
+    pub font_name: Option<String>,
     pub last_report: Option<ModReport>,
     pub roblox_running: bool,
     /// True when the last change was applied to Roblox already.
     pub applied_now: bool,
     pub previews: Previews,
 }
+
+/// Larger fonts (big CJK families) aren't sent to the page for previewing.
+const MAX_FONT_PREVIEW: usize = 8 * 1024 * 1024;
 
 fn data_url(bytes: &[u8]) -> String {
     format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
@@ -76,9 +83,19 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
         wheel_ring: preview(state, &layer("SegmentedCircle"), wheel_custom),
         wheel_gradient: highlight("SelectedGradient", cut),
         wheel_line: highlight("SelectedLine", None),
+        font: None,
+    };
+    let font = config.font.as_ref().and_then(|_| std::fs::read(state.mod_paths.root.join(mods::FONT_FILE)).ok());
+    let previews = Previews {
+        font: font
+            .as_deref()
+            .filter(|b| b.len() <= MAX_FONT_PREVIEW)
+            .map(|b| format!("data:font/ttf;base64,{}", base64::engine::general_purpose::STANDARD.encode(b))),
+        ..previews
     };
     let custom_dir = state.mod_paths.custom_dir();
     ModsView {
+        font_name: font.as_deref().and_then(mods::font_name),
         custom_file_count: count_files(&custom_dir),
         custom_dir: crate::redact::display_path(&custom_dir),
         cursor_scale: mods::CURSOR_SCALE,

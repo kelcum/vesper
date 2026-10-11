@@ -355,6 +355,8 @@ export interface ModsView {
   cursorScale: [number, number];
   maxWheelDim: number;
   launcherFonts: string[];
+  /** The name inside the chosen font file ("Poppins ExtraBold"). */
+  fontName: string | null;
   lastReport: ModReport | null;
   robloxRunning: boolean;
   appliedNow: boolean;
@@ -364,6 +366,8 @@ export interface ModsView {
     wheelRing: string | null;
     wheelGradient: string | null;
     wheelLine: string | null;
+    /** The chosen font file, for showing text in it. */
+    font: string | null;
   };
 }
 

@@ -96,18 +96,21 @@
           onchange={(v) => onset(row.name, v === 'default' ? null : v)}
         />
       {:else if info?.input.kind === 'choice'}
-        <select
-          class="choice"
-          aria-label="{info.title} value"
-          value={row.value ?? ''}
-          onchange={(e) => onset(row.name, (e.currentTarget as HTMLSelectElement).value || null)}
-        >
-          <option value="">Default</option>
-          {#each info.input.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-          {#if row.value && !info.input.options.some((o) => o.value === row.value)}<option value={row.value}
-              >{row.value} (custom)</option
-            >{/if}
-        </select>
+        <div class="choice-wrap">
+          <select
+            class="choice"
+            aria-label="{info.title} value"
+            value={row.value ?? ''}
+            onchange={(e) => onset(row.name, (e.currentTarget as HTMLSelectElement).value || null)}
+          >
+            <option value="">Default</option>
+            {#each info.input.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+            {#if row.value && !info.input.options.some((o) => o.value === row.value)}<option value={row.value}
+                >{row.value} (custom)</option
+              >{/if}
+          </select>
+          <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+        </div>
       {:else}
         <div class="num">
           <input
@@ -280,8 +283,33 @@
     padding: 0 10px;
     font-size: var(--text-sm);
   }
+  .choice-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .choice {
+    appearance: none;
+    min-width: 120px;
+    padding-right: 30px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .choice:hover {
+    border-color: var(--border-strong);
+  }
+  .choice:focus-visible {
+    box-shadow: var(--focus);
+  }
+  .choice-wrap :global(svg) {
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
+    color: var(--text-3);
+  }
   .choice option {
     background: var(--surface-solid);
+    color: var(--text);
   }
   .num {
     display: flex;

@@ -47,17 +47,45 @@
   let confirmOpen = $state(false);
   let current = $state<string>('general');
 
+  // A section picked from the list stays highlighted until the next scroll by
+  // hand, even if it's too far down to reach the top.
+  let pinned = false;
+
   onMount(async () => {
     backups = (await api.backupsList().catch(() => [])) ?? [];
     if (app.settingsSection) {
       await tick();
-      document.getElementById(`s-${app.settingsSection}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      current = app.settingsSection;
+      jump(app.settingsSection);
     }
+  });
+
+  onMount(() => {
+    const scroller = document.getElementById('s-general')?.closest('.scroll');
+    if (!scroller) return;
+    const follow = () => {
+      if (pinned) return;
+      const top = scroller.getBoundingClientRect().top + 120;
+      let found: string = sections[0][0];
+      for (const [id] of sections) {
+        const el = document.getElementById(`s-${id}`);
+        if (el && el.getBoundingClientRect().top <= top) found = id;
+      }
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) found = sections.at(-1)![0];
+      current = found;
+    };
+    const unpin = () => (pinned = false);
+    const byHand = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const;
+    scroller.addEventListener('scroll', follow, { passive: true });
+    for (const e of byHand) scroller.addEventListener(e, unpin, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', follow);
+      for (const e of byHand) scroller.removeEventListener(e, unpin);
+    };
   });
 
   function jump(id: string) {
     current = id;
+    pinned = true;
     document.getElementById(`s-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

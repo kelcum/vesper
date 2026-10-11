@@ -6,6 +6,8 @@
 //    add ?running to show Roblox as running)
 
 import catalog from '../../src-tauri/resources/flags/catalog.json';
+import sampleFont from '../../assets/fonts/Geist-SemiBold.ttf?url';
+import pkg from '../../package.json';
 import cursorRing from '../../src/assets/mods/cursor-ring.png';
 import defaults from './defaults.json';
 
@@ -94,6 +96,7 @@ const modsView = {
   cursorScale: [30, 150],
   maxWheelDim: 80,
   launcherFonts: ['Fishstrap'],
+  fontName: 'Geist SemiBold',
   lastReport: null,
   robloxRunning: running,
   appliedNow: false,
@@ -103,11 +106,12 @@ const modsView = {
     wheelRing: dusk('SegmentedCircle'),
     wheelGradient: null,
     wheelLine: null,
+    font: sampleFont,
   },
 };
 
 const bootstrap = () => ({
-  version: '0.1.0',
+  version: pkg.version,
   portable: false,
   settings,
   profiles,

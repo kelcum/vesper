@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     Copy,
+    ExternalLink,
     FolderOpen,
     ImagePlus,
     LifeBuoy,
@@ -34,6 +35,28 @@
   const thumb = (name: string) => thumbs[`../assets/mods/${name}.png`];
 
   let view = $state<ModsView | null>(null);
+  // The chosen font, loaded into the page so the card can show text in it.
+  let fontFamily = $state<string | null>(null);
+  let fontLoads = 0;
+  $effect(() => {
+    const url = view?.previews.font;
+    fontFamily = null;
+    if (!url) return;
+    const face = new FontFace(`vesper-font-preview-${++fontLoads}`, `url(${url})`);
+    let current = true;
+    face
+      .load()
+      .then((f) => {
+        if (!current) return;
+        document.fonts.add(f);
+        fontFamily = f.family;
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+      document.fonts.delete(face);
+    };
+  });
   let busy = $state<string | null>(null);
   let cursorScale = $state(100);
   let wheelDim = $state(30);
@@ -358,8 +381,12 @@
       </div>
     </div>
     <p class="faint xs">
-      Your picture is cut into a circle from its middle and darkened a little so emotes stay readable. Point at the
-      preview to see a slot highlighted. Vesper makes every size Roblox uses (small screens, PC, TV).
+      {#if cfg?.emoteWheel?.source?.kind === 'file'}
+        Your picture is cut into a circle from its middle and darkened a little so emotes stay readable.
+      {:else}
+        Choose “Your image…” to put a picture behind your emotes.
+      {/if}
+      Point at the preview to see a slot highlighted. Vesper makes every size Roblox uses (small screens, PC, TV).
     </p>
   </Card>
 
@@ -373,7 +400,21 @@
           onclick={() => run('font', () => api.modsClear('font'))}>Reset</Button
         >{/if}
     {/snippet}
-    <p class="current">{cfg?.font ? cfg.font.name : "Roblox's own fonts"}</p>
+    {#if cfg?.font}
+      <div class="font-sample" style:font-family={fontFamily ? `"${fontFamily}", var(--font-sans)` : null}>
+        <span class="aa" aria-hidden="true">Aa</span>
+        <span class="lines">
+          <span>The quick brown fox jumps over the lazy dog</span>
+          <span class="digits">0123456789 · Select an Emote · Leave game?</span>
+        </span>
+      </div>
+      <p class="current">
+        {view?.fontName ?? cfg.font.name}
+        {#if view?.fontName && view.fontName !== cfg.font.name}<span class="faint from">· {cfg.font.name}</span>{/if}
+      </p>
+    {:else}
+      <p class="current">Roblox's own fonts</p>
+    {/if}
     <div class="row-buttons">
       <Button
         icon={FolderOpen}
@@ -390,8 +431,14 @@
           >
         {/if}
       {/each}
+      <Button variant="ghost" icon={ExternalLink} onclick={() => api.openUrl('https://fonts.google.com')}
+        >Find free fonts</Button
+      >
     </div>
-    <p class="faint xs">TrueType or OpenType. Games that load their own fonts from Roblox's servers aren't affected.</p>
+    <p class="faint xs">
+      A .ttf or .otf file. Roblox uses this one file for every weight, so pick the exact style you want (for example
+      SemiBold), not a variable font. Games that use their own fonts aren't affected.
+    </p>
   </Card>
 
   <!-- Death sound -->
@@ -650,6 +697,40 @@
   }
   .current {
     font-weight: 600;
+  }
+  .current .from {
+    font-weight: 400;
+  }
+  .font-sample {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent), var(--surface-2);
+    min-width: 0;
+  }
+  .font-sample .aa {
+    font-size: 44px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .font-sample .lines {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .font-sample .lines span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .font-sample .digits {
+    color: var(--text-2);
+    font-size: var(--text-sm);
   }
   .row-buttons {
     display: flex;

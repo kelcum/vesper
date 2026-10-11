@@ -6,6 +6,25 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-11
+
+### Fixed
+
+- Custom fonts: Roblox's font lists are now changed the way Bloxstrap and
+  Fishstrap change them, swapping only the font file and keeping the rest of
+  each list exactly as Roblox wrote it.
+- When Roblox updates itself while Vesper is open, customisations are applied
+  again once the update has finished unpacking, so new textures and fonts
+  aren't missed.
+- The section list in Settings follows the section you scroll to.
+
+### Changed
+
+- The Font card shows the font's own name and a line of text in it, and has
+  a "Find free fonts" button. Web fonts (.woff) get a clear explanation.
+- Fast Flags dropdowns match the rest of the app, and the emote wheel hint
+  matches what's chosen.
+
 ## [0.1.1] - 2026-10-11
 
 ### Added

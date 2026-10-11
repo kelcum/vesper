@@ -3,8 +3,9 @@
 //! When Roblox updates itself it installs into a new `version-…` folder,
 //! which has no ClientAppSettings.json. With "Keep flags applied" on, Vesper
 //! watches the Versions folder (event-driven, no polling) and writes the
-//! active profile's flags into a new folder as soon as it appears, then again
-//! once the player executable lands, before Roblox starts it.
+//! active profile's flags into a new folder as soon as it appears, again once
+//! the player executable lands, before Roblox starts it, and a last time when
+//! Roblox's installer finishes unpacking the rest (textures, fonts).
 
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
@@ -20,9 +21,15 @@ fn is_version_dir(p: &Path) -> bool {
     p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("version-"))
 }
 
+fn installer_running() -> bool {
+    super::process::snapshot()
+        .is_ok_and(|all| super::process::named(&all, super::process::INSTALLER_PROCESS).next().is_some())
+}
+
 impl VersionsWatcher {
-    /// Calls `on_new_version(dir)` once when the folder appears and once more
-    /// when RobloxPlayerBeta.exe exists inside it.
+    /// Calls `on_new_version(dir)` once when the folder appears, once more
+    /// when RobloxPlayerBeta.exe exists inside it, and again after Roblox's
+    /// installer exits if it was still running then.
     pub fn start(versions_dir: &Path, on_new_version: impl Fn(&Path) + Send + 'static) -> notify::Result<Self> {
         std::fs::create_dir_all(versions_dir).ok();
         let (tx, rx) = mpsc::channel::<PathBuf>();
@@ -51,6 +58,13 @@ impl VersionsWatcher {
                     }
                     if exe.is_file() {
                         on_new_version(&dir);
+                        if installer_running() {
+                            let deadline = Instant::now() + Duration::from_secs(300);
+                            while installer_running() && Instant::now() < deadline {
+                                std::thread::sleep(Duration::from_millis(500));
+                            }
+                            on_new_version(&dir);
+                        }
                     }
                 }
             })
