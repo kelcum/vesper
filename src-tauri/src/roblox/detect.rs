@@ -504,7 +504,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         make_install(&dir.path().join("Roblox").join("Versions"), "version-official");
         let custom_root = dir.path().join("Games").join("RobloxVersions");
-        make_install(&custom_root, "version-custom");
+        // A chosen folder holds version folders on Windows, a Roblox app on macOS.
+        if cfg!(target_os = "macos") {
+            make_install(&custom_root.join(MAC_APP).join("Contents"), "MacOS");
+        } else {
+            make_install(&custom_root, "version-custom");
+        }
 
         let d = detect(&env(dir.path(), FakeRegistry::default()), Some(&custom_root));
         assert_eq!(d.preferred_install().unwrap().source, InstallSource::Custom);

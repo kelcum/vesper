@@ -151,14 +151,16 @@ mod tests {
 
     #[test]
     fn reports_new_version_folders_twice_and_ignores_others() {
-        let dir = tempfile::tempdir().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        // macOS reports events under the real path (/private/var, not /var).
+        let dir = tmp.path().canonicalize().unwrap();
         let calls = Arc::new(Mutex::new(Vec::<PathBuf>::new()));
         let seen = calls.clone();
-        let _w = VersionsWatcher::start(dir.path(), move |p| seen.lock().unwrap().push(p.to_path_buf())).unwrap();
+        let _w = VersionsWatcher::start(&dir, move |p| seen.lock().unwrap().push(p.to_path_buf())).unwrap();
         std::thread::sleep(Duration::from_millis(200));
 
-        std::fs::create_dir(dir.path().join("unrelated")).unwrap();
-        let v = dir.path().join("version-new");
+        std::fs::create_dir(dir.join("unrelated")).unwrap();
+        let v = dir.join("version-new");
         std::fs::create_dir(&v).unwrap();
 
         let deadline = Instant::now() + Duration::from_secs(5);
