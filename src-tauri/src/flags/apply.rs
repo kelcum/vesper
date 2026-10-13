@@ -33,8 +33,16 @@ pub struct Ownership {
     pub files: BTreeMap<String, OwnedFile>,
 }
 
+/// Ledger key for a file. Windows paths are case-insensitive, so they are
+/// compared lowercased; elsewhere the exact path is kept, since it is also
+/// how the file is found again.
 fn key(path: &Path) -> String {
-    path.to_string_lossy().to_lowercase()
+    let s = path.to_string_lossy();
+    if cfg!(windows) {
+        s.to_lowercase()
+    } else {
+        s.into_owned()
+    }
 }
 
 fn sha256(bytes: &[u8]) -> String {

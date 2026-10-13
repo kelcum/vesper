@@ -4,6 +4,7 @@
   import Button from '../components/ui/Button.svelte';
   import Card from '../components/ui/Card.svelte';
   import { api } from '../lib/api';
+  import { computer, osName } from '../lib/platform';
   import { app } from '../lib/store.svelte';
 
   const SITE = 'https://xan.gripe/vesper';
@@ -45,9 +46,9 @@
 <div class="grid">
   <Card title="What Vesper is">
     <p class="muted">
-      A launcher for Roblox on Windows. It applies the Fast Flags Roblox still accepts, sets Roblox's own frame-rate
-      limit, lets you customise the cursor, emote wheel, font and sounds, and shows real performance numbers. After each
-      launch it reads Roblox's log to confirm what Roblox actually accepted.
+      A launcher for Roblox on Windows and macOS. It applies the Fast Flags Roblox still accepts, sets Roblox's own
+      frame-rate limit, lets you customise the cursor, emote wheel, font and sounds, and shows real performance numbers.
+      After each launch it reads Roblox's log to confirm what Roblox actually accepted.
     </p>
     <p class="muted">
       Vesper starts the official Roblox client. It doesn't modify Roblox's code, inject anything into the game, or touch
@@ -63,8 +64,8 @@
         Talks to <span class="mono">clientsettingscdn.roblox.com</span> (Roblox's public version and flag values) and
         <span class="mono">xan.gripe</span> (update checks). Both anonymous.
       </li>
-      <li>Discord Rich Presence goes to the Discord app on your PC, and only when you turn it on.</li>
-      <li>Logs and diagnostics remove your Windows user name before they're written.</li>
+      <li>Discord Rich Presence goes to the Discord app on your {computer}, and only when you turn it on.</li>
+      <li>Logs and diagnostics remove your {osName} user name before they're written.</li>
     </ul>
   </Card>
 

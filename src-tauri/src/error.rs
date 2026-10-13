@@ -73,10 +73,14 @@ impl Problem {
     /// Generic fallback for unexpected I/O failures.
     pub fn io(context: &str, err: &std::io::Error) -> Self {
         let why = match err.kind() {
+            std::io::ErrorKind::PermissionDenied if cfg!(target_os = "macos") => {
+                "macOS refused access. The file may be read-only, or macOS may need your permission for Vesper to change it."
+            }
             std::io::ErrorKind::PermissionDenied => {
                 "Windows refused access. Another program may be using the file, or it is read-only."
             }
             std::io::ErrorKind::NotFound => "A file or folder Vesper expected is missing.",
+            _ if cfg!(target_os = "macos") => "macOS reported an unexpected file error.",
             _ => "Windows reported an unexpected file error.",
         };
         Problem::new("io", "Something went wrong")

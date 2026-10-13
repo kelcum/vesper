@@ -13,6 +13,7 @@
 //! and OpenGL modes may produce no events; the UI says so.
 
 use serde::Serialize;
+#[cfg(any(windows, test))]
 use std::collections::{HashMap, VecDeque};
 
 /// Microsoft-Windows-DXGI provider {CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}.
@@ -58,11 +59,13 @@ pub fn stats(timestamps: &[f64], now: f64) -> Option<FrameStats> {
     Some(FrameStats { fps, frame_time_avg_ms: avg, frame_time_p99_ms: intervals[idx], frames: recent.len() })
 }
 
+#[cfg(any(windows, test))]
 #[derive(Default)]
 struct Presents {
     by_pid: HashMap<u32, VecDeque<f64>>,
 }
 
+#[cfg(any(windows, test))]
 impl Presents {
     fn push(&mut self, pid: u32, t: f64) {
         let q = self.by_pid.entry(pid).or_default();
@@ -269,7 +272,11 @@ pub struct FpsTracer;
 #[cfg(not(windows))]
 impl FpsTracer {
     pub fn start() -> Result<Self, FpsStatus> {
-        Err(FpsStatus::Unavailable("Only available on Windows".into()))
+        Err(FpsStatus::Unavailable(if cfg!(target_os = "macos") {
+            "macOS doesn't let other apps count Roblox's frames".into()
+        } else {
+            "Only available on Windows".into()
+        }))
     }
     pub fn stats(&self, _pid: u32) -> Option<FrameStats> {
         None

@@ -49,7 +49,7 @@ pub fn render(s: &Snapshot) -> String {
     let _ = writeln!(o, "Vesper diagnostics · {}", chrono::Utc::now().format("%Y-%m-%d %H:%M UTC"));
     let _ = writeln!(o);
     let _ = writeln!(o, "Client      Vesper {}{}", s.app_version, if s.portable { " (portable)" } else { "" });
-    let _ = writeln!(o, "Windows     {}", s.os);
+    let _ = writeln!(o, "System      {}", s.os);
     let _ = writeln!(o, "CPU         {} ({} logical)", s.cpu, s.logical_processors);
     let _ = writeln!(o, "RAM         {:.1} GB", s.memory_total as f64 / 1_073_741_824.0);
     for g in &s.gpus {
@@ -64,7 +64,8 @@ pub fn render(s: &Snapshot) -> String {
                 "Roblox      {} ({}){}",
                 r.version.as_deref().unwrap_or("unknown version"),
                 r.version_hash,
-                if r.registered { "" } else { " · not the registered install" }
+                // macOS has no registration to compare against.
+                if r.registered || cfg!(target_os = "macos") { "" } else { " · not the registered install" }
             );
             let _ = writeln!(o, "Source      {}", r.source);
             let _ = writeln!(o, "Path        {}", r.location);
@@ -74,10 +75,12 @@ pub fn render(s: &Snapshot) -> String {
         }
     }
     if s.other_installs > 0 {
-        let _ = writeln!(o, "Other       {} more version folder(s)", s.other_installs);
+        let _ = writeln!(o, "Other       {} more install(s)", s.other_installs);
     }
     let _ = writeln!(o, "Latest      {}", s.latest_roblox.as_deref().unwrap_or("not checked"));
-    let _ = writeln!(o, "Protocol    {}", s.protocol_owner.as_deref().unwrap_or("not registered"));
+    if !cfg!(target_os = "macos") {
+        let _ = writeln!(o, "Protocol    {}", s.protocol_owner.as_deref().unwrap_or("not registered"));
+    }
     let _ = writeln!(o, "Running     {}", if s.roblox_running { "yes" } else { "no" });
     let _ = writeln!(o);
     let _ = writeln!(o, "Profile     {}", s.profile);

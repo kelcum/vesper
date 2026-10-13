@@ -1,14 +1,27 @@
 //! Process enumeration without opening process handles.
 //!
 //! Roblox's anti-cheat reacts to tools that hold handles to the game process,
-//! so Vesper never opens one for monitoring. `NtQuerySystemInformation`
-//! returns CPU time and memory for every process in a single call, the same
-//! data Task Manager's process list is built from.
+//! so Vesper never opens one for monitoring. On Windows,
+//! `NtQuerySystemInformation` returns CPU time and memory for every process in
+//! a single call, the same data Task Manager's process list is built from. On
+//! macOS, `libproc` gives the same facts Activity Monitor shows, without a
+//! task port.
 
 use std::io;
 
+#[cfg(not(target_os = "macos"))]
 pub const PLAYER_PROCESS: &str = "RobloxPlayerBeta.exe";
+#[cfg(not(target_os = "macos"))]
 pub const INSTALLER_PROCESS: &str = "RobloxPlayerInstaller.exe";
+#[cfg(target_os = "macos")]
+pub const PLAYER_PROCESS: &str = "RobloxPlayer";
+#[cfg(target_os = "macos")]
+pub const INSTALLER_PROCESS: &str = "RobloxPlayerInstaller";
+/// Vesper's own process name.
+#[cfg(windows)]
+pub const VESPER_PROCESS: &str = "Vesper.exe";
+#[cfg(not(windows))]
+pub const VESPER_PROCESS: &str = "Vesper";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessSample {
@@ -22,7 +35,7 @@ pub struct ProcessSample {
     pub private_bytes: u64,
     /// User + kernel CPU time, 100 ns units.
     pub cpu_time: u64,
-    /// Process start time as a Windows FILETIME value.
+    /// Process start time as a Windows FILETIME value (100 ns since 1601), on every platform.
     pub create_time: i64,
 }
 
@@ -36,9 +49,10 @@ pub fn named<'a>(all: &'a [ProcessSample], name: &str) -> impl Iterator<Item = &
     all.iter().filter(move |p| p.name.eq_ignore_ascii_case(&name))
 }
 
+const UNIX_EPOCH_AS_FILETIME: i64 = 116_444_736_000_000_000;
+
 /// Converts a Windows FILETIME (100 ns since 1601) to `SystemTime`.
 pub fn filetime_to_system(ft: i64) -> Option<std::time::SystemTime> {
-    const UNIX_EPOCH_AS_FILETIME: i64 = 116_444_736_000_000_000;
     let since_unix = ft.checked_sub(UNIX_EPOCH_AS_FILETIME)?;
     let since_unix = u64::try_from(since_unix).ok()?;
     Some(std::time::UNIX_EPOCH + std::time::Duration::from_nanos(since_unix * 100))
@@ -174,24 +188,110 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+#[allow(deprecated)] // libc points Mach calls at the `mach2` crate; these are stable system APIs.
+mod imp {
+    use super::{ProcessSample, UNIX_EPOCH_AS_FILETIME};
+    use std::ffi::CStr;
+    use std::io;
+    use std::mem::{size_of, MaybeUninit};
+    use std::sync::LazyLock;
+
+    /// Converts Mach time units (CPU times on Apple silicon) to nanoseconds.
+    static TIMEBASE: LazyLock<(u64, u64)> = LazyLock::new(|| {
+        let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
+        // SAFETY: plain out-parameter call.
+        if unsafe { libc::mach_timebase_info(&mut info) } == 0 && info.denom != 0 {
+            (info.numer as u64, info.denom as u64)
+        } else {
+            (1, 1)
+        }
+    });
+
+    pub fn snapshot() -> io::Result<Vec<ProcessSample>> {
+        // SAFETY: a null buffer asks for the number of processes.
+        let n = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
+        if n <= 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // Processes can start between calls; leave headroom.
+        let mut pids = vec![0 as libc::pid_t; n as usize + 64];
+        let bytes = (pids.len() * size_of::<libc::pid_t>()) as libc::c_int;
+        // SAFETY: the buffer holds `bytes` bytes.
+        let n = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), bytes) };
+        if n < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        pids.truncate(n as usize);
+        Ok(pids.into_iter().filter(|p| *p > 0).filter_map(sample).collect())
+    }
+
+    /// Reads one process. Processes of other users (and ones that just exited) are skipped.
+    fn sample(pid: libc::pid_t) -> Option<ProcessSample> {
+        let bsd: libc::proc_bsdinfo = pidinfo(pid, libc::PROC_PIDTBSDINFO)?;
+        let task: libc::proc_taskinfo = pidinfo(pid, libc::PROC_PIDTASKINFO)?;
+        let name = c_name(&bsd.pbi_name).filter(|n| !n.is_empty()).or_else(|| c_name(&bsd.pbi_comm))?;
+        let (numer, denom) = *TIMEBASE;
+        let cpu_ns = (task.pti_total_user + task.pti_total_system) as u128 * numer as u128 / denom as u128;
+        let started = bsd.pbi_start_tvsec as i64 * 10_000_000 + bsd.pbi_start_tvusec as i64 * 10;
+        Some(ProcessSample {
+            pid: pid as u32,
+            parent_pid: bsd.pbi_ppid,
+            name,
+            threads: task.pti_threadnum.max(0) as u32,
+            working_set: task.pti_resident_size,
+            // Activity Monitor's "Memory" column; falls back to resident memory.
+            private_bytes: footprint(pid).unwrap_or(task.pti_resident_size),
+            cpu_time: (cpu_ns / 100) as u64,
+            create_time: started + UNIX_EPOCH_AS_FILETIME,
+        })
+    }
+
+    fn pidinfo<T>(pid: libc::pid_t, flavor: libc::c_int) -> Option<T> {
+        let mut out = MaybeUninit::<T>::zeroed();
+        let size = size_of::<T>() as libc::c_int;
+        // SAFETY: the kernel writes at most `size` bytes into `out`.
+        let n = unsafe { libc::proc_pidinfo(pid, flavor, 0, out.as_mut_ptr().cast(), size) };
+        // SAFETY: a full-size answer initialised every field (and zeroed covers padding).
+        (n == size).then(|| unsafe { out.assume_init() })
+    }
+
+    fn footprint(pid: libc::pid_t) -> Option<u64> {
+        let mut info = MaybeUninit::<libc::rusage_info_v2>::zeroed();
+        // SAFETY: RUSAGE_INFO_V2 fills a `rusage_info_v2`.
+        let r = unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, info.as_mut_ptr().cast()) };
+        // SAFETY: success means the struct was written.
+        (r == 0).then(|| unsafe { info.assume_init() }.ri_phys_footprint)
+    }
+
+    fn c_name(chars: &[libc::c_char]) -> Option<String> {
+        let bytes: Vec<u8> = chars.iter().take_while(|c| **c != 0).map(|c| *c as u8).collect();
+        let mut with_nul = bytes;
+        with_nul.push(0);
+        CStr::from_bytes_with_nul(&with_nul).ok().map(|c| c.to_string_lossy().into_owned())
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     pub fn snapshot() -> std::io::Result<Vec<super::ProcessSample>> {
         Ok(Vec::new())
     }
 }
 
-#[cfg(all(test, windows))]
+#[cfg(all(test, any(windows, target_os = "macos")))]
 mod tests {
     use super::*;
 
     #[test]
     fn snapshot_contains_this_process_with_real_numbers() {
         let all = snapshot().unwrap();
-        assert!(all.len() > 10, "a Windows system runs many processes");
+        assert!(all.len() > 10, "a desktop system runs many processes");
         let me = all.iter().find(|p| p.pid == std::process::id()).expect("current process listed");
         let exe = std::env::current_exe().unwrap();
-        assert!(exe.file_name().unwrap().to_string_lossy().eq_ignore_ascii_case(&me.name));
+        let file = exe.file_name().unwrap().to_string_lossy().into_owned();
+        // macOS keeps up to 32 characters of a process name.
+        assert!(file.to_lowercase().starts_with(&me.name.to_lowercase()), "{file} vs {}", me.name);
         assert!(me.working_set > 1024 * 1024, "uses at least 1 MB");
         assert!(me.threads >= 1);
         assert!(me.create_time > 0);

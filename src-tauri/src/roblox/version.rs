@@ -109,9 +109,59 @@ pub fn file_version(path: &Path) -> Option<RobloxVersion> {
     }
 }
 
-#[cfg(not(windows))]
+/// Reads Roblox's version from the Info.plist of the app bundle `path` (the
+/// player inside `Contents/MacOS`) belongs to.
+#[cfg(target_os = "macos")]
+pub fn file_version(path: &Path) -> Option<RobloxVersion> {
+    let plist = path.parent()?.parent()?.join("Info.plist");
+    let bytes = std::fs::read(&plist).ok()?;
+    let text = if bytes.starts_with(b"bplist") {
+        // Binary property list: let macOS's own tool convert it.
+        let out = std::process::Command::new("/usr/bin/plutil")
+            .args(["-convert", "xml1", "-o", "-"])
+            .arg(&plist)
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        String::from_utf8(out.stdout).ok()?
+    } else {
+        String::from_utf8(bytes).ok()?
+    };
+    plist_version(&text)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn file_version(_path: &Path) -> Option<RobloxVersion> {
     None
+}
+
+/// The string value of `key` in an XML property list.
+pub fn plist_string(xml: &str, key: &str) -> Option<String> {
+    let at = xml.find(&format!("<key>{key}</key>"))?;
+    let rest = &xml[at..];
+    let open = rest.find("<string>")?;
+    // The value must be the next element, not a later key's.
+    if rest[..open].matches("<key>").count() > 1 {
+        return None;
+    }
+    let value = &rest[open + "<string>".len()..];
+    Some(value[..value.find("</string>")?].trim().to_owned())
+}
+
+/// Roblox's version from its Info.plist. Accepts a full `0.695.0.6950754` in
+/// either version key, or a three-part short version plus a build number.
+pub fn plist_version(xml: &str) -> Option<RobloxVersion> {
+    let short = plist_string(xml, "CFBundleShortVersionString");
+    let build = plist_string(xml, "CFBundleVersion");
+    for v in [&short, &build].into_iter().flatten() {
+        if let Ok(v) = v.parse() {
+            return Some(v);
+        }
+    }
+    let (short, build) = (short?, build?);
+    let build = build.rsplit('.').next()?;
+    format!("{short}.{build}").parse().ok()
 }
 
 #[cfg(test)]
@@ -132,6 +182,21 @@ mod tests {
         let b: RobloxVersion = "0.741.0.1".parse().unwrap();
         assert!(a < b);
         assert_eq!(b.to_string(), "0.741.0.1");
+    }
+
+    #[test]
+    fn reads_versions_from_info_plist() {
+        let plist = |short: &str, build: &str| {
+            format!(
+                "<?xml version=\"1.0\"?>\n<plist version=\"1.0\">\n<dict>\n\t<key>CFBundleExecutable</key>\n\t<string>RobloxPlayer</string>\n\t<key>CFBundleShortVersionString</key>\n\t<string>{short}</string>\n\t<key>CFBundleVersion</key>\n\t<string>{build}</string>\n</dict>\n</plist>\n"
+            )
+        };
+        let full = RobloxVersion(0, 695, 0, 6950754);
+        assert_eq!(plist_version(&plist("0.695.0.6950754", "0.695.0.6950754")), Some(full));
+        assert_eq!(plist_version(&plist("0.695.0", "6950754")), Some(full));
+        assert_eq!(plist_version(&plist("1.0", "1")), None);
+        assert_eq!(plist_string(&plist("a", "b"), "CFBundleExecutable").as_deref(), Some("RobloxPlayer"));
+        assert_eq!(plist_string("<key>Empty</key><true/><key>Next</key><string>x</string>", "Empty"), None);
     }
 
     /// Roblox build numbers overflow the binary version fields; the string must be used.

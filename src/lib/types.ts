@@ -247,6 +247,7 @@ export interface FpsCapStatus {
 // ---------------------------------------------------------------- performance
 
 export interface SystemInfo {
+  platform: 'windows' | 'macos' | 'linux';
   os: string;
   cpu: string;
   logicalProcessors: number;

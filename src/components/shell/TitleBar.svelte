@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { onMount } from 'svelte';
+  import { isMac } from '../../lib/platform';
 
   const win = getCurrentWindow();
   let maximized = $state(false);
@@ -16,26 +17,27 @@
 
 <div class="bar" data-tauri-drag-region>
   <div class="spacer" data-tauri-drag-region></div>
-  <div class="controls">
-    <button class="ctl" aria-label="Minimize" title="Minimize" onclick={() => win.minimize()}>
-      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>
-    </button>
-    <button
-      class="ctl"
-      aria-label={maximized ? 'Restore' : 'Maximize'}
-      title={maximized ? 'Restore' : 'Maximize'}
-      onclick={() => win.toggleMaximize()}
-    >
-      {#if maximized}
-        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1h6v6M1 3h6v6H1z" /></svg>
-      {:else}
-        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1h8v8H1z" /></svg>
-      {/if}
-    </button>
-    <button class="ctl close" aria-label="Close" title="Close" onclick={() => win.close()}>
-      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
-    </button>
-  </div>
+  <!-- macOS shows its own close, minimize and zoom buttons at the top left. -->
+  {#if !isMac}<div class="controls">
+      <button class="ctl" aria-label="Minimize" title="Minimize" onclick={() => win.minimize()}>
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>
+      </button>
+      <button
+        class="ctl"
+        aria-label={maximized ? 'Restore' : 'Maximize'}
+        title={maximized ? 'Restore' : 'Maximize'}
+        onclick={() => win.toggleMaximize()}
+      >
+        {#if maximized}
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1h6v6M1 3h6v6H1z" /></svg>
+        {:else}
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1h8v8H1z" /></svg>
+        {/if}
+      </button>
+      <button class="ctl close" aria-label="Close" title="Close" onclick={() => win.close()}>
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
+      </button>
+    </div>{/if}
 </div>
 
 <style>

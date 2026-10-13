@@ -14,7 +14,7 @@ use crate::roblox::deeplink::{launch_argument, LaunchTarget};
 use crate::roblox::detect::RobloxInstall;
 use crate::roblox::launch::{spawn, SpawnRequest};
 use crate::roblox::process::{self, INSTALLER_PROCESS, PLAYER_PROCESS};
-use crate::roblox::watch::VersionsWatcher;
+use crate::roblox::watch;
 use crate::roblox::{gbs, logs};
 use crate::state::{events, lock, AppState, LaunchStatus};
 use std::sync::atomic::Ordering;
@@ -109,6 +109,9 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
                 }
                 expected = profile.flags.clone();
             }
+            Err(e) if cfg!(target_os = "macos") && e.kind() == std::io::ErrorKind::PermissionDenied => {
+                return Err(mac_app_blocked(&e));
+            }
             Err(e) => {
                 return Err(Problem::io("Vesper couldn't write Fast Flags into the Roblox folder.", &e)
                     .fix("Close Roblox if it's open and try again. Security software can also block writes to the Roblox folder.")
@@ -151,8 +154,8 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
                             "Roblox hasn't created its settings file yet; the limit applies from the next launch"
                         );
                     }
-                    Err(gbs::CapError::Invalid(reason)) if reason.contains("read-only") => {
-                        log::warn!("Couldn't set the frame-rate limit: {reason}");
+                    Err(gbs::CapError::ReadOnly) => {
+                        log::warn!("Couldn't set the frame-rate limit: {}", gbs::CapError::ReadOnly);
                         lock(&state.notices).push(
                             "The frame-rate limit wasn't applied: Roblox's settings file is locked read-only, usually by \
                              another launcher's \"lock settings\" option. Vesper leaves that lock alone; turn it off there to \
@@ -172,12 +175,12 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
 
     // 4. Start Roblox.
     state.set_launch(app, LaunchStatus::Starting);
-    // If Roblox updates itself during this launch, carry the flags into the new folder.
+    // If Roblox updates itself during this launch, carry the flags into the new version.
     let has_mods = *lock(&state.mods) != crate::mods::ModsConfig::default();
     let temp_watch = (settings.roblox.flag_mode != FlagMode::KeepApplied && (!expected.is_empty() || has_mods))
         .then(|| {
             let handle = app.clone();
-            VersionsWatcher::start(&state.env.roblox_data().join("Versions"), move |dir| {
+            watch::watch_updates(&state.env, Some(&install), move |dir| {
                 crate::state::apply_to_new_version(&handle, dir)
             })
             .ok()
@@ -199,9 +202,13 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         profile.priority
     );
     if let Some(err) = &spawned.affinity_error {
-        lock(&state.notices).push(format!(
-            "Windows didn't allow changing which processors Roblox uses ({err}). Roblox started normally."
-        ));
+        let os = if cfg!(target_os = "macos") { "macOS" } else { "Windows" };
+        lock(&state.notices)
+            .push(format!("{os} didn't allow changing which processors Roblox uses ({err}). Roblox started normally."));
+    }
+    if let Some(err) = &spawned.priority_error {
+        lock(&state.notices)
+            .push(format!("Roblox's priority wasn't changed ({err}). Roblox started at normal priority."));
     }
 
     // 5. Wait for the player window process (Roblox may update itself first).
@@ -224,13 +231,39 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     Ok(())
 }
 
+/// macOS's App Management protection stops apps changing other apps unless allowed.
+fn mac_app_blocked(e: &std::io::Error) -> Problem {
+    Problem::new("roblox.mac_app_management", "macOS blocked Vesper from changing Roblox")
+        .what("Vesper couldn't write Fast Flags into Roblox.app.")
+        .why("macOS only lets apps change other apps when you allow it under App Management.")
+        .fix("Open System Settings → Privacy & Security → App Management, turn on Vesper, then launch again. If Roblox.app belongs to another user, reinstall it from roblox.com while signed in as yourself.")
+        .details(e)
+        .action(ProblemAction::Retry)
+}
+
 fn spawn_problem(install: &RobloxInstall, e: &std::io::Error) -> Problem {
+    let mac = cfg!(target_os = "macos");
     match e.kind() {
         std::io::ErrorKind::NotFound => Problem::new("roblox.missing_exe", "Roblox's files are missing")
-            .what(format!("{} wasn't found in {}.", crate::roblox::detect::PLAYER_EXE, install.location))
+            .what(if mac {
+                format!("Roblox wasn't found at {}.", install.location)
+            } else {
+                format!("{} wasn't found in {}.", crate::roblox::detect::PLAYER_EXE, install.location)
+            })
             .why("Roblox may have been updated or uninstalled since Vesper last looked.")
-            .fix("Open Roblox once from the Start menu so it can repair itself, then try again.")
+            .fix(if mac {
+                "Open Roblox once from your Applications folder so it can repair itself, then try again."
+            } else {
+                "Open Roblox once from the Start menu so it can repair itself, then try again."
+            })
             .action(ProblemAction::Retry),
+        _ if mac => Problem::new("roblox.mac_open_failed", "macOS couldn't open Roblox")
+            .what("macOS refused to start Roblox.")
+            .why("Roblox may be damaged, or macOS may be waiting for you to confirm opening it.")
+            .fix("Open Roblox once from your Applications folder. If macOS asks, allow it, then try again. If that fails, reinstall Roblox from roblox.com.")
+            .details(e)
+            .action(ProblemAction::Retry)
+            .action(ProblemAction::OpenUrl("https://www.roblox.com/download".into())),
         std::io::ErrorKind::PermissionDenied => Problem::new("roblox.blocked", "Windows blocked Roblox from starting")
             .what("Windows refused to start Roblox.")
             .why("Security software or a Windows policy may be blocking RobloxPlayerBeta.exe.")
@@ -241,11 +274,32 @@ fn spawn_problem(install: &RobloxInstall, e: &std::io::Error) -> Problem {
     }
 }
 
+fn installer_running(all: &[process::ProcessSample]) -> bool {
+    process::named(all, INSTALLER_PROCESS).next().is_some()
+}
+
+fn closed_immediately() -> Problem {
+    Problem::new("roblox.closed_immediately", "Roblox closed right after starting")
+        .what("Roblox opened and then closed on its own.")
+        .why("A Fast Flag, a recent Roblox update or a graphics driver issue can make Roblox exit at startup.")
+        .fix(if cfg!(target_os = "macos") {
+            "Try the Balanced profile or turn off Fast Flags in Settings → Roblox. If it keeps happening, reinstall Roblox from roblox.com."
+        } else {
+            "Try the Balanced profile or turn off Fast Flags in Settings → Roblox. If it keeps happening, update your graphics driver."
+        })
+        .action(ProblemAction::OpenSettings("recovery".into()))
+        .action(ProblemAction::Retry)
+}
+
+/// Waits for Roblox's player. `spawned` is 0 when macOS started Roblox for
+/// Vesper, so any player that appears (and stays) is the one.
 fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
     let state = app.state::<AppState>();
     let started = Instant::now();
+    let direct = spawned != 0;
     let mut updating = false;
     let mut seen_spawned = false;
+    let mut first_player: Option<(u32, Instant)> = None;
     let mut installer_gone_since: Option<Instant> = None;
     loop {
         let all = process::snapshot().unwrap_or_default();
@@ -253,12 +307,23 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
         if players.contains(&spawned) {
             seen_spawned = true;
         }
+        if !direct && !updating {
+            match (players.first(), first_player) {
+                (Some(&p), None) => first_player = Some((p, Instant::now())),
+                (Some(&p), Some((_, since))) if since.elapsed() > Duration::from_secs(3) => return Ok(p),
+                (None, Some(_)) if process::named(&all, INSTALLER_PROCESS).next().is_none() => {
+                    return Err(closed_immediately())
+                }
+                _ => {}
+            }
+        }
         // Give the client a moment so a crash on startup is caught here.
         if !updating && seen_spawned && players.contains(&spawned) && started.elapsed() > Duration::from_secs(3) {
             return Ok(spawned);
         }
         if updating {
-            if let Some(p) = players.iter().copied().find(|p| *p != spawned) {
+            // On macOS the old player is still listed while it hands off, so wait for the installer to finish.
+            if let Some(p) = players.iter().copied().find(|p| *p != spawned && (direct || !installer_running(&all))) {
                 return Ok(p);
             }
         }
@@ -283,18 +348,13 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
             }
         }
         let spawned_gone = !players.contains(&spawned);
-        if spawned_gone && !installer && !updating && started.elapsed() > Duration::from_secs(2) {
+        if direct && spawned_gone && !installer && !updating && started.elapsed() > Duration::from_secs(2) {
             // The spawned process handed off to another one.
             if let Some(p) = players.first() {
                 return Ok(*p);
             }
             if seen_spawned || started.elapsed() > Duration::from_secs(5) {
-                return Err(Problem::new("roblox.closed_immediately", "Roblox closed right after starting")
-                    .what("Roblox opened and then closed on its own.")
-                    .why("A Fast Flag, a recent Roblox update or a graphics driver issue can make Roblox exit at startup.")
-                    .fix("Try the Balanced profile or turn off Fast Flags in Settings → Roblox. If it keeps happening, update your graphics driver.")
-                    .action(ProblemAction::OpenSettings("recovery".into()))
-                    .action(ProblemAction::Retry));
+                return Err(closed_immediately());
             }
         }
         let limit = if updating { UPDATE_TIMEOUT } else { START_TIMEOUT };
@@ -311,13 +371,18 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
 
 fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
     if let Some(w) = app.get_webview_window("main") {
+        let state = app.state::<AppState>();
         let hidden = match behaviour {
             AfterLaunch::Stay => false,
-            AfterLaunch::Minimize => w.minimize().is_ok(),
+            AfterLaunch::Minimize => {
+                // "Minimize to the taskbar" keeps Vesper there; only "Hide in the tray" leaves it.
+                state.minimized_for_roblox.store(true, Ordering::Relaxed);
+                w.minimize().is_ok()
+            }
             AfterLaunch::Tray => w.hide().is_ok(),
         };
         if hidden {
-            app.state::<AppState>().hidden_for_roblox.store(true, Ordering::Relaxed);
+            state.hidden_for_roblox.store(true, Ordering::Relaxed);
         }
     }
 }
@@ -325,7 +390,7 @@ fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
 /// Reads Roblox's log until it has reported on the flags, then records the verdicts.
 fn verify(app: &AppHandle, launched_at: SystemTime, expected: &FlagSet) -> Option<String> {
     let state = app.state::<AppState>();
-    let dir = state.env.roblox_data().join("logs");
+    let dir = state.env.roblox_logs();
     let started = Instant::now();
     let mut last: Option<(Option<String>, logs::FlagLoad)> = None;
     while started.elapsed() < VERIFY_TIMEOUT {

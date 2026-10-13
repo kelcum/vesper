@@ -9,6 +9,7 @@
   import Segmented from '../components/ui/Segmented.svelte';
   import { api } from '../lib/api';
   import { fpsCapShort, priorityLabel } from '../lib/format';
+  import { isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { FpsCap, Priority, Profile } from '../lib/types';
   import { flagsTarget } from '../lib/selection.svelte';
@@ -153,7 +154,7 @@
       <div class="chips">
         <Badge>{fpsCapShort(p.fpsCap, displayHz)}</Badge>
         <Badge>{n} flag{n === 1 ? '' : 's'}</Badge>
-        {#if p.priority !== 'normal'}<Badge>{priorityLabel(p.priority)}</Badge>{/if}
+        {#if p.priority !== 'normal' && !isMac}<Badge>{priorityLabel(p.priority)}</Badge>{/if}
         {#if p.affinity != null}<Badge tone="warn">Custom affinity</Badge>{/if}
       </div>
       <div class="actions">
@@ -267,28 +268,37 @@
       <Field label="Frame-rate limit" stacked>
         <FpsCapPicker value={editing.fpsCap} {displayHz} onchange={(c) => patch({ fpsCap: c })} />
       </Field>
-      <Field
-        label="Process priority"
-        hint="How Windows schedules Roblox against other programs. Applies when Vesper starts Roblox."
-        warning={editing.priority === 'high'
-          ? 'High priority can make other apps, voice chat and streaming stutter.'
-          : undefined}
-      >
-        <Segmented
+      {#if isMac}
+        <Field
           label="Process priority"
-          value={editing.priority}
-          options={[
-            { value: 'normal', label: 'Normal' },
-            { value: 'aboveNormal', label: 'Above normal' },
-            { value: 'high', label: 'High' },
-          ]}
-          onchange={(v) => patch({ priority: v })}
-        />
-      </Field>
+          hint="macOS doesn't let apps change another app's priority or processors, so Roblox runs as macOS schedules it."
+        >
+          <span class="faint small">Set by macOS</span>
+        </Field>
+      {:else}
+        <Field
+          label="Process priority"
+          hint="How Windows schedules Roblox against other programs. Applies when Vesper starts Roblox."
+          warning={editing.priority === 'high'
+            ? 'High priority can make other apps, voice chat and streaming stutter.'
+            : undefined}
+        >
+          <Segmented
+            label="Process priority"
+            value={editing.priority}
+            options={[
+              { value: 'normal', label: 'Normal' },
+              { value: 'aboveNormal', label: 'Above normal' },
+              { value: 'high', label: 'High' },
+            ]}
+            onchange={(v) => patch({ priority: v })}
+          />
+        </Field>
+      {/if}
       <Field label="Fast Flags" hint="{Object.keys(editing.flags).length} set in this profile.">
         <Button icon={Pencil} onclick={() => editFlags(editing!)}>Edit flags</Button>
       </Field>
-      <details class="advanced">
+      <details class="advanced" hidden={isMac}>
         <summary>Advanced: processor affinity</summary>
         <p class="faint small">
           Restricts Roblox to the processors you pick. This usually makes performance worse; only change it if you know

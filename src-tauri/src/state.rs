@@ -15,7 +15,7 @@ use crate::perf::system::SystemInfo;
 use crate::profiles::ProfileStore;
 use crate::roblox::cdn::{LatestVersion, PublishedValues};
 use crate::roblox::detect::{self, DetectEnv, Detection, RobloxInstall};
-use crate::roblox::watch::VersionsWatcher;
+use crate::roblox::watch::{self, VersionsWatcher};
 use crate::updates::UpdateState;
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -94,6 +94,9 @@ pub struct AppState {
     pub roblox_running: AtomicBool,
     /// Vesper hid or minimized itself when it launched Roblox.
     pub hidden_for_roblox: AtomicBool,
+    /// Vesper minimized itself for Roblox and should stay on the taskbar (or
+    /// Dock), even with "Minimize to tray" on. Cleared when the window is used again.
+    pub minimized_for_roblox: AtomicBool,
     pub quitting: AtomicBool,
 }
 
@@ -105,7 +108,11 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl AppState {
     pub fn load(paths: AppPaths) -> std::result::Result<Self, String> {
         paths.ensure().map_err(|e| format!("Couldn't create Vesper's folders: {e}"))?;
-        let env = DetectEnv::system().ok_or("%LOCALAPPDATA% isn't set")?;
+        let env = DetectEnv::system().ok_or(if cfg!(target_os = "macos") {
+            "Your home folder isn't set (HOME)"
+        } else {
+            "%LOCALAPPDATA% isn't set"
+        })?;
         let loaded = Settings::load(&paths.settings_file());
         let mut notices = Vec::new();
         if loaded.recovered_from.is_some() {
@@ -142,6 +149,7 @@ impl AppState {
             last_mod_report: Mutex::new(None),
             roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
             hidden_for_roblox: AtomicBool::new(false),
+            minimized_for_roblox: AtomicBool::new(false),
             quitting: AtomicBool::new(false),
             env,
             paths,
@@ -174,8 +182,9 @@ impl AppState {
         }
     }
 
-    /// Brings Roblox's files in line with the mod settings. Returns `None` when
-    /// nothing is configured and nothing was applied before.
+    /// Brings Roblox's files in line with the mod settings. `dir` is an install
+    /// folder (see `RobloxInstall::dir`). Returns `None` when nothing is
+    /// configured and nothing was applied before.
     pub fn apply_mods(&self, dir: &std::path::Path) -> Option<ModReport> {
         let cfg = lock(&self.mods).clone();
         let nothing = cfg == ModsConfig::default() && lock(&self.mod_ledger).files.is_empty();
@@ -189,7 +198,13 @@ impl AppState {
         }
         let report = {
             let mut ledger = lock(&self.mod_ledger);
-            crate::mods::apply(&cfg, &self.mod_paths, dir, &mut ledger)
+            crate::mods::apply_build(
+                &cfg,
+                &self.mod_paths,
+                &detect::content_root(dir),
+                &detect::build_id(dir),
+                &mut ledger,
+            )
         };
         if let Err(e) = lock(&self.mod_ledger).save(&self.mod_paths.ledger) {
             log::warn!("Couldn't save the mods ledger: {e}");
@@ -232,12 +247,24 @@ impl AppState {
             let why = if d.store_app_present {
                 "Only the Microsoft Store edition of Roblox is installed. Its files are sealed, so launchers can't start or tune it."
             } else {
-                "Roblox's player isn't installed for this Windows account."
+                if cfg!(target_os = "macos") {
+                    "Roblox.app isn't in your Applications folder."
+                } else {
+                    "Roblox's player isn't installed for this Windows account."
+                }
             };
             Problem::new("roblox.not_installed", "Roblox isn't installed")
-                .what("Vesper couldn't find the Roblox player on this PC.")
+                .what(if cfg!(target_os = "macos") {
+                    "Vesper couldn't find the Roblox player on this Mac."
+                } else {
+                    "Vesper couldn't find the Roblox player on this PC."
+                })
                 .why(why)
-                .fix("Install Roblox from roblox.com, start it once, then come back. If it's installed somewhere unusual, choose its folder in Settings → Roblox.")
+                .fix(if cfg!(target_os = "macos") {
+                    "Install Roblox from roblox.com, start it once, then come back. If Roblox.app is somewhere else, choose it in Settings → Roblox."
+                } else {
+                    "Install Roblox from roblox.com, start it once, then come back. If it's installed somewhere unusual, choose its folder in Settings → Roblox."
+                })
                 .action(ProblemAction::OpenUrl("https://www.roblox.com/download".into()))
                 .action(ProblemAction::Retry)
         })
@@ -302,17 +329,17 @@ impl AppState {
     /// Starts or stops the Versions-folder watcher to match the flag mode.
     pub fn sync_keep_applied(&self, app: &AppHandle) {
         let mode = lock(&self.settings).roblox.flag_mode;
+        let install = self.preferred_install();
         let mut slot = lock(&self.keep_applied);
         if mode == FlagMode::KeepApplied {
             if slot.is_none() {
                 let handle = app.clone();
-                let versions = self.env.roblox_data().join("Versions");
-                match VersionsWatcher::start(&versions, move |dir| apply_to_new_version(&handle, dir)) {
+                match watch::watch_updates(&self.env, install.as_ref(), move |dir| apply_to_new_version(&handle, dir)) {
                     Ok(w) => {
                         log::info!("Watching for Roblox updates to keep flags applied");
                         *slot = Some(w);
                     }
-                    Err(e) => log::warn!("Couldn't watch the Roblox Versions folder: {e}"),
+                    Err(e) => log::warn!("Couldn't watch for Roblox updates: {e}"),
                 }
             }
         } else {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FPS_PRESETS } from '../../lib/format';
   import type { FpsCap } from '../../lib/types';
+  import { computer } from '../../lib/platform';
 
   interface Props {
     value: FpsCap | null;
@@ -73,7 +74,7 @@
   </div>
   <p class="faint small">
     Sets Roblox's own frame-rate cap before it starts. A limit is a ceiling, not a promise: Roblox still renders as fast
-    as your PC allows below it. “Unlimited” writes a cap of 9999.
+    as your {computer} allows below it. “Unlimited” writes a cap of 9999.
   </p>
 </div>
 

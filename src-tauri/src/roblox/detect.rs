@@ -1,6 +1,6 @@
-//! Finding Roblox on this PC.
+//! Finding Roblox on this computer.
 //!
-//! Sources, in order of preference:
+//! On Windows, sources in order of preference:
 //! 1. A folder the user picked in Settings.
 //! 2. The install Roblox registered for this user
 //!    (`HKCU\Software\ROBLOX Corporation\Environments\roblox-player`).
@@ -10,6 +10,11 @@
 //!
 //! The Microsoft Store edition is detected but can't be launched or tuned:
 //! its files are sealed inside the WindowsApps folder.
+//!
+//! On macOS Roblox is a single app, `Roblox.app`, in `/Applications` or
+//! `~/Applications`, which Roblox updates in place. An install's folder is
+//! the app's `Contents/MacOS`, where the player and `ClientSettings` live;
+//! its textures, fonts and sounds are in `Contents/Resources/content`.
 
 use super::version::file_version;
 use crate::redact::display_path;
@@ -17,8 +22,12 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+#[cfg(not(target_os = "macos"))]
 pub const PLAYER_EXE: &str = "RobloxPlayerBeta.exe";
-pub const INSTALLER_EXE: &str = "RobloxPlayerInstaller.exe";
+#[cfg(target_os = "macos")]
+pub const PLAYER_EXE: &str = "RobloxPlayer";
+/// The app Roblox installs on macOS.
+pub const MAC_APP: &str = "Roblox.app";
 const ENV_KEY: &str = r"Software\ROBLOX Corporation\Environments\roblox-player";
 const PROTOCOL_KEY: &str = r"Software\Classes\roblox-player\shell\open\command";
 
@@ -54,23 +63,49 @@ impl Registry for SystemRegistry {
 }
 
 pub struct DetectEnv {
+    /// `%LOCALAPPDATA%` on Windows, `~/Library` on macOS.
     pub local_appdata: PathBuf,
     pub program_files_x86: Option<PathBuf>,
     pub registry: Box<dyn Registry>,
+    /// Folders that may hold Roblox.app (macOS).
+    pub applications: Vec<PathBuf>,
 }
 
 impl DetectEnv {
+    #[cfg(not(target_os = "macos"))]
     pub fn system() -> Option<Self> {
         Some(Self {
             local_appdata: std::env::var_os("LOCALAPPDATA").map(PathBuf::from)?,
             program_files_x86: std::env::var_os("ProgramFiles(x86)").map(PathBuf::from),
             registry: Box::new(SystemRegistry),
+            applications: Vec::new(),
         })
     }
 
-    /// `%LOCALAPPDATA%\Roblox`: logs, settings and the official Versions folder.
+    #[cfg(target_os = "macos")]
+    pub fn system() -> Option<Self> {
+        let home = std::env::var_os("HOME").map(PathBuf::from).filter(|h| h.is_absolute())?;
+        Some(Self {
+            local_appdata: home.join("Library"),
+            program_files_x86: None,
+            registry: Box::new(SystemRegistry),
+            applications: vec![PathBuf::from("/Applications"), home.join("Applications")],
+        })
+    }
+
+    /// Roblox's own data: its settings file and, on Windows, logs and the official Versions folder.
+    /// `%LOCALAPPDATA%\Roblox` on Windows, `~/Library/Roblox` on macOS.
     pub fn roblox_data(&self) -> PathBuf {
         self.local_appdata.join("Roblox")
+    }
+
+    /// Where Roblox writes its client logs.
+    pub fn roblox_logs(&self) -> PathBuf {
+        if cfg!(target_os = "macos") {
+            self.local_appdata.join("Logs").join("Roblox")
+        } else {
+            self.roblox_data().join("logs")
+        }
     }
 }
 
@@ -118,9 +153,48 @@ impl RobloxInstall {
         self.dir.join(PLAYER_EXE)
     }
 
-    pub fn installer(&self) -> PathBuf {
-        self.dir.join(INSTALLER_EXE)
+    /// The folder holding Roblox's `content` folder (textures, fonts, sounds).
+    pub fn content_root(&self) -> PathBuf {
+        content_root(&self.dir)
     }
+
+    /// Names this Roblox build; see [`build_id`].
+    pub fn build_id(&self) -> String {
+        build_id(&self.dir)
+    }
+}
+
+/// The folder holding Roblox's `content` folder for the install in `install_dir`:
+/// the version folder itself on Windows, `Roblox.app/Contents/Resources` on macOS.
+pub fn content_root(install_dir: &Path) -> PathBuf {
+    match install_dir.parent() {
+        Some(contents) if cfg!(target_os = "macos") => contents.join("Resources"),
+        _ => install_dir.to_path_buf(),
+    }
+}
+
+/// Names the Roblox build in `install_dir`, to keep backups of different builds apart.
+///
+/// Every Windows build has its own `version-…` folder. On macOS Roblox
+/// replaces Roblox.app in place, so the version number tells builds apart.
+pub fn build_id(install_dir: &Path) -> String {
+    if cfg!(target_os = "macos") {
+        let exe = install_dir.join(PLAYER_EXE);
+        let id = file_version(&exe).map(|v| v.to_string()).or_else(|| {
+            let secs = modified(&exe)?.timestamp();
+            Some(format!("build-{secs}"))
+        });
+        return format!("mac-{}", id.unwrap_or_else(|| "unknown".into()));
+    }
+    install_dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "unknown".into())
+}
+
+/// The Roblox.app bundle an install folder (`Contents/MacOS`) belongs to.
+pub fn app_bundle(install_dir: &Path) -> Option<PathBuf> {
+    install_dir
+        .ancestors()
+        .find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
+        .map(Path::to_path_buf)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -158,9 +232,16 @@ fn install_at(dir: &Path, source: InstallSource, registered: bool) -> Option<Rob
     if !exe.is_file() {
         return None;
     }
-    let version_hash = dir.file_name()?.to_string_lossy().into_owned();
+    // macOS installs have no version folder; the app bundle names them instead.
+    let (version_hash, id_part) = match app_bundle(dir) {
+        Some(app) if cfg!(target_os = "macos") => (app.file_name()?.to_string_lossy().into_owned(), display_path(&app)),
+        _ => {
+            let name = dir.file_name()?.to_string_lossy().into_owned();
+            (name.clone(), name)
+        }
+    };
     Some(RobloxInstall {
-        id: format!("{source:?}:{version_hash}").to_lowercase(),
+        id: format!("{source:?}:{id_part}").to_lowercase(),
         source,
         version: file_version(&exe).map(|v| v.to_string()),
         location: display_path(dir),
@@ -209,14 +290,41 @@ fn classify_handler(command: &str) -> &'static str {
     }
 }
 
-/// Resolves a user-chosen folder: a version folder, or a Versions folder (newest wins).
+/// The install inside a Roblox.app bundle (macOS).
+fn app_install(app: &Path, source: InstallSource) -> Option<RobloxInstall> {
+    install_at(&app.join("Contents").join("MacOS"), source, false)
+}
+
+/// Roblox apps directly inside `dir` (macOS): Roblox.app, or a renamed copy.
+fn scan_apps(dir: &Path, source: InstallSource) -> Vec<RobloxInstall> {
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
+        .filter_map(|app| app_install(&app, source))
+        .collect()
+}
+
+/// Resolves a user-chosen folder. On Windows: a version folder, or a Versions
+/// folder (newest wins). On macOS: Roblox.app itself, its `Contents/MacOS`,
+/// or a folder that holds a Roblox app.
 pub fn resolve_custom(dir: &Path) -> Result<RobloxInstall, String> {
     if let Some(i) = install_at(dir, InstallSource::Custom, false) {
         return Ok(i);
     }
-    let mut found = scan_versions(dir, InstallSource::Custom, None);
+    let mut found = if cfg!(target_os = "macos") {
+        app_install(dir, InstallSource::Custom)
+            .map(|i| vec![i])
+            .unwrap_or_else(|| scan_apps(dir, InstallSource::Custom))
+    } else {
+        scan_versions(dir, InstallSource::Custom, None)
+    };
     found.sort_by_key(|i| std::cmp::Reverse(i.modified));
-    found.into_iter().next().ok_or_else(|| format!("{} doesn't contain {PLAYER_EXE}.", display_path(dir)))
+    found.into_iter().next().ok_or_else(|| {
+        let wanted = if cfg!(target_os = "macos") { MAC_APP } else { PLAYER_EXE };
+        format!("{} doesn't contain {wanted}.", display_path(dir))
+    })
 }
 
 pub fn detect(env: &DetectEnv, override_dir: Option<&Path>) -> Detection {
@@ -236,6 +344,9 @@ pub fn detect(env: &DetectEnv, override_dir: Option<&Path>) -> Detection {
 
     let official_root = env.roblox_data().join("Versions");
     installs.extend(scan_versions(&official_root, InstallSource::Official, registered_dir.as_deref()));
+    for apps in &env.applications {
+        installs.extend(app_install(&apps.join(MAC_APP), InstallSource::Official));
+    }
 
     // A registered install outside the usual folder still counts.
     if let Some(dir) = &registered_dir {
@@ -328,7 +439,12 @@ mod tests {
     }
 
     fn env(local: &Path, reg: FakeRegistry) -> DetectEnv {
-        DetectEnv { local_appdata: local.to_path_buf(), program_files_x86: None, registry: Box::new(reg) }
+        DetectEnv {
+            local_appdata: local.to_path_buf(),
+            program_files_x86: None,
+            registry: Box::new(reg),
+            applications: Vec::new(),
+        }
     }
 
     #[test]
@@ -388,7 +504,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         make_install(&dir.path().join("Roblox").join("Versions"), "version-official");
         let custom_root = dir.path().join("Games").join("RobloxVersions");
-        make_install(&custom_root, "version-custom");
+        // A chosen folder holds version folders on Windows, a Roblox app on macOS.
+        if cfg!(target_os = "macos") {
+            make_install(&custom_root.join(MAC_APP).join("Contents"), "MacOS");
+        } else {
+            make_install(&custom_root, "version-custom");
+        }
 
         let d = detect(&env(dir.path(), FakeRegistry::default()), Some(&custom_root));
         assert_eq!(d.preferred_install().unwrap().source, InstallSource::Custom);
@@ -412,6 +533,37 @@ mod tests {
         assert!(!p.command.contains("someone"), "command is redacted");
         assert_eq!(classify_handler(r"C:\x\RobloxPlayerInstaller.exe %1"), "Roblox");
         assert_eq!(classify_handler(r"C:\x\Vesper.exe --protocol %1"), "Vesper");
+    }
+
+    #[test]
+    fn roblox_app_in_an_applications_folder_is_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let apps = dir.path().join("Applications");
+        let macos = apps.join(MAC_APP).join("Contents").join("MacOS");
+        std::fs::create_dir_all(&macos).unwrap();
+        std::fs::write(macos.join(PLAYER_EXE), b"not really a binary").unwrap();
+        std::fs::create_dir_all(apps.join("Other.app").join("Contents").join("MacOS")).unwrap();
+
+        let mut e = env(dir.path(), FakeRegistry::default());
+        e.applications = vec![apps.clone(), dir.path().join("missing")];
+        let d = detect(&e, None);
+        assert_eq!(d.installs.len(), 1);
+        let i = d.preferred_install().unwrap();
+        assert_eq!(i.source, InstallSource::Official);
+        assert_eq!(i.dir, macos);
+        assert_eq!(app_bundle(&i.dir).as_deref(), Some(apps.join(MAC_APP).as_path()));
+        if cfg!(target_os = "macos") {
+            assert_eq!(i.content_root(), apps.join(MAC_APP).join("Contents").join("Resources"));
+            assert!(i.build_id().starts_with("mac-"), "{}", i.build_id());
+            assert_eq!(i.version_hash, MAC_APP);
+        }
+
+        // Choosing the app, or the folder that holds it, also works on macOS.
+        if cfg!(target_os = "macos") {
+            assert_eq!(resolve_custom(&apps.join(MAC_APP)).unwrap().dir, macos);
+            assert_eq!(resolve_custom(&apps).unwrap().dir, macos);
+            assert!(resolve_custom(&apps.join("Other.app")).is_err());
+        }
     }
 
     #[test]

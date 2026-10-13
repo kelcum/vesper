@@ -1,8 +1,10 @@
-// Applies appearance settings: theme, Mica, motion, density, UI scale, background.
+// Applies appearance settings: theme, window material (Mica on Windows, the
+// under-window material on macOS), motion, density, UI scale, background.
 
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { Effect, EffectState, getCurrentWindow } from '@tauri-apps/api/window';
 import { api } from './api';
+import { isMac } from './platform';
 import type { Appearance } from './types';
 
 const dark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -35,12 +37,16 @@ export async function applyAppearance(a: Appearance) {
   try {
     await win.setTheme(a.theme === 'system' ? null : theme);
     if (a.transparency === 'full') {
-      await win.setEffects({ effects: [Effect.Mica], state: EffectState.Active });
+      await win.setEffects(
+        isMac
+          ? { effects: [Effect.UnderWindowBackground], state: EffectState.FollowsWindowActiveState }
+          : { effects: [Effect.Mica], state: EffectState.Active },
+      );
     } else {
       await win.clearEffects();
     }
   } catch {
-    // Window effects need Windows 11; the CSS fallback covers older systems.
+    // Mica needs Windows 11; the CSS fallback covers older systems.
   }
   try {
     await getCurrentWebview().setZoom(a.scale / 100);

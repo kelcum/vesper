@@ -12,7 +12,7 @@
 
 <span class="badge {tone}" {title}>
   {#if dot}<span class="dot" aria-hidden="true"></span>{/if}
-  {@render children()}
+  <span class="text">{@render children()}</span>
 </span>
 
 <style>
@@ -22,6 +22,7 @@
     align-items: center;
     gap: 6px;
     height: 22px;
+    max-width: 100%;
     padding: 0 8px;
     border-radius: var(--radius-pill);
     font-size: var(--text-xs);
@@ -30,6 +31,11 @@
     color: var(--c);
     background: color-mix(in srgb, var(--c) 13%, transparent);
     border: 1px solid color-mix(in srgb, var(--c) 22%, transparent);
+  }
+  .text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .ok {
     --c: var(--ok);

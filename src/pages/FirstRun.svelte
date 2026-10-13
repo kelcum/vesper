@@ -11,6 +11,7 @@
   import { api } from '../lib/api';
   import { applyAppearance } from '../lib/appearance';
   import { fpsCapShort, sourceLabel } from '../lib/format';
+  import { isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { Appearance } from '../lib/types';
 
@@ -39,7 +40,13 @@
   }
 
   async function chooseFolder() {
-    const d = await open({ directory: true, multiple: false });
+    const d = await open({
+      directory: true,
+      multiple: false,
+      title: isMac
+        ? 'Choose the folder that holds Roblox.app'
+        : 'Choose the Roblox Versions folder or a version folder',
+    });
     if (typeof d === 'string') {
       await app.saveSettings({ roblox: { installDir: d } });
       await detect();
@@ -95,7 +102,9 @@
               </div>
             </div>
             {#if app.detection.installs.length > 1}<p class="muted small">
-                {app.detection.installs.length - 1} other copies were found; Vesper uses the one Roblox registered.
+                {app.detection.installs.length - 1} other copies were found; Vesper uses the one {isMac
+                  ? 'updated most recently'
+                  : 'Roblox registered'}.
               </p>{/if}
           {:else}
             <div class="found">
