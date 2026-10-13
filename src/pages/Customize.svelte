@@ -24,6 +24,7 @@
   import WheelPreview from '../components/customize/WheelPreview.svelte';
   import { api } from '../lib/api';
   import { invalidateBackground } from '../lib/appearance';
+  import { isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { ModsView } from '../lib/types';
   import studioScript from '../../docs/studio/ColorPresets.client.lua?raw';
@@ -525,8 +526,14 @@
       />
     {/snippet}
     <p class="muted small">
-      Put files in the folder below using the same paths as inside Roblox's version folder, e.g.
-      <span class="mono">content\textures\…</span>. {view?.customFileCount ?? 0} file(s) there now.
+      {#if isMac}
+        Put files in the folder below using the same paths as inside Roblox.app/Contents/Resources, e.g.
+        <span class="mono">content/textures/…</span>.
+      {:else}
+        Put files in the folder below using the same paths as inside Roblox's version folder, e.g.
+        <span class="mono">content\textures\…</span>.
+      {/if}
+      {view?.customFileCount ?? 0} file(s) there now.
     </p>
     <Button icon={FolderOpen} onclick={() => api.modsOpenCustomFolder()}>Open folder</Button>
   </Card>

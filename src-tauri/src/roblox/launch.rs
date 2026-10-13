@@ -10,8 +10,8 @@
 //!
 //! On macOS Vesper asks macOS to open Roblox.app, as Finder or a browser
 //! link would, and game links reach Roblox the same way. macOS doesn't let
-//! apps raise another app's priority or pin it to processors, so those
-//! profile settings are reported as not applied.
+//! apps raise another app's priority or pin it to processors, so priority is
+//! left to macOS and a chosen affinity is reported as not applied.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -140,8 +140,8 @@ pub fn spawn(req: &SpawnRequest) -> std::io::Result<Spawned> {
     Ok(Spawned {
         pid: 0,
         affinity_error: req.affinity.map(|_| "macOS doesn't let apps choose which processors another app uses".into()),
-        priority_error: (req.priority != Priority::Normal)
-            .then(|| "macOS doesn't let apps raise another app's priority".into()),
+        // macOS schedules Roblox itself; the interface says so instead of a notice on every launch.
+        priority_error: None,
     })
 }
 

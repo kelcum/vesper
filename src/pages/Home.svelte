@@ -189,7 +189,7 @@
       <div class="chips">
         <Badge tone="accent">{fpsCapShort(profile.fpsCap, app.boot?.system.displayHz)}</Badge>
         <Badge>{flagCount} flag{flagCount === 1 ? '' : 's'}</Badge>
-        {#if profile.priority !== 'normal'}<Badge>{priorityLabel(profile.priority)}</Badge>{/if}
+        {#if profile.priority !== 'normal' && !isMac}<Badge>{priorityLabel(profile.priority)}</Badge>{/if}
       </div>
       <button class="link small" onclick={() => app.go('profiles')}
         >Edit profile <ArrowRight size={13} aria-hidden="true" /></button

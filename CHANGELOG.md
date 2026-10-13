@@ -6,9 +6,11 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
 ### Added
 
-- **macOS support.** Vesper runs on macOS 11 or later (Apple silicon and
+- macOS support. Vesper runs on macOS 11 or later (Apple silicon and
   Intel): it finds Roblox.app, launches Roblox and games, applies Fast Flags,
   customisations and the frame-rate limit, checks Roblox's log, re-applies
   everything after Roblox updates itself, shows live CPU and memory use, and
@@ -25,7 +27,8 @@ All notable changes to Vesper are documented here. The format follows
 - The frame-rate limit card no longer cuts off its warning about a read-only
   Roblox settings file; it explains the lock on its own line. "Restore
   original" explains a locked file instead of failing with a generic error.
-- "Remove applied flags" found nothing to remove on case-sensitive drives.
+- "Remove flags" (Settings → Backups & recovery) found nothing to remove on
+  case-sensitive drives.
 
 ## [0.1.2] - 2026-10-11
 

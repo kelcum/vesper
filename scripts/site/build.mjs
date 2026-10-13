@@ -135,16 +135,29 @@ if (release.status === 'released' && release.installer) {
     }
   }
   const href = `download/${encodeURIComponent(inst.file)}`;
-  html = replaceBlock(html, 'nav-cta', `<a class="btn btn-primary" href="${href}" download>Download</a>`);
+  // With a Mac build, every download button comes in a Windows and a Mac version.
+  const macHref = release.mac ? `download/${encodeURIComponent(release.mac.file)}` : null;
+  const macButton = macHref
+    ? `\n<a class="btn btn-primary" href="${macHref}" download>${downloadIcon} Download for Mac</a>`
+    : '';
+  html = replaceBlock(
+    html,
+    'nav-cta',
+    macHref
+      ? '<a class="btn btn-primary" href="#download">Download</a>'
+      : `<a class="btn btn-primary" href="${href}" download>Download</a>`,
+  );
   html = replaceBlock(
     html,
     'hero-cta',
-    `<a class="btn btn-primary" href="${href}" download>${downloadIcon} Download for Windows</a>`,
+    `<a class="btn btn-primary" href="${href}" download>${downloadIcon} Download for Windows</a>${macButton}`,
   );
   html = replaceBlock(
     html,
     'hero-meta',
-    `<p class="cta-meta reveal">Version ${esc(release.version)} · ${sizeLabel(inst.size)} · Windows 10 &amp; 11 (64-bit) · updates itself</p>`,
+    macHref
+      ? `<p class="cta-meta reveal">Version ${esc(release.version)} · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself</p>`
+      : `<p class="cta-meta reveal">Version ${esc(release.version)} · ${sizeLabel(inst.size)} · Windows 10 &amp; 11 (64-bit) · updates itself</p>`,
   );
   const portable = release.portable
     ? `<li><b>Portable:</b> <a href="download/${encodeURIComponent(release.portable.file)}" download>${esc(release.portable.file)}</a> (${sizeLabel(release.portable.size)}), keeps everything in a folder next to Vesper.exe</li>`
@@ -157,7 +170,7 @@ if (release.status === 'released' && release.installer) {
   html = replaceBlock(
     html,
     'download',
-    `<div class="cta"><a class="btn btn-primary" href="${href}" download>${downloadIcon} Download Vesper ${esc(release.version)}</a></div>
+    `<div class="cta"><a class="btn btn-primary" href="${href}" download>${downloadIcon} ${macHref ? 'Download for Windows' : `Download Vesper ${esc(release.version)}`}</a>${macButton}</div>
 <ul class="facts">
 <li><b>${sizeLabel(inst.size)}</b> installer, released ${esc(release.date)}, no administrator rights needed</li>
 <li><b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your settings stay.</li>
@@ -168,7 +181,7 @@ ${mac}
 ${notes ? `<details><summary>What's new in ${esc(release.version)}</summary>${changelogHtml(notes)}</details>` : ''}
 <p class="note">Vesper is new and its installer isn't code-signed yet, so Windows may show <b>“Windows protected your PC”</b>. Choose <b>More info</b>, then <b>Run anyway</b>.</p>${
       release.mac
-        ? `\n<p class="note">On a Mac, open the disk image and drag Vesper to Applications. The first time, macOS says it can't check Vesper for malicious software: open <b>System Settings → Privacy &amp; Security</b> and choose <b>Open Anyway</b>.</p>`
+        ? `\n<p class="note">On a Mac, open the disk image, drag Vesper to Applications and open it. The first time, macOS says it can't check Vesper: open <b>System Settings → Privacy &amp; Security</b> (<b>System Preferences → Security &amp; Privacy</b> on macOS 11 and 12) and choose <b>Open Anyway</b>.</p>`
         : ''
     }`,
   );

@@ -136,7 +136,11 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
                     } else {
                         "The folder needs to contain RobloxPlayerBeta.exe, or version folders that do."
                     })
-                    .fix("Choose the Roblox Versions folder or a version-… folder inside it.")
+                    .fix(if cfg!(target_os = "macos") {
+                        "Choose Roblox.app in your Applications folder, or the folder that holds it."
+                    } else {
+                        "Choose the Roblox Versions folder or a version-… folder inside it."
+                    })
             })?;
         }
     }

@@ -227,18 +227,20 @@
           onchange={(v) => app.saveSettings({ general: { startMinimized: v } })}
         />
       </Field>
-      <Field
-        label="Minimize to {trayName}"
-        hint={isMac
-          ? 'Minimizing hides the window to the menu bar instead of the Dock.'
-          : 'Minimizing it yourself hides the window to the notification area instead of the taskbar.'}
-      >
-        <Toggle
+      {#if !isMac}
+        <Field
           label="Minimize to {trayName}"
-          checked={s.general.minimizeToTray}
-          onchange={(v) => app.saveSettings({ general: { minimizeToTray: v } })}
-        />
-      </Field>
+          hint={isMac
+            ? 'Minimizing hides the window to the menu bar instead of the Dock.'
+            : 'Minimizing it yourself hides the window to the notification area instead of the taskbar.'}
+        >
+          <Toggle
+            label="Minimize to {trayName}"
+            checked={s.general.minimizeToTray}
+            onchange={(v) => app.saveSettings({ general: { minimizeToTray: v } })}
+          />
+        </Field>
+      {/if}
       <Field label="When I close the window">
         <Segmented
           label="Close behavior"
@@ -253,7 +255,9 @@
       <Field
         label="After launching Roblox"
         hint={s.general.afterLaunch === 'tray'
-          ? `Vesper leaves the ${isMac ? 'Dock' : 'taskbar'} until Roblox closes. Open it from the ${trayName} icon.`
+          ? isMac
+            ? 'Vesper hides its window while Roblox runs. Open it from the menu bar icon or the Dock.'
+            : 'Vesper leaves the taskbar while Roblox runs. Open it from the tray icon.'
           : undefined}
       >
         <Select

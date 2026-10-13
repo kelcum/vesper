@@ -274,6 +274,10 @@ fn spawn_problem(install: &RobloxInstall, e: &std::io::Error) -> Problem {
     }
 }
 
+fn installer_running(all: &[process::ProcessSample]) -> bool {
+    process::named(all, INSTALLER_PROCESS).next().is_some()
+}
+
 fn closed_immediately() -> Problem {
     Problem::new("roblox.closed_immediately", "Roblox closed right after starting")
         .what("Roblox opened and then closed on its own.")
@@ -318,7 +322,8 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
             return Ok(spawned);
         }
         if updating {
-            if let Some(p) = players.iter().copied().find(|p| *p != spawned) {
+            // On macOS the old player is still listed while it hands off, so wait for the installer to finish.
+            if let Some(p) = players.iter().copied().find(|p| *p != spawned && (direct || !installer_running(&all))) {
                 return Ok(p);
             }
         }
