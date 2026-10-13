@@ -6,11 +6,12 @@ don't work. Contributions are judged against that first.
 
 ## Development setup
 
-You need Windows 10 or 11 and:
+You need Windows 10 or 11, or macOS 11 or later, and:
 
-- [Rust](https://rustup.rs) (stable, 1.90+) with the MSVC toolchain
+- [Rust](https://rustup.rs) (stable, 1.90+); on Windows with the MSVC toolchain
 - [Node.js](https://nodejs.org) 24+
-- WebView2 (preinstalled on Windows 11)
+- On Windows, WebView2 (preinstalled on Windows 11); on macOS, the Xcode
+  command line tools (`xcode-select --install`)
 
 ```bash
 npm ci
@@ -68,6 +69,11 @@ cargo test
 `cargo run --example probe` prints detection results, versions and a live
 performance sample without changing anything.
 
+CI runs the Rust checks on both Windows and macOS. Code for one system goes
+behind `#[cfg(windows)]` or `#[cfg(target_os = "macos")]`; prefer
+`cfg!(...)` in ordinary code so both versions keep compiling everywhere.
+Interface wording that differs between the two comes from `src/lib/platform.ts`.
+
 ## The Fast Flag catalog
 
 `src-tauri/resources/flags/catalog.json` only lists flags on Roblox's
@@ -118,8 +124,8 @@ problems go through [SECURITY.md](SECURITY.md), not public issues.
 `npm run dev`, then open <http://localhost:1420/dev/preview/> in a browser. It
 runs the real interface on sample data from `dev/preview/`, with no Vesper
 backend, so nothing can touch Roblox. Add `?running` to the address to show
-Roblox as running. Use it for reviewing screens and taking screenshots
-instead of a second copy of the app.
+Roblox as running, and `?platform=macos` for the macOS interface. Use it for
+reviewing screens and taking screenshots instead of a second copy of the app.
 
 ## Releasing (maintainers)
 
@@ -127,8 +133,8 @@ instead of a second copy of the app.
    `src-tauri/tauri.conf.json`, and move the "Unreleased" changelog entries
    under the new version.
 2. Push a tag such as `v0.2.0`. The Release workflow builds the signed
-   installer, a portable zip, `latest.json` and `SHA256SUMS.txt` into a
-   **draft** GitHub release. It needs the repository secrets
+   installer, a portable zip, a universal macOS disk image and update
+   archive, `latest.json` and `SHA256SUMS.txt` into a **draft** GitHub release. It needs the repository secrets
    `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 3. Test the draft's installer, then stage it on the website:
 

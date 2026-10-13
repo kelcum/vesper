@@ -127,7 +127,7 @@ html = replaceBlock(html, 'footer-links', footerLinks);
 
 if (release.status === 'released' && release.installer) {
   const inst = release.installer;
-  for (const file of [inst, release.portable].filter(Boolean)) {
+  for (const file of [inst, release.portable, release.mac, release.macUpdate].filter(Boolean)) {
     if (!existsSync(join(site, 'download', file.file))) {
       throw new Error(
         `release.json lists download/${file.file}, which doesn't exist; refusing to publish a broken link`,
@@ -149,6 +149,10 @@ if (release.status === 'released' && release.installer) {
   const portable = release.portable
     ? `<li><b>Portable:</b> <a href="download/${encodeURIComponent(release.portable.file)}" download>${esc(release.portable.file)}</a> (${sizeLabel(release.portable.size)}), keeps everything in a folder next to Vesper.exe</li>`
     : '';
+  // Only once a release really has a Mac build.
+  const mac = release.mac
+    ? `<li><b>macOS:</b> <a href="download/${encodeURIComponent(release.mac.file)}" download>${esc(release.mac.file)}</a> (${sizeLabel(release.mac.size)}), macOS 11 or later, Apple silicon and Intel. SHA-256 <code>${esc(release.mac.sha256)}</code></li>`
+    : '';
   const notes = sectionFor(read('CHANGELOG.md'), release.version);
   html = replaceBlock(
     html,
@@ -159,9 +163,14 @@ if (release.status === 'released' && release.installer) {
 <li><b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your settings stay.</li>
 ${portable}
 <li><b>SHA-256</b> <code>${esc(inst.sha256)}</code></li>
+${mac}
 </ul>
 ${notes ? `<details><summary>What's new in ${esc(release.version)}</summary>${changelogHtml(notes)}</details>` : ''}
-<p class="note">Vesper is new and its installer isn't code-signed yet, so Windows may show <b>“Windows protected your PC”</b>. Choose <b>More info</b>, then <b>Run anyway</b>.</p>`,
+<p class="note">Vesper is new and its installer isn't code-signed yet, so Windows may show <b>“Windows protected your PC”</b>. Choose <b>More info</b>, then <b>Run anyway</b>.</p>${
+      release.mac
+        ? `\n<p class="note">On a Mac, open the disk image and drag Vesper to Applications. The first time, macOS says it can't check Vesper for malicious software: open <b>System Settings → Privacy &amp; Security</b> and choose <b>Open Anyway</b>.</p>`
+        : ''
+    }`,
   );
 } else {
   html = replaceBlock(html, 'nav-cta', '<a class="btn btn-primary" href="#download">Coming soon</a>');

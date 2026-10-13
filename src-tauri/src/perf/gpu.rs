@@ -149,7 +149,11 @@ pub struct GpuCounters;
 #[cfg(not(windows))]
 impl GpuCounters {
     pub fn open() -> Result<Self, String> {
-        Err("GPU counters are only available on Windows".into())
+        Err(if cfg!(target_os = "macos") {
+            "Vesper can't read GPU counters on macOS".into()
+        } else {
+            "GPU counters are only available on Windows".into()
+        })
     }
     pub fn sample(&mut self) -> GpuSample {
         GpuSample::default()

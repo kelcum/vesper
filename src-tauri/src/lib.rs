@@ -1,4 +1,4 @@
-//! Vesper: a calm, honest Roblox launcher for Windows.
+//! Vesper: a calm, honest Roblox launcher for Windows and macOS.
 
 // `Problem` is a rich, user-facing error (what / why / fix). It is only returned
 // on failure paths that are rare and never in hot loops, so its size is fine.
@@ -120,10 +120,16 @@ pub fn run() {
                         tray::quit(app);
                     }
                 }
+                // Minimizing by hand can hide Vesper to the tray; minimizing for Roblox never does.
                 WindowEvent::Resized(_)
-                    if state.settings().general.minimize_to_tray && window.is_minimized().unwrap_or(false) =>
+                    if state.settings().general.minimize_to_tray
+                        && window.is_minimized().unwrap_or(false)
+                        && !state.minimized_for_roblox.load(std::sync::atomic::Ordering::Relaxed) =>
                 {
                     let _ = window.hide();
+                }
+                WindowEvent::Focused(true) => {
+                    state.minimized_for_roblox.store(false, std::sync::atomic::Ordering::Relaxed);
                 }
                 _ => {}
             }
@@ -188,8 +194,8 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building Vesper")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
+        .run(|app, event| match event {
+            tauri::RunEvent::Exit => {
                 let state = app.state::<AppState>();
                 lock(&state.monitor).handle = None;
                 if let Some(p) = lock(&state.presence).take() {
@@ -197,6 +203,10 @@ pub fn run() {
                 }
                 log::logger().flush();
             }
+            // Clicking Vesper in the Dock brings back a window closed to the menu bar.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { has_visible_windows: false, .. } => tray::show_main(app),
+            _ => {}
         });
 }
 

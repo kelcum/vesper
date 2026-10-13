@@ -4796,6 +4796,7 @@ dependencies = [
  "chrono",
  "hex",
  "image",
+ "libc",
  "log",
  "notify",
  "regex",

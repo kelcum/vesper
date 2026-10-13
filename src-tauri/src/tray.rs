@@ -63,17 +63,28 @@ fn tooltip(app: &AppHandle) -> String {
     format!("Vesper\n{}", status_line(running, &profile))
 }
 
+/// On Windows the tray icon opens Vesper on a left click and shows the menu on
+/// a right click. On macOS it is a menu bar item: a monochrome template image
+/// that opens its menu on any click, as menu bar items do.
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    let mac = cfg!(target_os = "macos");
+    let icon = if mac {
+        Image::from_bytes(include_bytes!("../icons/tray-template.png"))?
+    } else {
+        Image::from_bytes(include_bytes!("../icons/tray.png"))?
+    };
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
+        .icon_as_template(mac)
         .tooltip(tooltip(app))
         .menu(&build_menu(app)?)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(mac)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
-        .on_tray_icon_event(|tray, event| {
+        .on_tray_icon_event(move |tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                show_main(tray.app_handle());
+                if !mac {
+                    show_main(tray.app_handle());
+                }
             }
         })
         .build(app)?;

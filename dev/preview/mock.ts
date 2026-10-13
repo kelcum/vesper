@@ -3,7 +3,8 @@
 //
 //   npm run dev, then open http://localhost:1420/dev/preview/#home
 //   (#home, #profiles, #flags, #customize, #performance, #settings, #about;
-//    add ?running to show Roblox as running)
+//    add ?running to show Roblox as running, ?platform=macos for the Mac
+//    interface, ?locked for a read-only Roblox settings file)
 
 import catalog from '../../src-tauri/resources/flags/catalog.json';
 import sampleFont from '../../assets/fonts/Geist-SemiBold.ttf?url';
@@ -12,6 +13,7 @@ import cursorRing from '../../src/assets/mods/cursor-ring.png';
 import defaults from './defaults.json';
 
 const running = location.search.includes('running');
+const mac = new URLSearchParams(location.search).get('platform') === 'macos';
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const version = '0.742.0.7421053';
 const versionHash = 'version-cec3ad5889b447cf';
@@ -32,7 +34,7 @@ const install = {
   source: 'official',
   versionHash,
   version,
-  location: `%LOCALAPPDATA%\\Roblox\\Versions\\${versionHash}`,
+  location: mac ? '/Applications/Roblox.app/Contents/MacOS' : `%LOCALAPPDATA%\\Roblox\\Versions\\${versionHash}`,
   registered: true,
   managedBy: null,
   modified: minutesAgo(600),
@@ -49,14 +51,25 @@ const published = {
   values: { DFIntCSGLevelOfDetailSwitchingDistance: '250', DFIntCSGLevelOfDetailSwitchingDistanceL12: '500' },
   fetchedAt: minutesAgo(30),
 };
-const system = {
-  os: 'Windows 11 Home 25H2',
-  cpu: 'AMD Ryzen 7 7800X3D 8-Core Processor',
-  logicalProcessors: 16,
-  memoryTotal: 34_359_738_368,
-  gpus: [{ name: 'NVIDIA GeForce RTX 4070', dedicatedMemory: 12_878_610_432, vendorId: 4318 }],
-  displayHz: 144,
-};
+const system = mac
+  ? {
+      platform: 'macos',
+      os: 'macOS 15.1 (build 24B83)',
+      cpu: 'Apple M3 Pro',
+      logicalProcessors: 12,
+      memoryTotal: 19_327_352_832,
+      gpus: [{ name: 'Apple M3 Pro GPU', dedicatedMemory: 0, vendorId: 4203 }],
+      displayHz: 120,
+    }
+  : {
+      platform: 'windows',
+      os: 'Windows 11 Home 25H2',
+      cpu: 'AMD Ryzen 7 7800X3D 8-Core Processor',
+      logicalProcessors: 16,
+      memoryTotal: 34_359_738_368,
+      gpus: [{ name: 'NVIDIA GeForce RTX 4070', dedicatedMemory: 12_878_610_432, vendorId: 4318 }],
+      displayHz: 144,
+    };
 const verification = {
   flags: {
     FFlagHandleAltEnterFullscreenManually: { verdict: 'accepted', robloxVersion: version, checkedAt: minutesAgo(12) },
@@ -195,7 +208,13 @@ const handlers: Record<string, (args: any) => unknown> = {
   profiles_get: () => profiles,
   profiles_set_active: ({ id }) => ((profiles = { ...profiles, active: id }), profiles),
   profiles_set_default: ({ id }) => ((profiles = { ...profiles, default: id }), profiles),
-  fps_cap_status: () => ({ current: 144, original: -1, displayHz: 144, error: null, locked: false }),
+  fps_cap_status: () => ({
+    current: 144,
+    original: -1,
+    displayHz: 144,
+    error: null,
+    locked: location.search.includes('locked'),
+  }),
   system_info: () => system,
   backups_list: () => [
     {

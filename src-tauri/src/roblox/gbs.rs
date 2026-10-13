@@ -112,6 +112,8 @@ pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
 #[derive(Debug)]
 pub enum CapError {
     NoSettingsFile,
+    /// The file is marked read-only, usually by another launcher's "lock settings" option.
+    ReadOnly,
     Io(std::io::Error),
     Invalid(String),
 }
@@ -120,6 +122,7 @@ impl std::fmt::Display for CapError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CapError::NoSettingsFile => write!(f, "Roblox hasn't created its settings file yet"),
+            CapError::ReadOnly => write!(f, "Roblox's settings file is read-only (another tool may have locked it)"),
             CapError::Io(e) => write!(f, "{e}"),
             CapError::Invalid(s) => write!(f, "{s}"),
         }
@@ -149,13 +152,27 @@ pub fn set_cap(roblox_data: &Path, value: i32) -> Result<Option<i32>, CapError> 
     bytes.extend_from_slice(updated.as_bytes());
 
     // Fishstrap and others can mark the file read-only; respect that choice.
-    let meta = std::fs::metadata(&path).map_err(CapError::Io)?;
-    if meta.permissions().readonly() {
-        return Err(CapError::Invalid("Roblox's settings file is read-only (another tool may have locked it).".into()));
+    if is_read_only(&path) {
+        return Err(CapError::ReadOnly);
     }
     write_atomic(&path, &bytes).map_err(CapError::Io)?;
     log::info!("Set Roblox FramerateCap {previous:?} -> {value}");
     Ok(previous)
+}
+
+/// Whether the settings file is locked against changes. On macOS this also
+/// covers Finder's "Locked" checkbox, which isn't a permission bit.
+pub fn is_read_only(path: &Path) -> bool {
+    let Ok(meta) = std::fs::metadata(path) else { return false };
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::macos::fs::MetadataExt;
+        const UF_IMMUTABLE: u32 = 0x0000_0002;
+        if meta.st_flags() & UF_IMMUTABLE != 0 {
+            return true;
+        }
+    }
+    meta.permissions().readonly()
 }
 
 struct Text {
@@ -246,7 +263,9 @@ mod tests {
         let mut perm = std::fs::metadata(&p).unwrap().permissions();
         perm.set_readonly(true);
         std::fs::set_permissions(&p, perm.clone()).unwrap();
-        assert!(matches!(set_cap(dir.path(), 60), Err(CapError::Invalid(_))));
+        assert!(is_read_only(&p));
+        assert!(matches!(set_cap(dir.path(), 60), Err(CapError::ReadOnly)));
+        assert_eq!(set_cap(dir.path(), 9999).unwrap(), Some(9999), "an unchanged value needs no write");
         #[allow(clippy::permissions_set_readonly_false)]
         perm.set_readonly(false);
         std::fs::set_permissions(&p, perm).unwrap();

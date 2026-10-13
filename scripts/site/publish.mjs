@@ -4,7 +4,8 @@
 //   node scripts/site/publish.mjs release-files ../kelcum.github.io [--beta] [--repo-public]
 //
 // - checks every file against SHA256SUMS.txt and the manifest against the installer
-// - stable: copies the installer and portable zip to download/, marks the page released
+//   (and the macOS update archive, when the release has a Mac build)
+// - stable: copies the installer, portable zip and Mac files to download/, marks the page released
 //   (website/vesper/release.json), rebuilds it, and writes updates/latest.json and beta.json
 // - --beta: only writes updates/beta.json; the page keeps offering the stable release
 // - --repo-public: adds the GitHub links to the page (only once the repository is public)
@@ -33,6 +34,8 @@ const fail = (msg) => {
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const installer = `Vesper_${version}_x64-setup.exe`;
 const portable = `Vesper_${version}_x64-portable.zip`;
+const macDmg = `Vesper_${version}_universal.dmg`;
+const macUpdate = `Vesper_${version}_universal.app.tar.gz`;
 const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 
 // 1. Verify the release files.
@@ -60,6 +63,21 @@ if (!target?.url?.endsWith(`/download/${encodeURIComponent(installer)}`))
 if (target.signature !== readFileSync(join(from, `${installer}.sig`), 'utf8').trim()) {
   fail(`latest.json's signature doesn't match ${installer}.sig`);
 }
+// Mac updates must point at an archive this release really has.
+const macTargets = ['darwin-aarch64', 'darwin-x86_64'].map((p) => manifest.platforms?.[p]).filter(Boolean);
+const hasMac = macTargets.length > 0;
+if (hasMac) {
+  for (const f of [macUpdate, `${macUpdate}.sig`, macDmg]) {
+    if (!existsSync(join(from, f))) fail(`latest.json has Mac updates, but ${f} is missing from ${from}`);
+    if (!f.endsWith('.sig') && !sums.has(f)) fail(`SHA256SUMS.txt doesn't cover ${f}`);
+  }
+  const macSig = readFileSync(join(from, `${macUpdate}.sig`), 'utf8').trim();
+  for (const t of macTargets) {
+    if (!t.url?.endsWith(`/download/${encodeURIComponent(macUpdate)}`))
+      fail(`latest.json doesn't point at ${macUpdate}`);
+    if (t.signature !== macSig) fail(`latest.json's signature doesn't match ${macUpdate}.sig`);
+  }
+}
 
 // 2. Stage.
 const out = join(pages, 'vesper');
@@ -69,6 +87,7 @@ const manifestText = JSON.stringify(manifest, null, 2) + '\n';
 if (flags.has('--beta')) {
   mkdirSync(join(out, 'download'), { recursive: true });
   copyFileSync(join(from, installer), join(out, 'download', installer));
+  if (hasMac) copyFileSync(join(from, macUpdate), join(out, 'download', macUpdate));
   writeFileSync(join(out, 'updates', 'beta.json'), manifestText);
   console.log(`Staged ${version} on the beta channel in ${out}.`);
 } else {
@@ -87,6 +106,9 @@ if (flags.has('--beta')) {
     date: new Date().toLocaleDateString('en-CA'),
     installer: entry(installer),
     portable: existsSync(join(from, portable)) ? entry(portable) : null,
+    // The Mac disk image is offered on the page; the archive is what Vesper's updater downloads.
+    mac: hasMac ? entry(macDmg) : null,
+    macUpdate: hasMac ? entry(macUpdate) : null,
     repoPublic: flags.has('--repo-public'),
   });
   writeFileSync(releasePath, JSON.stringify(release, null, 2) + '\n');

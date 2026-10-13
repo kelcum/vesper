@@ -8,6 +8,7 @@
   import Toggle from '../components/ui/Toggle.svelte';
   import { api } from '../lib/api';
   import { bytes, fpsCapLabel, percent, priorityLabel } from '../lib/format';
+  import { computer, isMac, osName } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { FpsCapStatus, PerfSample } from '../lib/types';
 
@@ -49,7 +50,7 @@
     <p class="eyebrow">Performance</p>
     <h1>Measured, not promised.</h1>
     <p class="muted lede">
-      Live numbers from Windows. Vesper never opens a handle to Roblox to read them, and shows a dash rather than a
+      Live numbers from {osName}. Vesper never opens a handle to Roblox to read them, and shows a dash rather than a
       guess when something can't be measured.
     </p>
   </div>
@@ -81,6 +82,9 @@
       {:else if frames}
         <div class="value">{frames.fps.toFixed(0)}<span class="unit">FPS</span></div>
         <div class="sub">from Direct3D presents</div>
+      {:else if isMac}
+        <div class="value faint">—</div>
+        <div class="sub">macOS doesn't let other apps count Roblox's frames</div>
       {:else}
         <div class="value faint">—</div>
         <div class="sub">No frames yet (minimised, loading, or not Direct3D)</div>
@@ -105,7 +109,13 @@
       <div class="label"><Monitor size={15} aria-hidden="true" /> Roblox GPU</div>
       <div class="value">{r?.gpuPercent != null ? percent(r.gpuPercent) : '—'}</div>
       <div class="sub">
-        {r?.gpuMemory ? `${bytes(r.gpuMemory)} video memory` : s?.gpuError ? 'GPU counters unavailable' : 'Not running'}
+        {r?.gpuMemory
+          ? `${bytes(r.gpuMemory)} video memory`
+          : s?.gpuError
+            ? isMac
+              ? 'Not available on macOS'
+              : 'GPU counters unavailable'
+            : 'Not running'}
       </div>
     </div>
   </section>
@@ -139,7 +149,7 @@
         <p class="muted">Roblox isn't running. Charts fill in once it starts.</p>
       {/if}
     </Card>
-    <Card title="This PC" subtitle="Whole system">
+    <Card title="This {computer}" subtitle="Whole system">
       <div class="kv">
         <span>CPU</span><span class="mono">{percent(s?.system.cpuPercent)}</span>
         <span>Memory</span><span class="mono"
@@ -192,28 +202,43 @@
       <span>Profile</span><span>{fpsCapLabel(profile?.fpsCap, sys.displayHz)}</span>
       <span>In Roblox now</span><span class="mono">{cap?.error ? cap.error : capText(cap?.current)}</span>
       <span>Before Vesper</span><span class="mono">{cap?.original != null ? capText(cap.original) : 'unchanged'}</span>
-      <span>Priority</span><span>{profile ? priorityLabel(profile.priority) : '—'}</span>
+      <span>Priority</span><span>{isMac ? 'Set by macOS' : profile ? priorityLabel(profile.priority) : '—'}</span>
     </div>
-    <div class="row">
+    <div class="row actions">
       <Button size="sm" onclick={() => app.go('profiles')}>Change in profile</Button>
       {#if cap?.original != null}
-        <Button size="sm" variant="ghost" icon={RotateCcw} onclick={restoreCap} disabled={app.robloxRunning}
-          >Restore original</Button
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={RotateCcw}
+          onclick={restoreCap}
+          disabled={app.robloxRunning || (cap.locked && cap.original !== cap.current)}>Restore original</Button
         >
       {/if}
-      {#if !app.settings.roblox.applyFpsCap}<Badge tone="warn">Applying limits is off in Settings</Badge>{/if}
-      {#if cap?.locked}<Badge
-          tone="warn"
-          title="Another launcher's lock option usually does this. Vesper won't override it."
-          >Roblox's settings file is read-only</Badge
-        >{/if}
     </div>
+    {#if !app.settings.roblox.applyFpsCap || cap?.locked}
+      <div class="notes">
+        {#if !app.settings.roblox.applyFpsCap}
+          <p class="note-line"><Badge tone="warn">Off</Badge><span>Applying limits is turned off in Settings.</span></p>
+        {/if}
+        {#if cap?.locked}
+          <p class="note-line">
+            <Badge tone="warn">Read-only</Badge><span
+              >Roblox's settings file is locked, usually by another launcher's “lock settings” option. Vesper leaves the
+              lock alone, so the limit can't change until it's turned off there.</span
+            >
+          </p>
+        {/if}
+      </div>
+    {/if}
   </Card>
   <Card title="Hardware">
     <div class="kv">
-      <span>Windows</span><span>{sys.os}</span>
+      <span>{osName}</span><span>{sys.os}</span>
       <span>Processor</span><span>{sys.cpu}</span>
-      {#each sys.gpus as g (g.name)}<span>Graphics</span><span>{g.name} · {bytes(g.dedicatedMemory, 0)}</span>{/each}
+      {#each sys.gpus as g (g.name)}<span>Graphics</span><span
+          >{g.name} · {g.dedicatedMemory ? bytes(g.dedicatedMemory, 0) : 'shared memory'}</span
+        >{/each}
       <span>Memory</span><span>{bytes(sys.memoryTotal, 0)}</span>
       <span>Display</span><span>{sys.displayHz ? `${sys.displayHz} Hz` : 'unknown'}</span>
     </div>
@@ -293,9 +318,35 @@
     gap: 8px var(--space-4);
     margin-bottom: var(--space-3);
   }
+  .kv > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .kv > span:nth-child(odd) {
     color: var(--text-3);
     font-size: var(--text-sm);
+    overflow-wrap: normal;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .notes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+  }
+  .note-line {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    color: var(--text-2);
+    font-size: var(--text-sm);
+  }
+  .note-line :global(.badge) {
+    flex: none;
   }
   .steps {
     margin: var(--space-3) 0;

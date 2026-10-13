@@ -1,6 +1,6 @@
 //! Where Vesper keeps its own files.
 //!
-//! Installed builds use the standard per-user locations:
+//! Installed builds on Windows use the standard per-user locations:
 //!   %APPDATA%\Vesper                  settings, profiles, backups (roams with the user)
 //!   %LOCALAPPDATA%\gripe.xan.vesper   logs and caches (machine-specific)
 //!
@@ -9,8 +9,13 @@
 //! identifier folder is also where WebView2 keeps its data, and the
 //! uninstaller's "delete app data" option already removes it.
 //!
-//! Portable builds keep everything in a `data` folder next to the executable.
-//! Portable mode is enabled by a file named `portable` beside `Vesper.exe`.
+//! On macOS Vesper follows Apple's layout:
+//!   ~/Library/Application Support/Vesper   settings, profiles, backups
+//!   ~/Library/Logs/Vesper                  logs
+//!   ~/Library/Caches/gripe.xan.vesper      caches
+//!
+//! Portable builds (Windows) keep everything in a `data` folder next to the
+//! executable. Portable mode is enabled by a file named `portable` beside `Vesper.exe`.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -46,9 +51,29 @@ impl AppPaths {
             return Ok(Self::portable(&exe_dir.join("data")));
         }
 
-        let roaming = env_dir("APPDATA")?;
-        let local = env_dir("LOCALAPPDATA")?;
-        Ok(Self::installed(&roaming, &local))
+        #[cfg(target_os = "macos")]
+        {
+            Ok(Self::macos(&env_dir("HOME")?))
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let roaming = env_dir("APPDATA")?;
+            let local = env_dir("LOCALAPPDATA")?;
+            Ok(Self::installed(&roaming, &local))
+        }
+    }
+
+    /// The macOS layout under the user's home folder.
+    pub fn macos(home: &Path) -> Self {
+        let library = home.join("Library");
+        let config = library.join("Application Support").join(APP_DIR_NAME);
+        Self {
+            backups: config.join("backups"),
+            config,
+            logs: library.join("Logs").join(APP_DIR_NAME),
+            cache: library.join("Caches").join(LOCAL_DIR_NAME),
+            portable: false,
+        }
     }
 
     pub fn installed(roaming: &Path, local: &Path) -> Self {
@@ -107,7 +132,7 @@ fn env_dir(name: &str) -> io::Result<PathBuf> {
     std::env::var_os(name)
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("%{name}% is not set")))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{name} is not set")))
 }
 
 /// Writes a file atomically: write to a temporary sibling, flush, then rename over the target.
@@ -138,10 +163,11 @@ mod tests {
 
     #[test]
     fn installed_layout_splits_roaming_and_local() {
-        let p = AppPaths::installed(Path::new(r"C:\R"), Path::new(r"C:\L"));
-        assert_eq!(p.config, Path::new(r"C:\R\Vesper"));
-        assert_eq!(p.backups, Path::new(r"C:\R\Vesper\backups"));
-        assert_eq!(p.logs, Path::new(r"C:\L\gripe.xan.vesper\logs"));
+        let (roaming, local) = (Path::new(r"C:\R"), Path::new(r"C:\L"));
+        let p = AppPaths::installed(roaming, local);
+        assert_eq!(p.config, roaming.join("Vesper"));
+        assert_eq!(p.backups, roaming.join("Vesper").join("backups"));
+        assert_eq!(p.logs, local.join("gripe.xan.vesper").join("logs"));
         assert!(!p.portable);
     }
 
@@ -159,6 +185,16 @@ mod tests {
             assert!(dir.starts_with(r"D:\Vesper\data"));
         }
         assert!(p.portable);
+    }
+
+    #[test]
+    fn macos_layout_follows_the_library_folders() {
+        let p = AppPaths::macos(Path::new("/Users/alex"));
+        assert_eq!(p.config, Path::new("/Users/alex/Library/Application Support/Vesper"));
+        assert_eq!(p.backups, Path::new("/Users/alex/Library/Application Support/Vesper/backups"));
+        assert_eq!(p.logs, Path::new("/Users/alex/Library/Logs/Vesper"));
+        assert_eq!(p.cache, Path::new("/Users/alex/Library/Caches/gripe.xan.vesper"));
+        assert!(!p.portable);
     }
 
     #[test]

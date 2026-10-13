@@ -1,13 +1,17 @@
 name: Release
 
-# Builds the signed installer, a portable zip, the updater manifest and
-# checksums, then creates a *draft* GitHub release for review.
+# Builds the signed Windows installer, a portable zip and a universal macOS
+# app (disk image plus updater archive), then the updater manifest and
+# checksums, and creates a *draft* GitHub release for review.
 # Publishing to xan.gripe/vesper is a separate, manual step
 # (scripts/site/publish.mjs), so nothing goes public automatically.
 #
 # Repository secrets: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 # Repository variable (optional): VESPER_DISCORD_CLIENT_ID, to use a Discord application
 # other than the one built into src-tauri/src/discord/mod.rs
+#
+# The Mac app is signed ad hoc (no Apple Developer ID), so macOS asks people
+# to confirm it the first time they open it.
 
 on:
   push:
@@ -15,16 +19,49 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+  VESPER_DISCORD_CLIENT_ID: ${{ vars.VESPER_DISCORD_CLIENT_ID }}
 
 jobs:
-  release:
+  version:
+    name: Check versions
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check versions match the tag
+        id: version
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)
+          if [ "$pkg" != "$conf" ] || [ "$pkg" != "$cargo" ]; then
+            echo "Versions differ: package.json $pkg, tauri.conf.json $conf, Cargo.toml $cargo"; exit 1
+          fi
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "v$pkg" != "${{ github.ref_name }}" ]; then
+            echo "Tag ${{ github.ref_name }} doesn't match version $pkg"; exit 1
+          fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY is not set; updates can't be signed"; exit 1
+          fi
+          node scripts/release/notes.mjs "$pkg" > /dev/null
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows build
+    needs: version
     runs-on: windows-latest
     timeout-minutes: 60
-    env:
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      VESPER_DISCORD_CLIENT_ID: ${{ vars.VESPER_DISCORD_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v7
 
@@ -42,26 +79,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check versions match the tag
-        id: version
-        shell: pwsh
-        run: |
-          $pkg = (Get-Content package.json | ConvertFrom-Json).version
-          $conf = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
-          if ($pkg -ne $conf -or $pkg -ne $cargo) { throw "Versions differ: package.json $pkg, tauri.conf.json $conf, Cargo.toml $cargo" }
-          if ("${{ github.ref_type }}" -eq "tag" -and "v$pkg" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} doesn't match version $pkg" }
-          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw "TAURI_SIGNING_PRIVATE_KEY is not set; updates can't be signed" }
-          node scripts/release/notes.mjs $pkg | Out-Null
-          "version=$pkg" >> $env:GITHUB_OUTPUT
-
       - name: Build installer
         run: npx tauri build --bundles nsis
 
       - name: Collect release files
         shell: pwsh
         run: |
-          $v = "${{ steps.version.outputs.version }}"
+          $v = "${{ needs.version.outputs.version }}"
           New-Item -ItemType Directory -Force release, portable | Out-Null
           $setup = "src-tauri/target/release/bundle/nsis/Vesper_${v}_x64-setup.exe"
           Copy-Item $setup, "$setup.sig" release/
@@ -69,19 +93,88 @@ jobs:
           Copy-Item LICENSE portable/LICENSE.txt
           New-Item -ItemType File portable/portable | Out-Null
           Compress-Archive -Path portable/* -DestinationPath "release/Vesper_${v}_x64-portable.zip"
-          node scripts/release/manifest.mjs $v "release/Vesper_${v}_x64-setup.exe" release/latest.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: release/
+
+  macos:
+    name: macOS build
+    needs: version
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      # One app for Apple silicon and Intel Macs.
+      - name: Build app
+        run: npx tauri build --target universal-apple-darwin --bundles app,dmg
+
+      - name: Collect release files
+        run: |
+          v="${{ needs.version.outputs.version }}"
+          bundle=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir -p release
+          cp "$bundle/dmg/Vesper_${v}_universal.dmg" release/
+          cp "$bundle/macos/Vesper.app.tar.gz" "release/Vesper_${v}_universal.app.tar.gz"
+          cp "$bundle/macos/Vesper.app.tar.gz.sig" "release/Vesper_${v}_universal.app.tar.gz.sig"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: release/
+
+  release:
+    name: Draft release
+    needs: [version, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Write manifest, checksums and notes
+        run: |
+          v="${{ needs.version.outputs.version }}"
+          node scripts/release/manifest.mjs "$v" "release/Vesper_${v}_x64-setup.exe" release/latest.json \
+            --mac "release/Vesper_${v}_universal.app.tar.gz"
           node scripts/release/checksums.mjs release
-          node scripts/release/notes.mjs $v > release-notes.md
+          node scripts/release/notes.mjs "$v" > release-notes.md
 
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
         run: |
-          $v = "${{ steps.version.outputs.version }}"
-          gh release create "v$v" --draft --title "Vesper $v" --notes-file release-notes.md (Get-ChildItem release/* | ForEach-Object FullName)
+          v="${{ needs.version.outputs.version }}"
+          gh release create "v$v" --draft --title "Vesper $v" --notes-file release-notes.md release/*
 
       - uses: actions/upload-artifact@v7
         with:
-          name: vesper-${{ steps.version.outputs.version }}
+          name: vesper-${{ needs.version.outputs.version }}
           path: release/

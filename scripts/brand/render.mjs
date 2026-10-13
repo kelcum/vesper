@@ -4,7 +4,7 @@
 //
 // Outputs (committed to the repo, so builds never need this script):
 //   assets/branding/*            logo, icon, wordmark, social preview, presence art
-//   src-tauri/icons/*            application + tray icons
+//   src-tauri/icons/*            application + tray icons (and the macOS menu bar template)
 //   src-tauri/installer/*.bmp    NSIS installer artwork
 //   website/vesper/assets/brand/ favicon + Open Graph image
 //
@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { markBody, markSvg, detailFor } from './mark.mjs';
+import { markBody, markSvg, detailFor, trayTemplateSvg } from './mark.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const fontsDir = join(root, 'assets/fonts');
@@ -313,6 +313,7 @@ function main() {
   writeFileSync(out('src-tauri/icons/128x128@2x.png'), png(markSvg({ detail: 'full', container: 'squircle' }), 256));
   writeFileSync(out('src-tauri/icons/icon.png'), png(markSvg({ detail: 'full', container: 'squircle' }), 512));
   writeFileSync(out('src-tauri/icons/tray.png'), png(markSvg({ detail: 'small', container: 'squircle' }), 32));
+  writeFileSync(out('src-tauri/icons/tray-template.png'), png(trayTemplateSvg(), null, 64));
 
   // Installer artwork
   writeFileSync(out('src-tauri/installer/sidebar.bmp'), bmp24(rgba(installerSidebar(), 164), [11, 10, 23]));

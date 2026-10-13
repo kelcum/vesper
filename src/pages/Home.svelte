@@ -28,6 +28,7 @@
     relativeTime,
     sourceLabel,
   } from '../lib/format';
+  import { computer, isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { LatestVersion, LaunchTarget } from '../lib/types';
 
@@ -169,7 +170,8 @@
     {/if}
     {#if !install}
       <p class="state bad">
-        <TriangleAlert size={15} aria-hidden="true" /> Roblox isn't installed for this Windows account.
+        <TriangleAlert size={15} aria-hidden="true" />
+        {isMac ? "Roblox isn't in your Applications folder." : "Roblox isn't installed for this Windows account."}
         <button class="link" onclick={() => api.openUrl('https://www.roblox.com/download')}>Get Roblox</button>
       </p>
     {/if}
@@ -268,7 +270,7 @@
     {/if}
   </Card>
 
-  <Card title="Performance" subtitle={app.robloxRunning ? 'Roblox' : 'This PC'}>
+  <Card title="Performance" subtitle={app.robloxRunning ? 'Roblox' : `This ${computer}`}>
     {#snippet actions()}
       <Button
         size="sm"

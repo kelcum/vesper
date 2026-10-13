@@ -8,6 +8,7 @@
   import ProblemView from './components/ui/ProblemView.svelte';
   import Toasts from './components/ui/Toasts.svelte';
   import { api } from './lib/api';
+  import { isMac, trayName } from './lib/platform';
   import { app } from './lib/store.svelte';
   import About from './pages/About.svelte';
   import Customize from './pages/Customize.svelte';
@@ -47,9 +48,9 @@
     await api.appQuit();
   }
 
-  // Ctrl+1…7 jumps between pages.
+  // Ctrl+1…7 (⌘1…7 on macOS) jumps between pages.
   function onkeydown(e: KeyboardEvent) {
-    if (!e.ctrlKey || e.altKey) return;
+    if (!(isMac ? e.metaKey : e.ctrlKey) || e.altKey) return;
     const order = Object.keys(pages) as (keyof typeof pages)[];
     const n = Number(e.key);
     if (n >= 1 && n <= order.length) {
@@ -104,8 +105,10 @@
 
 <Dialog
   bind:open={app.closePrompt}
-  title="Vesper keeps running in the tray"
-  description="Closing the window keeps Vesper in the notification area, so Discord Rich Presence and kept-applied flags keep working. Right-click the tray icon to quit."
+  title="Vesper keeps running in the {trayName}"
+  description={isMac
+    ? 'Closing the window keeps Vesper in the menu bar, so Discord Rich Presence and kept-applied flags keep working. Quit from the menu bar icon or with ⌘Q.'
+    : 'Closing the window keeps Vesper in the notification area, so Discord Rich Presence and kept-applied flags keep working. Right-click the tray icon to quit.'}
 >
   <label class="remember">
     <input type="checkbox" bind:checked={rememberTray} />
@@ -113,7 +116,7 @@
   </label>
   {#snippet actions()}
     <Button variant="ghost" onclick={quitInstead}>Quit when I close</Button>
-    <Button variant="primary" onclick={keepInTray}>Keep running in tray</Button>
+    <Button variant="primary" onclick={keepInTray}>Keep running in {trayName}</Button>
   {/snippet}
 </Dialog>
 
@@ -124,7 +127,7 @@
     z-index: -1;
     background: var(--bg-gradient);
   }
-  /* Glass: Windows' Mica shows through faintly; the dusk tint stays in charge. */
+  /* Glass: Windows' Mica or macOS's window material shows through faintly; the dusk tint stays in charge. */
   :global(:root[data-transparency='full']) .backdrop {
     background:
       radial-gradient(120% 90% at 85% -10%, rgba(123, 105, 240, 0.2), transparent 55%),

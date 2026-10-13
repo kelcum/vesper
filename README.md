@@ -6,7 +6,7 @@
 </p>
 
 <p align="center"><strong>Roblox, tuned and verified.</strong><br>
-A fast, private Roblox launcher for Windows.</p>
+A fast, private Roblox launcher for Windows and macOS.</p>
 
 <p align="center">
   <a href="https://xan.gripe/vesper">Website</a> ·
@@ -81,6 +81,25 @@ can't measure something.
 Requirements: Windows 10 or 11 (64-bit) with Microsoft Edge WebView2, which
 Windows 11 includes and the installer adds on Windows 10 if needed.
 
+### macOS
+
+1. Download `Vesper_x.y.z_universal.dmg`, open it and drag Vesper to
+   Applications. It runs on macOS 11 or later, on Apple silicon and Intel.
+2. The first time, macOS says it can't check Vesper for malicious software
+   (Vesper isn't notarized by Apple yet). Open **System Settings → Privacy &
+   Security** and choose **Open Anyway**.
+3. Vesper finds `Roblox.app` in Applications. If macOS says it blocked Vesper
+   from changing Roblox, turn Vesper on under **System Settings → Privacy &
+   Security → App Management**, so it can write Fast Flags into Roblox.app.
+
+On macOS, Vesper lives in the menu bar while its window is closed. macOS
+doesn't let other apps count Roblox's frames, read per-app GPU use, or
+change Roblox's priority or processors, so those show a dash or "Set by
+macOS". To undo Vesper's changes before removing it, use **Settings → Backups &
+recovery** ("Remove applied flags" and "Undo all customisations") and
+"Restore original" on the Performance page; deleting Vesper.app on its own
+leaves them in place until Roblox next updates.
+
 **Portable:** extract the portable build anywhere. A file named `portable`
 next to `Vesper.exe` keeps all settings in a `data` folder beside it.
 
@@ -126,8 +145,9 @@ sources. Vesper doesn't claim any of them makes Roblox faster on your PC.
 ### Performance
 
 The Performance page samples only while it, or the Home summary, is on screen.
-Vesper reads process numbers through Windows APIs that don't open a handle to
-Roblox, which matters because Roblox's anti-cheat reacts to tools that do.
+Vesper reads process numbers through Windows APIs (and on macOS, `libproc`)
+that don't open a handle to Roblox, which matters because Roblox's anti-cheat
+reacts to tools that do.
 
 The frame-rate counter needs extra Windows permission: administrators and
 members of the *Performance Log Users* group can read Direct3D present
@@ -147,9 +167,9 @@ If Discord is closed, Vesper waits quietly and connects when Discord opens.
 - Vesper never reads Roblox cookies, auth tickets, passwords or tokens.
 - It contacts `clientsettingscdn.roblox.com` (Roblox's public version and flag
   values) and `xan.gripe` (update checks). Both requests are anonymous.
-- Discord Rich Presence talks to the Discord app on your PC, only when enabled.
-- Logs and diagnostics remove your Windows user name and anything that looks
-  like a secret before they're written.
+- Discord Rich Presence talks to the Discord app on your computer, only when enabled.
+- Logs and diagnostics remove your Windows or macOS user name and anything that
+  looks like a secret before they're written.
 
 ## Security
 

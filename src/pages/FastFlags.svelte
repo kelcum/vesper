@@ -20,6 +20,7 @@
   } from '../lib/flags';
   import { relativeTime } from '../lib/format';
   import { flagsTarget } from '../lib/selection.svelte';
+  import { isMac, modKey } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { FlagSet, InstalledFlags, Issue, PublishedValues } from '../lib/types';
 
@@ -150,7 +151,7 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'f') {
       e.preventDefault();
       searchEl?.focus();
     }
@@ -229,7 +230,7 @@
     <input
       bind:this={searchEl}
       bind:value={query}
-      placeholder="Search flags (Ctrl+F)"
+      placeholder="Search flags ({modKey}F)"
       aria-label="Search flags"
       spellcheck="false"
     />

@@ -25,6 +25,7 @@
   import { api } from '../lib/api';
   import { invalidateBackground } from '../lib/appearance';
   import { bytes, relativeTime, sourceLabel } from '../lib/format';
+  import { isMac, osName, trayName } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { BackupInfo, LogEntry } from '../lib/types';
 
@@ -98,7 +99,9 @@
     const dir = await open({
       directory: true,
       multiple: false,
-      title: 'Choose the Roblox Versions folder or a version folder',
+      title: isMac
+        ? 'Choose the folder that holds Roblox.app'
+        : 'Choose the Roblox Versions folder or a version folder',
     });
     if (typeof dir === 'string') await app.saveSettings({ roblox: { installDir: dir } });
   }
@@ -204,14 +207,20 @@
 
   <div class="sections">
     <Card id="s-general" title="General">
-      <Field label="Start with Windows" hint="Vesper starts in the tray when you sign in.">
+      <Field
+        label={isMac ? 'Open at login' : 'Start with Windows'}
+        hint="Vesper starts in the {trayName} when you sign in."
+      >
         <Toggle
-          label="Start with Windows"
+          label={isMac ? 'Open at login' : 'Start with Windows'}
           checked={s.general.startWithWindows}
           onchange={(v) => app.saveSettings({ general: { startWithWindows: v } })}
         />
       </Field>
-      <Field label="Start hidden" hint="When starting with Windows, stay in the tray instead of opening the window.">
+      <Field
+        label="Start hidden"
+        hint="When starting at sign-in, stay in the {trayName} instead of opening the window."
+      >
         <Toggle
           label="Start hidden"
           checked={s.general.startMinimized}
@@ -219,11 +228,13 @@
         />
       </Field>
       <Field
-        label="Minimize to tray"
-        hint="Minimizing hides the window to the notification area instead of the taskbar."
+        label="Minimize to {trayName}"
+        hint={isMac
+          ? 'Minimizing hides the window to the menu bar instead of the Dock.'
+          : 'Minimizing it yourself hides the window to the notification area instead of the taskbar.'}
       >
         <Toggle
-          label="Minimize to tray"
+          label="Minimize to {trayName}"
           checked={s.general.minimizeToTray}
           onchange={(v) => app.saveSettings({ general: { minimizeToTray: v } })}
         />
@@ -233,20 +244,25 @@
           label="Close behavior"
           value={s.general.closeBehavior}
           options={[
-            { value: 'tray', label: 'Keep in tray' },
+            { value: 'tray', label: `Keep in ${trayName}` },
             { value: 'quit', label: 'Quit Vesper' },
           ]}
           onchange={(v) => app.saveSettings({ general: { closeBehavior: v } })}
         />
       </Field>
-      <Field label="After launching Roblox">
+      <Field
+        label="After launching Roblox"
+        hint={s.general.afterLaunch === 'tray'
+          ? `Vesper leaves the ${isMac ? 'Dock' : 'taskbar'} until Roblox closes. Open it from the ${trayName} icon.`
+          : undefined}
+      >
         <Select
           label="After launching Roblox"
           value={s.general.afterLaunch}
           options={[
             { value: 'stay', label: 'Keep Vesper open' },
-            { value: 'minimize', label: 'Minimize Vesper' },
-            { value: 'tray', label: 'Hide to tray' },
+            { value: 'minimize', label: isMac ? 'Minimize to the Dock' : 'Minimize to the taskbar' },
+            { value: 'tray', label: `Hide in the ${trayName}` },
           ]}
           onchange={(v) => app.saveSettings({ general: { afterLaunch: v } })}
         />
@@ -295,7 +311,12 @@
           onchange={(v) => app.saveSettings({ appearance: { theme: v } })}
         />
       </Field>
-      <Field label="Transparency" hint="Glass uses Windows 11's Mica material behind the window.">
+      <Field
+        label="Transparency"
+        hint={isMac
+          ? "Glass lets macOS's window material show through."
+          : "Glass uses Windows 11's Mica material behind the window."}
+      >
         <Segmented
           label="Transparency"
           value={s.appearance.transparency}
@@ -307,7 +328,12 @@
           onchange={(v) => app.saveSettings({ appearance: { transparency: v } })}
         />
       </Field>
-      <Field label="Animations" hint="System follows Windows' “Animation effects” setting.">
+      <Field
+        label="Animations"
+        hint={isMac
+          ? 'System follows “Reduce motion” in macOS Accessibility settings.'
+          : "System follows Windows' “Animation effects” setting."}
+      >
         <Segmented
           label="Animations"
           value={s.appearance.motion}
@@ -393,16 +419,18 @@
           onchange={(v) => app.saveSettings({ performance: { sampleMs: Number(v) } })}
         />
       </Field>
-      <Field
-        label="Frame-rate counter"
-        hint="Counts Direct3D present events. Needs administrator rights or the Performance Log Users group."
-      >
-        <Toggle
+      {#if !isMac}
+        <Field
           label="Frame-rate counter"
-          checked={s.performance.fpsCounter}
-          onchange={(v) => app.saveSettings({ performance: { fpsCounter: v } })}
-        />
-      </Field>
+          hint="Counts Direct3D present events. Needs administrator rights or the Performance Log Users group."
+        >
+          <Toggle
+            label="Frame-rate counter"
+            checked={s.performance.fpsCounter}
+            onchange={(v) => app.saveSettings({ performance: { fpsCounter: v } })}
+          />
+        </Field>
+      {/if}
     </Card>
 
     <Card id="s-roblox" title="Roblox">
@@ -413,7 +441,7 @@
           : 'Not found'}
         stacked={false}
       >
-        <Button size="sm" icon={FolderOpen} onclick={chooseInstall}>Choose folder…</Button>
+        <Button size="sm" icon={FolderOpen} onclick={chooseInstall}>{isMac ? 'Choose…' : 'Choose folder…'}</Button>
         {#if s.roblox.installDir}<Button
             size="sm"
             variant="ghost"
@@ -725,7 +753,7 @@
           onchange={(v) => app.saveSettings({ advanced: { logLevel: v } })}
         />
       </Field>
-      <Field label="Logs" hint="Secrets and your Windows user name are removed before anything is written.">
+      <Field label="Logs" hint="Secrets and your {osName} user name are removed before anything is written.">
         <Button size="sm" icon={FileText} onclick={loadLogs}>Show recent</Button>
         <Button size="sm" variant="ghost" icon={FolderOpen} onclick={() => api.openFolder('logs')}>Open folder</Button>
       </Field>
