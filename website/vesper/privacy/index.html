@@ -20,7 +20,9 @@
     <main class="legal">
       <p class="eyebrow">Privacy</p>
       <h1><span class="gradient-text">Vesper doesn't collect your data.</span></h1>
-      <p class="updated">Last updated 10 October 2026. This covers the Vesper app for Windows and this website.</p>
+      <p class="updated">
+        Last updated 13 October 2026. This covers the Vesper app for Windows and macOS and this website.
+      </p>
 
       <div class="glass">
         <h2>What Vesper sends</h2>
@@ -54,10 +56,12 @@
         <h2>What stays on your PC</h2>
         <p>
           Settings, profiles, backups and logs are stored in <code>%APPDATA%\Vesper</code> and
-          <code>%LOCALAPPDATA%\gripe.xan.vesper</code> (or next to Vesper.exe in portable mode). Pictures you pick for
-          the emote wheel or cursor are copied there too, and only into Roblox's own files on your PC. Logs and the
-          diagnostics you can copy remove your Windows user name and anything that looks like a secret. Uninstalling
-          with “Delete the application data” ticked removes these folders.
+          <code>%LOCALAPPDATA%\gripe.xan.vesper</code> on Windows (or next to Vesper.exe in portable mode), and in
+          <code>~/Library/Application Support/Vesper</code>, <code>~/Library/Logs/Vesper</code> and
+          <code>~/Library/Caches/gripe.xan.vesper</code> on macOS. Pictures you pick for the emote wheel or cursor are
+          copied there too, and only into Roblox's own files on your computer. Logs and the diagnostics you can copy
+          remove your Windows or macOS user name and anything that looks like a secret. Uninstalling on Windows with
+          “Delete the application data” ticked removes these folders; on a Mac, delete them yourself.
         </p>
 
         <h2>This website</h2>
@@ -75,7 +79,7 @@
     <footer>
       <div class="wrap">
         <a class="brand" href="../"><img src="../assets/brand/icon.svg" alt="" width="24" height="24" />Vesper</a>
-        <span>A free Roblox launcher for Windows.</span>
+        <span>A free Roblox launcher for Windows and macOS.</span>
         <p class="disclaimer">Not affiliated with Roblox Corporation. Roblox is a trademark of Roblox Corporation.</p>
       </div>
     </footer>
