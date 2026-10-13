@@ -131,8 +131,16 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
             detect::resolve_custom(dir).map_err(|e| {
                 Problem::new("roblox.custom_folder", "Roblox isn't in that folder")
                     .what(e)
-                    .why("The folder needs to contain RobloxPlayerBeta.exe, or version folders that do.")
-                    .fix("Choose the Roblox Versions folder or a version-… folder inside it.")
+                    .why(if cfg!(target_os = "macos") {
+                        "Choose Roblox.app, or the folder that holds it."
+                    } else {
+                        "The folder needs to contain RobloxPlayerBeta.exe, or version folders that do."
+                    })
+                    .fix(if cfg!(target_os = "macos") {
+                        "Choose Roblox.app in your Applications folder, or the folder that holds it."
+                    } else {
+                        "Choose the Roblox Versions folder or a version-… folder inside it."
+                    })
             })?;
         }
     }
@@ -143,7 +151,7 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
         use tauri_plugin_autostart::ManagerExt;
         let r = if new.general.start_with_windows { app.autolaunch().enable() } else { app.autolaunch().disable() };
         if let Err(e) = r {
-            log::warn!("Couldn't change start with Windows: {e}");
+            log::warn!("Couldn't change starting at sign-in: {e}");
         }
     }
     if old.advanced.log_level != new.advanced.log_level {
@@ -414,9 +422,7 @@ fn fps_status(state: &AppState) -> FpsCapStatus {
         Ok(c) => (c, None),
         Err(e) => (None, Some(e.to_string())),
     };
-    let locked = gbs::settings_path(&state.env.roblox_data())
-        .and_then(|p| std::fs::metadata(p).ok())
-        .is_some_and(|m| m.permissions().readonly());
+    let locked = gbs::settings_path(&state.env.roblox_data()).is_some_and(|p| gbs::is_read_only(&p));
     FpsCapStatus {
         current,
         original: lock(&state.settings).original_fps_cap,
@@ -441,8 +447,20 @@ pub fn fps_cap_restore(state: State<'_, AppState>) -> Result<FpsCapStatus> {
             .fix("Close Roblox, then try again."));
     }
     let original = lock(&state.settings).original_fps_cap.unwrap_or(gbs::DEFAULT_CAP);
-    gbs::set_cap(&state.env.roblox_data(), original)
-        .map_err(|e| Problem::internal("Couldn't restore Roblox's frame-rate setting.", e))?;
+    match gbs::set_cap(&state.env.roblox_data(), original) {
+        // Nothing to put back: Roblox will create the file with its own default.
+        Ok(_) | Err(gbs::CapError::NoSettingsFile) => {}
+        Err(gbs::CapError::ReadOnly) => {
+            return Err(Problem::new("fps.locked", "Roblox's settings file is locked")
+                .what("Vesper couldn't put Roblox's frame-rate setting back because the file is read-only.")
+                .why("Another launcher's \"lock settings\" option usually does this. Vesper leaves that lock alone.")
+                .fix("Turn the lock off in the launcher that set it, then try again."));
+        }
+        Err(gbs::CapError::Io(e)) => {
+            return Err(Problem::io("Couldn't restore Roblox's frame-rate setting.", &e).action(ProblemAction::Retry));
+        }
+        Err(e) => return Err(Problem::internal("Couldn't restore Roblox's frame-rate setting.", e)),
+    }
     lock(&state.settings).original_fps_cap = None;
     state.save_settings()?;
     Ok(fps_status(&state))
@@ -569,7 +587,7 @@ pub fn open_folder(app: AppHandle, state: State<'_, AppState>, kind: String) -> 
         "roblox" => state.preferred_install().map(|i| i.dir).ok_or_else(|| {
             Problem::new("roblox.not_installed", "Roblox isn't installed").what("There's no Roblox folder to open.")
         })?,
-        "robloxLogs" => state.env.roblox_data().join("logs"),
+        "robloxLogs" => state.env.roblox_logs(),
         _ => return Err(Problem::invalid("Unknown folder.", "This is a bug in Vesper.")),
     };
     std::fs::create_dir_all(&path).ok();

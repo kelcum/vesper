@@ -6,7 +6,11 @@
 //!
 //! Safety rules:
 //! * Before a Roblox file is replaced, the original is copied to
-//!   `cache\originals\<version>\…` and restored when the mod is turned off.
+//!   `cache\originals\<build>\…` and restored when the mod is turned off.
+//!
+//! Paths below are written Windows-style (`content\fonts\…`) and turned into
+//! real paths with [`rel_path`]. On macOS they are relative to
+//! `Roblox.app/Contents/Resources`, where Roblox keeps its `content` folder.
 //! * Texture and sound mods only replace files that exist in the current
 //!   Roblox build. If Roblox removes or renames one, the mod is skipped and
 //!   reported instead of leaving stray files behind.
@@ -191,7 +195,7 @@ impl ModPaths {
         self.root.join("custom")
     }
     fn prepared(&self, rel: &str) -> PathBuf {
-        self.root.join(rel)
+        self.root.join(rel_path(rel))
     }
 }
 
@@ -505,7 +509,7 @@ pub const FONT_LAUNCHERS: [&str; 2] = ["Fishstrap", "Bloxstrap"];
 pub fn launcher_font(local_appdata: &Path, launcher: &str) -> Option<PathBuf> {
     FONT_LAUNCHERS
         .contains(&launcher)
-        .then(|| local_appdata.join(launcher).join("Modifications").join(FONT_FILE))
+        .then(|| local_appdata.join(launcher).join("Modifications").join(rel_path(FONT_FILE)))
         .filter(|p| p.is_file())
 }
 
@@ -559,6 +563,9 @@ pub struct AppliedFile {
     /// writing through a lowercased path would rename the file on NTFS.
     #[serde(default)]
     pub path: Option<PathBuf>,
+    /// The Roblox build the file was written for (see `detect::build_id`).
+    #[serde(default)]
+    pub build: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -579,8 +586,19 @@ fn sha(b: &[u8]) -> String {
     hex::encode(Sha256::digest(b))
 }
 
+/// Ledger key for a file. Windows paths are case-insensitive, so they are compared lowercased.
 fn key(p: &Path) -> String {
-    p.to_string_lossy().to_lowercase()
+    let s = p.to_string_lossy();
+    if cfg!(windows) {
+        s.to_lowercase()
+    } else {
+        s.into_owned()
+    }
+}
+
+/// Turns a Windows-style relative path (`content\sounds\oof.ogg`) into a path for this system.
+pub fn rel_path(rel: &str) -> PathBuf {
+    rel.split(['\\', '/']).filter(|c| !c.is_empty()).collect()
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
@@ -665,7 +683,7 @@ fn desired_files(
     }
     if cfg.font.is_some() {
         add_prepared(FONT_FILE, "font", true, &mut out);
-        let families = install.join(FONT_FAMILIES);
+        let families = install.join(rel_path(FONT_FAMILIES));
         if let Ok(rd) = std::fs::read_dir(&families) {
             for e in rd.filter_map(Result::ok) {
                 let name = e.file_name().to_string_lossy().into_owned();
@@ -695,9 +713,9 @@ fn desired_files(
 }
 
 /// The unmodified Roblox file: the backup if Vesper replaced it, otherwise the live file.
+/// `originals` is the backup folder of this build.
 fn original_for(install: &Path, rel: &str, originals: &Path) -> Option<Vec<u8>> {
-    let version = install.file_name()?.to_string_lossy().into_owned();
-    std::fs::read(originals.join(&version).join(rel)).ok().or_else(|| std::fs::read(install.join(rel)).ok())
+    std::fs::read(originals.join(rel_path(rel))).ok().or_else(|| std::fs::read(install.join(rel_path(rel))).ok())
 }
 
 /// Points every face of a font family manifest at CustomFont.ttf.
@@ -760,23 +778,37 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Brings `install` in line with `cfg`: writes enabled mods, restores disabled ones.
+/// Brings a Windows version folder in line with `cfg`: writes enabled mods, restores disabled ones.
 pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLedger) -> ModReport {
+    let Some(build) = install.file_name().map(|n| n.to_string_lossy().into_owned()) else {
+        return ModReport::default();
+    };
+    apply_build(cfg, p, install, &build, ledger)
+}
+
+/// Brings the Roblox files under `install` (the folder holding `content`) in
+/// line with `cfg`. `build` names the Roblox build, so backups of different
+/// builds stay apart (see `detect::build_id`).
+pub fn apply_build(cfg: &ModsConfig, p: &ModPaths, install: &Path, build: &str, ledger: &mut ModLedger) -> ModReport {
     let mut report = ModReport::default();
-    let Some(version) = install.file_name().map(|n| n.to_string_lossy().into_owned()) else { return report };
-    let originals = p.originals.join(&version);
-    let (desired, errors) = desired_files(cfg, p, install, &p.originals);
+    let originals = p.originals.join(build);
+    let (desired, errors) = desired_files(cfg, p, install, &originals);
     report.errors = errors;
 
     for (rel, want) in &desired {
-        let target = install.join(rel);
+        let target = install.join(rel_path(rel));
         let k = key(&target);
         let current = std::fs::read(&target).ok();
         if current.is_none() && !want.create {
             report.missing.push(rel.clone());
             continue;
         }
-        let ours = ledger.files.get(&k);
+        // On macOS Roblox updates in place: a file written for an older build
+        // that no longer holds Vesper's content is the new build's original,
+        // and is backed up afresh.
+        let ours = ledger.files.get(&k).filter(|o| {
+            o.build.as_deref().is_none_or(|b| b == build) || current.as_ref().is_some_and(|c| sha(c) == o.sha256)
+        });
         if let (Some(cur), Some(entry)) = (&current, ours) {
             if sha(cur) == sha(&want.bytes) {
                 report.unchanged += 1;
@@ -797,7 +829,7 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
                     report.unchanged += 1;
                     continue;
                 }
-                let backup = originals.join(rel);
+                let backup = originals.join(rel_path(rel));
                 if !backup.exists() {
                     if let Err(e) = write_atomic(&backup, cur) {
                         report.errors.push(format!("Couldn't back up {rel}: {e}"));
@@ -816,6 +848,7 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
                         sha256: sha(&want.bytes),
                         original,
                         path: Some(target.clone()),
+                        build: Some(build.to_owned()),
                     },
                 );
                 report.written += 1;
@@ -826,12 +859,12 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
 
     // Undo files from mods that are no longer wanted in this install.
     // The separator matters: "version-a" must not match "version-ab".
-    let prefix = format!("{}\\", key(install));
+    let prefix = format!("{}{}", key(install), std::path::MAIN_SEPARATOR);
     let stale: Vec<String> = ledger
         .files
         .keys()
         .filter(|k| k.starts_with(&prefix))
-        .filter(|k| !desired.keys().any(|rel| key(&install.join(rel)) == **k))
+        .filter(|k| !desired.keys().any(|rel| key(&install.join(rel_path(rel))) == **k))
         .cloned()
         .collect();
     for k in stale {
@@ -913,7 +946,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let install = dir.path().join("Versions").join("version-test");
         let w = |rel: &str, b: &[u8]| {
-            let p = install.join(rel);
+            let p = install.join(rel_path(rel));
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
             std::fs::write(p, b).unwrap();
         };
@@ -936,7 +969,7 @@ mod tests {
     }
 
     fn read(e: &Env, rel: &str) -> Vec<u8> {
-        std::fs::read(e.install.join(rel)).unwrap()
+        std::fs::read(e.install.join(rel_path(rel))).unwrap()
     }
 
     #[test]
@@ -1066,7 +1099,7 @@ mod tests {
         assert_eq!(apply(&cfg, &e.mods, &e.install, &mut ledger).written, 2);
 
         // Something (a repair, a reset, another tool) puts Roblox's own file back.
-        let target = e.install.join(CURSOR_FILES[0]);
+        let target = e.install.join(rel_path(CURSOR_FILES[0]));
         std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
         let again = apply(&cfg, &e.mods, &e.install, &mut ledger);
         assert_eq!((again.written, again.skipped_foreign.len()), (1, 0), "{again:?}");
@@ -1126,13 +1159,13 @@ mod tests {
         let mut ledger = ModLedger::default();
         let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
         assert_eq!(r.written, 2, "{r:?}");
-        assert!(e.install.join(FONT_FILE).is_file());
+        assert!(e.install.join(rel_path(FONT_FILE)).is_file());
         let fam = String::from_utf8(read(&e, &format!(r"{FONT_FAMILIES}\BuilderSans.json"))).unwrap();
         assert!(fam.contains(FONT_ASSET));
         assert!(!fam.contains("BuilderSans-Regular.otf"));
 
         apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
-        assert!(!e.install.join(FONT_FILE).exists(), "created file removed");
+        assert!(!e.install.join(rel_path(FONT_FILE)).exists(), "created file removed");
         let fam = String::from_utf8(read(&e, &format!(r"{FONT_FAMILIES}\BuilderSans.json"))).unwrap();
         assert!(fam.contains("BuilderSans-Regular.otf"), "family restored");
     }
@@ -1228,7 +1261,7 @@ mod tests {
         let e = env();
         let local = e.mods.root.parent().unwrap().join("local");
         assert!(launcher_font(&local, "Fishstrap").is_none());
-        let font = local.join("Fishstrap").join("Modifications").join(FONT_FILE);
+        let font = local.join("Fishstrap").join("Modifications").join(rel_path(FONT_FILE));
         std::fs::create_dir_all(font.parent().unwrap()).unwrap();
         std::fs::write(&font, [0x00, 0x01, 0x00, 0x00, 1, 2, 3]).unwrap();
         assert_eq!(launcher_font(&local, "Fishstrap"), Some(font.clone()));
@@ -1262,7 +1295,7 @@ mod tests {
     fn missing_roblox_files_are_reported_not_created() {
         let e = env();
         for rel in DEATH_SOUNDS {
-            std::fs::remove_file(e.install.join(rel)).unwrap();
+            std::fs::remove_file(e.install.join(rel_path(rel))).unwrap();
         }
         let s = e.mods.root.join("s.ogg");
         std::fs::create_dir_all(&e.mods.root).unwrap();
@@ -1272,7 +1305,7 @@ mod tests {
         let r = apply(&cfg, &e.mods, &e.install, &mut ModLedger::default());
         assert_eq!(r.written, 0);
         assert_eq!(r.missing.len(), 2);
-        assert!(!e.install.join(DEATH_SOUNDS[0]).exists());
+        assert!(!e.install.join(rel_path(DEATH_SOUNDS[0])).exists());
     }
 
     #[test]
@@ -1285,7 +1318,7 @@ mod tests {
         let cfg = ModsConfig { death_sound: Some(FileMod { name: "s.ogg".into() }), ..Default::default() };
         let mut ledger = ModLedger::default();
         apply(&cfg, &e.mods, &e.install, &mut ledger);
-        std::fs::write(e.install.join(DEATH_SOUNDS[0]), b"OggSsomeone-else").unwrap();
+        std::fs::write(e.install.join(rel_path(DEATH_SOUNDS[0])), b"OggSsomeone-else").unwrap();
         let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(off.restored, 1, "oof.ogg restored");
         assert_eq!(off.skipped_foreign.len(), 1, "ouch.ogg kept");
@@ -1295,7 +1328,7 @@ mod tests {
     #[test]
     fn custom_files_mirror_roblox_layout_and_restore_all_works() {
         let e = env();
-        let custom = e.mods.custom_dir().join(r"content\textures\new.png");
+        let custom = e.mods.custom_dir().join(rel_path(r"content\textures\new.png"));
         std::fs::create_dir_all(custom.parent().unwrap()).unwrap();
         std::fs::write(&custom, b"mine").unwrap();
         let cfg = ModsConfig { custom_files: true, ..Default::default() };
@@ -1305,7 +1338,7 @@ mod tests {
         assert_eq!(read(&e, r"content\textures\new.png"), b"mine");
         let all = restore_all(&mut ledger);
         assert_eq!(all.restored, 1);
-        assert!(!e.install.join(r"content\textures\new.png").exists());
+        assert!(!e.install.join(rel_path(r"content\textures\new.png")).exists());
     }
 
     #[test]
@@ -1313,8 +1346,8 @@ mod tests {
         let e = env();
         let sibling = e.install.with_file_name("version-test2");
         let rel = CURSOR_FILES[0];
-        std::fs::create_dir_all(sibling.join(rel).parent().unwrap()).unwrap();
-        std::fs::write(sibling.join(rel), png(64, 64, [1, 1, 1, 255])).unwrap();
+        std::fs::create_dir_all(sibling.join(rel_path(rel)).parent().unwrap()).unwrap();
+        std::fs::write(sibling.join(rel_path(rel)), png(64, 64, [1, 1, 1, 255])).unwrap();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
             cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
@@ -1325,7 +1358,11 @@ mod tests {
         // Turning mods off for the first install must not touch the sibling.
         let r = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(r.restored, 0);
-        assert_ne!(std::fs::read(sibling.join(rel)).unwrap(), png(64, 64, [1, 1, 1, 255]), "sibling keeps its mod");
+        assert_ne!(
+            std::fs::read(sibling.join(rel_path(rel))).unwrap(),
+            png(64, 64, [1, 1, 1, 255]),
+            "sibling keeps its mod"
+        );
     }
 
     /// Regression: restoring through the lowercased ledger key renamed
@@ -1342,11 +1379,44 @@ mod tests {
         apply(&cfg, &e.mods, &e.install, &mut ledger);
         let r = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(r.restored, 2);
-        let dir = e.install.join(r"content\textures\Cursors\KeyboardMouse");
+        let dir = e.install.join(rel_path(r"content\textures\Cursors\KeyboardMouse"));
         let mut names: Vec<String> =
             std::fs::read_dir(dir).unwrap().map(|x| x.unwrap().file_name().to_string_lossy().into_owned()).collect();
         names.sort();
         assert_eq!(names, vec!["ArrowCursor.png", "ArrowFarCursor.png"]);
+    }
+
+    /// macOS: Roblox replaces its files in place when it updates.
+    #[test]
+    fn files_replaced_by_an_in_place_update_are_taken_over_again() {
+        let e = env();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        assert_eq!(apply_build(&cfg, &e.mods, &e.install, "mac-0.1", &mut ledger).written, 2);
+
+        let updated = png(64, 64, [9, 9, 9, 255]);
+        for rel in CURSOR_FILES {
+            std::fs::write(e.install.join(rel_path(rel)), &updated).unwrap();
+        }
+        let same = apply_build(&cfg, &e.mods, &e.install, "mac-0.1", &mut ledger);
+        assert_eq!(same.skipped_foreign.len(), 2, "same build: something else changed them");
+
+        let next = apply_build(&cfg, &e.mods, &e.install, "mac-0.2", &mut ledger);
+        assert_eq!(next.written, 2, "a new build's files are taken over");
+        let off = apply_build(&ModsConfig::default(), &e.mods, &e.install, "mac-0.2", &mut ledger);
+        assert_eq!(off.restored, 2);
+        assert_eq!(read(&e, CURSOR_FILES[0]), updated, "the new build's own cursor is put back");
+    }
+
+    #[test]
+    fn relative_paths_use_this_systems_separator() {
+        let p = rel_path(r"content\fonts\CustomFont.ttf");
+        assert_eq!(p, Path::new("content").join("fonts").join("CustomFont.ttf"));
+        assert_eq!(rel_path("content/sounds/oof.ogg"), Path::new("content").join("sounds").join("oof.ogg"));
     }
 
     #[test]

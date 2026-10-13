@@ -10,7 +10,7 @@
 //! the session start time, and a "Get Vesper" button. No paths, games,
 //! account names or anything from Roblox.
 
-use super::ipc::{Connection, IpcError, DEFAULT_PIPE_BASE};
+use super::ipc::{default_pipe_base, Connection, IpcError};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -91,7 +91,7 @@ pub struct Presence {
 impl Presence {
     /// Starts the presence thread. `on_status` is called whenever the status changes.
     pub fn start(on_status: impl Fn(PresenceStatus) + Send + 'static) -> Self {
-        Self::start_with_pipe(DEFAULT_PIPE_BASE.to_owned(), on_status)
+        Self::start_with_pipe(default_pipe_base(), on_status)
     }
 
     pub fn start_with_pipe(pipe_base: String, on_status: impl Fn(PresenceStatus) + Send + 'static) -> Self {
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn missing_client_id_is_not_configured() {
-        let p = Presence::start_with_pipe(format!(r"\\.\pipe\vesper-none-{}-", uuid::Uuid::new_v4().simple()), |_| {});
+        let p = Presence::start_with_pipe(crate::discord::ipc::tests::test_base("none"), |_| {});
         p.configure(true, None);
         assert!(wait_for(&p, &PresenceStatus::NotConfigured));
         p.shutdown();
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn closed_discord_is_tolerated_without_errors() {
-        let p = Presence::start_with_pipe(format!(r"\\.\pipe\vesper-none-{}-", uuid::Uuid::new_v4().simple()), |_| {});
+        let p = Presence::start_with_pipe(crate::discord::ipc::tests::test_base("none"), |_| {});
         p.configure(true, Some("123".into()));
         assert!(wait_for(&p, &PresenceStatus::DiscordNotRunning));
         p.update(state(true, None));
@@ -353,11 +353,10 @@ mod tests {
         p.shutdown();
     }
 
-    #[cfg(windows)]
     #[test]
     fn publishes_updates_and_clears_when_disabled() {
         use crate::discord::ipc::tests::fake;
-        let base = format!(r"\\.\pipe\vesper-test-{}-", uuid::Uuid::new_v4().simple());
+        let base = crate::discord::ipc::tests::test_base("test");
         let (tx, rx) = std::sync::mpsc::channel();
         let server = fake::serve(&base, fake::Behaviour::Accept, 1, tx);
 

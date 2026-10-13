@@ -1,6 +1,7 @@
 // The Fast Flags page model: one row per flag, searchable and filterable.
 
 import type { Catalog, FlagCheck, FlagInfo, FlagSet, Issue } from './types';
+import { computer } from './platform';
 
 export const CATEGORY_LABELS: Record<string, string> = {
   rendering: 'Rendering',
@@ -118,13 +119,13 @@ export function verificationBadge(row: FlagRow): { label: string; tone: Tone; hi
     return {
       label: `Allowlisted · seen ${shortVersion(obs.robloxVersion)}`,
       tone: 'info',
-      hint: `On Roblox's allowlist. ${obs.method} (Roblox ${obs.robloxVersion}, ${obs.date}). Launch with it set to verify on your PC.`,
+      hint: `On Roblox's allowlist. ${obs.method} (Roblox ${obs.robloxVersion}, ${obs.date}). Launch with it set to verify on your ${computer}.`,
     };
   }
   return {
     label: 'Allowlisted · not verified',
     tone: 'neutral',
-    hint: "On Roblox's published allowlist. Not yet confirmed on your PC; launch with it set to verify.",
+    hint: `On Roblox's published allowlist. Not yet confirmed on your ${computer}; launch with it set to verify.`,
   };
 }
 

@@ -3,7 +3,7 @@
 //!
 //! Vesper never reads Roblox cookies or tokens. This exists as a safety net
 //! for text that passes through from elsewhere (paths, launch arguments,
-//! error messages from Windows or the network).
+//! error messages from the system or the network).
 
 use regex::Regex;
 use std::sync::LazyLock;
@@ -35,6 +35,8 @@ static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
         // Windows user profile paths reveal the account name.
         // Usernames may contain spaces, so consume everything up to the next separator.
         rule(r#"(?i)\b[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>|]+"#, "%USERPROFILE%"),
+        // So do macOS home folders (short user names have no spaces).
+        rule(r#"/(?:Users|home)/[^/\s"'<>|:]+"#, "~"),
     ]
 });
 
@@ -64,6 +66,13 @@ mod tests {
         assert_eq!(s, r"%USERPROFILE%\AppData\Local\Roblox\Versions\version-1\RobloxPlayerBeta.exe");
         assert_eq!(redact("c:/users/Some One/x"), "%USERPROFILE%/x");
         assert_eq!(redact(r#"open "C:\Users\Some One\a.txt""#), r#"open "%USERPROFILE%\a.txt""#);
+    }
+
+    #[test]
+    fn mac_home_folders_are_hidden() {
+        assert_eq!(redact("/Users/alex/Library/Logs/Roblox"), "~/Library/Logs/Roblox");
+        assert_eq!(redact("Couldn't open /Users/alex: denied"), "Couldn't open ~: denied");
+        assert_eq!(redact("/Applications/Roblox.app/Contents/MacOS"), "/Applications/Roblox.app/Contents/MacOS");
     }
 
     #[test]

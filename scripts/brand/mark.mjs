@@ -160,3 +160,23 @@ export function markSvg(opts = {}) {
 </svg>
 `;
 }
+
+/**
+ * The mark as a macOS menu bar "template" image: limb and star in solid
+ * black on transparent. macOS recolours it for light and dark menu bars.
+ */
+export function trayTemplateSvg() {
+  const g = geometry('small');
+  // Cropped to the drawing: macOS sizes menu bar images by height.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="112 170 800 560" width="800" height="560">
+  <defs>
+    <mask id="t-limbmask" maskUnits="userSpaceOnUse" x="0" y="0" width="${S}" height="${S}">
+      <circle cx="${CX}" cy="${g.planetCy}" r="${g.planetR}" fill="#fff"/>
+      <circle cx="${CX}" cy="${g.cut.cy.toFixed(2)}" r="${g.cut.r.toFixed(2)}" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="${S}" height="${S}" fill="#000" mask="url(#t-limbmask)"/>
+  <circle cx="${g.star.x}" cy="${g.star.y}" r="${g.star.r}" fill="#000"/>
+</svg>
+`;
+}

@@ -1,10 +1,11 @@
 //! Roblox's public client settings service.
 //!
 //! Two read-only requests, both anonymous (no cookies, no account):
-//! * the latest Windows player version, to tell whether Roblox is up to date;
-//! * the flag values Roblox currently ships to PCs, shown next to each flag
-//!   as "Roblox's value". Flags Roblox doesn't publish keep their engine
-//!   default, which Roblox doesn't disclose — the UI says so rather than guessing.
+//! * the latest player version for this system, to tell whether Roblox is up to date;
+//! * the flag values Roblox currently ships to this kind of computer, shown
+//!   next to each flag as "Roblox's value". Flags Roblox doesn't publish keep
+//!   their engine default, which Roblox doesn't disclose — the UI says so
+//!   rather than guessing.
 
 use crate::flags::model::FlagSet;
 use chrono::{DateTime, Utc};
@@ -12,8 +13,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+#[cfg(not(target_os = "macos"))]
 pub const VERSION_URL: &str = "https://clientsettingscdn.roblox.com/v2/client-version/WindowsPlayer";
+#[cfg(not(target_os = "macos"))]
 pub const SETTINGS_URL: &str = "https://clientsettingscdn.roblox.com/v2/settings/application/PCDesktopClient";
+#[cfg(target_os = "macos")]
+pub const VERSION_URL: &str = "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer";
+#[cfg(target_os = "macos")]
+pub const SETTINGS_URL: &str = "https://clientsettingscdn.roblox.com/v2/settings/application/MacDesktopClient";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

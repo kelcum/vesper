@@ -1,6 +1,6 @@
 //! Undoing Vesper's changes to Roblox.
 //!
-//! Used by "Reset Fast Flags" in the app and by the uninstaller
+//! Used by "Reset Fast Flags" in the app and by the Windows uninstaller
 //! (`Vesper.exe --cleanup`). Only files whose content still matches what
 //! Vesper wrote are removed; anything else is left alone unless forced,
 //! and forced removals keep a backup.
@@ -22,7 +22,7 @@ pub struct CleanupSummary {
 pub fn remove_all_flags(ledger: &mut Ownership, force: bool, backups: &Path) -> CleanupSummary {
     let mut s = CleanupSummary::default();
     for file in ledger.paths() {
-        // <version>\ClientSettings\ClientAppSettings.json
+        // <install folder>/ClientSettings/ClientAppSettings.json
         let Some(version_dir) = file.parent().and_then(Path::parent) else { continue };
         match apply::remove(version_dir, ledger, force, backups) {
             Ok(o) => match o.action {
@@ -58,10 +58,9 @@ pub fn run_cli() -> i32 {
     log::info!("Restored {} customised Roblox file(s)", mods.restored);
 
     let settings = crate::config::Settings::load(&paths.settings_file()).settings;
-    if let (Some(original), Some(local)) = (settings.original_fps_cap, std::env::var_os("LOCALAPPDATA")) {
+    if let (Some(original), Some(env)) = (settings.original_fps_cap, crate::roblox::detect::DetectEnv::system()) {
         if crate::roblox::process::roblox_pids().is_empty() {
-            let roblox = Path::new(&local).join("Roblox");
-            match crate::roblox::gbs::set_cap(&roblox, original) {
+            match crate::roblox::gbs::set_cap(&env.roblox_data(), original) {
                 Ok(_) => log::info!("Restored Roblox's frame-rate cap to {original}"),
                 Err(e) => log::warn!("Couldn't restore the frame-rate cap: {e}"),
             }

@@ -1,13 +1,29 @@
 //! Discord's local IPC protocol.
 //!
-//! The Discord desktop app listens on `\\.\pipe\discord-ipc-0` … `-9`.
+//! The Discord desktop app listens on `\\.\pipe\discord-ipc-0` … `-9` on
+//! Windows, and on Unix sockets `discord-ipc-0` … `-9` in the temporary folder
+//! on macOS.
 //! Each message is an 8-byte header (opcode, payload length; little endian)
 //! followed by a JSON payload. A session starts with a handshake carrying the
 //! application's client ID; Discord answers with a READY dispatch.
 
 use serde_json::{json, Value};
-use std::fs::File;
 use std::io::{self, Read, Write};
+
+#[cfg(windows)]
+type Pipe = std::fs::File;
+#[cfg(unix)]
+type Pipe = std::os::unix::net::UnixStream;
+
+#[cfg(windows)]
+fn open_pipe(path: &str) -> io::Result<Pipe> {
+    std::fs::OpenOptions::new().read(true).write(true).open(path)
+}
+
+#[cfg(unix)]
+fn open_pipe(path: &str) -> io::Result<Pipe> {
+    Pipe::connect(path)
+}
 
 pub const OP_HANDSHAKE: u32 = 0;
 pub const OP_FRAME: u32 = 1;
@@ -15,7 +31,41 @@ pub const OP_CLOSE: u32 = 2;
 pub const OP_PING: u32 = 3;
 pub const OP_PONG: u32 = 4;
 
-pub const DEFAULT_PIPE_BASE: &str = r"\\.\pipe\discord-ipc-";
+/// Where Discord's sockets are, without the trailing number.
+#[cfg(windows)]
+pub fn default_pipe_base() -> String {
+    r"\\.\pipe\discord-ipc-".to_owned()
+}
+
+/// Discord puts its socket in the first of these that is set, like other
+/// Rich Presence clients look for it.
+#[cfg(unix)]
+pub fn default_pipe_base() -> String {
+    let dir = ["XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"]
+        .iter()
+        .find_map(|k| std::env::var_os(k).filter(|v| !v.is_empty()))
+        .map(std::path::PathBuf::from)
+        .or_else(user_temp_dir)
+        .unwrap_or_else(|| "/tmp".into());
+    format!("{}/discord-ipc-", dir.to_string_lossy().trim_end_matches('/'))
+}
+
+/// The per-user temporary folder macOS gives every app, for when TMPDIR isn't set.
+#[cfg(unix)]
+fn user_temp_dir() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut buf = [0 as libc::c_char; 1024];
+        // SAFETY: confstr writes at most `buf.len()` bytes, including the terminator.
+        let n = unsafe { libc::confstr(libc::_CS_DARWIN_USER_TEMP_DIR, buf.as_mut_ptr(), buf.len()) };
+        if n > 0 && n <= buf.len() {
+            // SAFETY: confstr terminated the string.
+            let s = unsafe { std::ffi::CStr::from_ptr(buf.as_ptr()) };
+            return Some(s.to_string_lossy().into_owned().into());
+        }
+    }
+    None
+}
 const MAX_PAYLOAD: u32 = 64 * 1024;
 
 #[derive(Debug)]
@@ -72,7 +122,7 @@ pub fn read_frame(r: &mut impl Read) -> Result<(u32, Value), IpcError> {
 }
 
 pub struct Connection {
-    pipe: File,
+    pipe: Pipe,
     /// Display name of the signed-in Discord user, from READY. Kept in memory only.
     pub user: Option<String>,
 }
@@ -80,9 +130,7 @@ pub struct Connection {
 impl Connection {
     /// Connects to the first available Discord pipe and performs the handshake.
     pub fn connect(pipe_base: &str, client_id: &str) -> Result<Self, IpcError> {
-        let pipe = (0..10)
-            .find_map(|i| std::fs::OpenOptions::new().read(true).write(true).open(format!("{pipe_base}{i}")).ok())
-            .ok_or(IpcError::NotRunning)?;
+        let pipe = (0..10).find_map(|i| open_pipe(&format!("{pipe_base}{i}")).ok()).ok_or(IpcError::NotRunning)?;
         let mut c = Connection { pipe, user: None };
         c.send(OP_HANDSHAKE, &json!({ "v": 1, "client_id": client_id }))?;
         let (op, v) = c.recv()?;
@@ -175,26 +223,113 @@ pub(crate) mod tests {
         assert!(read_frame(&mut bad.as_slice()).is_err());
     }
 
-    #[test]
-    fn missing_discord_is_reported_as_not_running() {
-        let base = format!(r"\\.\pipe\vesper-test-none-{}-", uuid::Uuid::new_v4().simple());
-        assert!(matches!(Connection::connect(&base, "1"), Err(IpcError::NotRunning)));
+    /// A socket base no Discord listens on, unique to one test.
+    pub(crate) fn test_base(tag: &str) -> String {
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        if cfg!(windows) {
+            format!(r"\\.\pipe\vesper-{tag}-{id}-")
+        } else {
+            // Unix socket paths are short (104 bytes on macOS).
+            std::env::temp_dir().join(format!("vp-{tag}-{}-", &id[..12])).to_string_lossy().into_owned()
+        }
     }
 
-    /// A minimal fake Discord on a real named pipe, for integration tests.
-    #[cfg(windows)]
+    #[test]
+    fn missing_discord_is_reported_as_not_running() {
+        assert!(matches!(Connection::connect(&test_base("none"), "1"), Err(IpcError::NotRunning)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn socket_base_ends_with_the_discord_name() {
+        let base = default_pipe_base();
+        assert!(base.ends_with("/discord-ipc-"), "{base}");
+        assert!(!base.contains("//discord"), "{base}");
+    }
+
+    /// A minimal fake Discord on a real pipe (Windows) or socket (Unix), for integration tests.
     pub(crate) mod fake {
         use super::super::*;
-        use std::os::windows::io::FromRawHandle;
-        use windows::core::HSTRING;
-        use windows::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX;
-        use windows::Win32::System::Pipes::{
-            ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
-        };
 
         pub enum Behaviour {
             Accept,
             RejectClientId,
+        }
+
+        #[cfg(windows)]
+        mod server {
+            use super::super::super::Pipe;
+            use std::os::windows::io::FromRawHandle;
+            use windows::core::HSTRING;
+            use windows::Win32::Foundation::HANDLE;
+            use windows::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX;
+            use windows::Win32::System::Pipes::{
+                ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES,
+                PIPE_WAIT,
+            };
+
+            pub type Pending = HANDLE;
+
+            pub struct Server(String);
+
+            impl Server {
+                pub fn new(name: String) -> Self {
+                    Self(name)
+                }
+
+                /// Creates the next pipe instance; clients can connect from now on.
+                pub fn prepare(&mut self) -> Pending {
+                    unsafe {
+                        CreateNamedPipeW(
+                            &HSTRING::from(self.0.as_str()),
+                            PIPE_ACCESS_DUPLEX,
+                            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+                            PIPE_UNLIMITED_INSTANCES,
+                            65536,
+                            65536,
+                            0,
+                            None,
+                        )
+                    }
+                }
+
+                pub fn accept(&mut self, handle: Pending) -> Option<Pipe> {
+                    let _ = unsafe { ConnectNamedPipe(handle, None) };
+                    Some(unsafe { Pipe::from_raw_handle(handle.0) })
+                }
+            }
+        }
+
+        #[cfg(unix)]
+        mod server {
+            use super::super::super::Pipe;
+            use std::os::unix::net::UnixListener;
+
+            /// Unix listeners accept without preparing anything per client.
+            pub struct Pending;
+
+            pub struct Server(UnixListener, String);
+
+            impl Server {
+                pub fn new(name: String) -> Self {
+                    let _ = std::fs::remove_file(&name);
+                    Self(UnixListener::bind(&name).expect("bind the fake Discord socket"), name)
+                }
+
+                pub fn prepare(&mut self) -> Pending {
+                    Pending
+                }
+
+                pub fn accept(&mut self, _: Pending) -> Option<Pipe> {
+                    self.0.accept().ok().map(|(s, _)| s)
+                }
+            }
+
+            impl Drop for Server {
+                fn drop(&mut self) {
+                    let _ = std::fs::remove_file(&self.1);
+                }
+            }
         }
 
         /// Serves `connections` clients on `{base}0`. Every received frame is sent on `log`.
@@ -208,26 +343,15 @@ pub(crate) mod tests {
             let ready = std::sync::Arc::new(std::sync::Barrier::new(2));
             let r2 = ready.clone();
             let h = std::thread::spawn(move || {
+                let mut server = server::Server::new(name);
                 let mut first = true;
                 for _ in 0..connections {
-                    let handle = unsafe {
-                        CreateNamedPipeW(
-                            &HSTRING::from(name.as_str()),
-                            PIPE_ACCESS_DUPLEX,
-                            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                            PIPE_UNLIMITED_INSTANCES,
-                            65536,
-                            65536,
-                            0,
-                            None,
-                        )
-                    };
+                    let pending = server.prepare();
                     if first {
                         r2.wait();
                         first = false;
                     }
-                    let _ = unsafe { ConnectNamedPipe(handle, None) };
-                    let mut pipe = unsafe { File::from_raw_handle(handle.0) };
+                    let Some(mut pipe) = server.accept(pending) else { continue };
                     let Ok((_, hello)) = read_frame(&mut pipe) else { continue };
                     let _ = log.send(hello);
                     match behaviour {
@@ -256,10 +380,9 @@ pub(crate) mod tests {
         }
     }
 
-    #[cfg(windows)]
     #[test]
     fn handshake_and_activity_against_fake_discord() {
-        let base = format!(r"\\.\pipe\vesper-test-{}-", uuid::Uuid::new_v4().simple());
+        let base = test_base("test");
         let (tx, rx) = std::sync::mpsc::channel();
         let server = fake::serve(&base, fake::Behaviour::Accept, 1, tx);
 
@@ -281,10 +404,9 @@ pub(crate) mod tests {
         server.join().unwrap();
     }
 
-    #[cfg(windows)]
     #[test]
     fn invalid_client_id_is_reported() {
-        let base = format!(r"\\.\pipe\vesper-test-{}-", uuid::Uuid::new_v4().simple());
+        let base = test_base("test");
         let (tx, _rx) = std::sync::mpsc::channel();
         let server = fake::serve(&base, fake::Behaviour::RejectClientId, 1, tx);
         match Connection::connect(&base, "bad") {

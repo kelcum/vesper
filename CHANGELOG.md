@@ -6,6 +6,30 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
+### Added
+
+- macOS support. Vesper runs on macOS 11 or later (Apple silicon and
+  Intel): it finds Roblox.app, launches Roblox and games, applies Fast Flags,
+  customisations and the frame-rate limit, checks Roblox's log, re-applies
+  everything after Roblox updates itself, shows live CPU and memory use, and
+  keeps Discord Rich Presence. It uses macOS's own window buttons and lives in
+  the menu bar when its window is closed. macOS doesn't let other apps count
+  Roblox's frames, read per-app GPU use or change Roblox's priority, so Vesper
+  says so instead of showing a number.
+
+### Fixed
+
+- Launching Roblox no longer takes Vesper off the taskbar when "Minimize to
+  tray" is on. "Minimize to the taskbar" now always means the taskbar; only
+  "Hide in the tray" leaves it.
+- The frame-rate limit card no longer cuts off its warning about a read-only
+  Roblox settings file; it explains the lock on its own line. "Restore
+  original" explains a locked file instead of failing with a generic error.
+- "Remove flags" (Settings → Backups & recovery) found nothing to remove on
+  case-sensitive drives.
+
 ## [0.1.2] - 2026-10-11
 
 ### Fixed

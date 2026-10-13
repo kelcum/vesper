@@ -57,7 +57,7 @@ fn data_url(bytes: &[u8]) -> String {
 
 /// The file Vesper prepared for a mod, if any.
 fn prepared(state: &AppState, rel: &str) -> Option<String> {
-    std::fs::read(state.mod_paths.root.join(rel)).ok().map(|b| data_url(&b))
+    std::fs::read(state.mod_paths.root.join(mods::rel_path(rel))).ok().map(|b| data_url(&b))
 }
 
 /// Preview of a layer: the prepared file when the mod is on, otherwise Roblox's own art.
@@ -85,7 +85,10 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
         wheel_line: highlight("SelectedLine", None),
         font: None,
     };
-    let font = config.font.as_ref().and_then(|_| std::fs::read(state.mod_paths.root.join(mods::FONT_FILE)).ok());
+    let font = config
+        .font
+        .as_ref()
+        .and_then(|_| std::fs::read(state.mod_paths.root.join(mods::rel_path(mods::FONT_FILE))).ok());
     let previews = Previews {
         font: font
             .as_deref()
@@ -117,8 +120,9 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
 /// Roblox's unmodified file: the backup if Vesper replaced it, otherwise the live one.
 fn roblox_original_bytes(state: &AppState, rel: &str) -> Option<Vec<u8>> {
     let install = state.preferred_install()?;
-    let backup = state.mod_paths.originals.join(&install.version_hash).join(rel);
-    std::fs::read(backup).ok().or_else(|| std::fs::read(install.dir.join(rel)).ok())
+    let rel = mods::rel_path(rel);
+    let backup = state.mod_paths.originals.join(install.build_id()).join(&rel);
+    std::fs::read(backup).ok().or_else(|| std::fs::read(install.content_root().join(&rel)).ok())
 }
 
 fn roblox_original(state: &AppState, rel: &str) -> Option<String> {
@@ -313,14 +317,14 @@ pub fn import_font_cli(arg: Option<&str>) -> i32 {
     };
     let Ok(paths) = crate::paths::AppPaths::resolve() else { return 1 };
     crate::logging::init(&paths.logs, log::LevelFilter::Info);
-    let Some(arg) = arg else { return fail("Usage: Vesper.exe --import-font <font file | Fishstrap | Bloxstrap>") };
+    let Some(arg) = arg else { return fail("Usage: Vesper --import-font <font file | Fishstrap | Bloxstrap>") };
     let running = crate::roblox::process::snapshot()
-        .map(|all| crate::roblox::process::named(&all, "Vesper.exe").count())
+        .map(|all| crate::roblox::process::named(&all, crate::roblox::process::VESPER_PROCESS).count())
         .unwrap_or(0);
     if running > 1 {
         return fail("Close Vesper first, then try again.");
     }
-    let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default();
+    let local = crate::roblox::detect::DetectEnv::system().map(|e| e.local_appdata).unwrap_or_default();
     let (file, name) = match mods::launcher_font(&local, arg) {
         Some(f) => (f, format!("{arg}'s font")),
         None => (PathBuf::from(arg), file_name(Path::new(arg))),

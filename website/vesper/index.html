@@ -6,7 +6,7 @@
     <title>Vesper · Roblox, tuned and verified</title>
     <meta
       name="description"
-      content="Vesper is a fast, private Roblox launcher for Windows. It applies the Fast Flags Roblox still accepts, restyles the cursor and emote wheel, and checks Roblox's own log to confirm what took effect."
+      content="Vesper is a fast, private Roblox launcher for Windows and macOS. It applies the Fast Flags Roblox still accepts, restyles the cursor and emote wheel, and checks Roblox's own log to confirm what took effect."
     />
     <meta name="theme-color" content="#07060d" />
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml" />
@@ -17,7 +17,7 @@
     <meta property="og:title" content="Vesper · Roblox, tuned and verified" />
     <meta
       property="og:description"
-      content="A fast, private Roblox launcher for Windows with Fast Flags Roblox actually accepts."
+      content="A fast, private Roblox launcher for Windows and macOS with Fast Flags Roblox actually accepts."
     />
     <meta property="og:image" content="https://xan.gripe/vesper/assets/brand/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -50,7 +50,7 @@
       <!-- ============================================================ hero -->
       <section class="hero wrap">
         <span class="pill glass reveal"
-          ><b>Free</b><span>Roblox launcher<span class="hide-sm"> · Windows 10 &amp; 11</span></span></span
+          ><b>Free</b><span>Roblox launcher<span class="hide-sm"> · Windows &amp; macOS</span></span></span
         >
         <h1 class="reveal"><span class="gradient-text">Roblox, tuned and verified.</span></h1>
         <p class="lead reveal">
@@ -160,7 +160,7 @@
                 <path d="m9 12 2 2 4-4" />
               </svg>
             </div>
-            <h3>Verified on your PC</h3>
+            <h3>Verified on your computer</h3>
             <p>After each launch: accepted, denied or not read, per flag, with the Roblox version it was checked on.</p>
           </article>
           <article class="card glass span-2 reveal">
@@ -221,8 +221,8 @@
             </div>
             <h3>Measured, not promised</h3>
             <p>
-              Live CPU, memory and GPU for Roblox and your PC, plus frame rate where Windows allows. A dash, never a
-              guess.
+              Live CPU, memory and GPU for Roblox and your computer, plus frame rate where Windows allows. A dash, never
+              a guess.
             </p>
           </article>
           <article class="card glass span-3 reveal">
@@ -676,8 +676,8 @@
             <p class="eyebrow">Download</p>
             <h2>Get <span class="gradient-text">Vesper.</span></h2>
             <p class="lead">
-              Free for Windows 10 and 11. Installs for your Windows account only, without administrator rights, and
-              finds Roblox by itself.
+              Free for Windows 10 and 11 and macOS 11 or later. Installs without administrator rights and finds Roblox
+              by itself.
             </p>
             <!-- build:download -->
             <div class="cta">
@@ -766,7 +766,7 @@
               and only after you click.
             </li>
             <li>
-              <b>Discord on your PC, if you turn it on</b>
+              <b>Discord on your computer, if you turn it on</b>
               Rich Presence talks to the Discord app running locally, never to a server of Vesper's.
             </li>
           </ol>
@@ -831,7 +831,7 @@
                   <circle cx="12" cy="12" r="10" />
                   <path d="m9 12 2 2 4-4" />
                 </svg>
-                Put your Windows user name in logs or diagnostics.
+                Put your Windows or macOS user name in logs or diagnostics.
               </li>
             </ul>
             <div class="links"><a href="privacy/">Privacy statement →</a></div>
@@ -879,7 +879,19 @@
             <p>
               Vesper counts Direct3D frames through Windows event tracing, which only administrators and the
               “Performance Log Users” group may use. Vesper explains how to allow it but never changes Windows security
-              settings itself.
+              settings itself. macOS doesn't let other apps count Roblox's frames at all, so on a Mac the counter shows
+              a dash.
+            </p>
+          </details>
+          <details>
+            <summary>Does it work on a Mac?</summary>
+            <p>
+              Yes, on macOS 11 or later with Apple silicon or Intel. Drag Vesper from the disk image to Applications and
+              open it. The first time, macOS says it can't check Vesper, because Vesper isn't notarized by Apple yet:
+              open <b>System Settings → Privacy &amp; Security</b> (<b>System Preferences → Security &amp; Privacy</b>
+              on macOS 11 and 12) and choose <b>Open Anyway</b>. If macOS says it blocked Vesper from changing Roblox,
+              turn Vesper on under <b>App Management</b> there. Vesper then lives in the menu bar while its window is
+              closed.
             </p>
           </details>
           <details>
@@ -892,8 +904,9 @@
           <details>
             <summary>How do I remove it?</summary>
             <p>
-              Uninstall it from Windows' Installed apps. The uninstaller removes the flags and customisations Vesper
-              applied and restores Roblox's original frame-rate setting.
+              On Windows, uninstall it from Installed apps: the uninstaller removes the flags and customisations Vesper
+              applied and restores Roblox's original frame-rate setting. On a Mac, use Settings → Backups &amp; recovery
+              to undo Vesper's changes first, then move Vesper to the Bin.
             </p>
           </details>
         </div>
@@ -903,7 +916,7 @@
     <footer>
       <div class="wrap">
         <a class="brand" href="./"><img src="assets/brand/icon.svg" alt="" width="24" height="24" />Vesper</a>
-        <span>A free Roblox launcher for Windows.</span>
+        <span>A free Roblox launcher for Windows and macOS.</span>
         <nav aria-label="Footer">
           <a href="privacy/">Privacy</a>
           <!-- build:footer-links -->

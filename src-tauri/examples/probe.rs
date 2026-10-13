@@ -22,7 +22,7 @@ fn main() {
 
     println!("\n== Roblox");
     let Some(env) = detect::DetectEnv::system() else {
-        println!("  %LOCALAPPDATA% is not set");
+        println!("  {} is not set", if cfg!(target_os = "macos") { "HOME" } else { "%LOCALAPPDATA%" });
         return;
     };
     let d = detect::detect(&env, None);
