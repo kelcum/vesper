@@ -169,7 +169,7 @@ mod tests {
         }
         assert_eq!(calls.lock().unwrap().as_slice(), std::slice::from_ref(&v));
 
-        std::fs::write(v.join("RobloxPlayerBeta.exe"), b"x").unwrap();
+        std::fs::write(v.join(crate::roblox::detect::PLAYER_EXE), b"x").unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
         while calls.lock().unwrap().len() < 2 && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(20));
