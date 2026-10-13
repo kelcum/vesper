@@ -38,7 +38,7 @@ regex = "1"
 notify = "8"
 url = "2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
-base64 = "0.22"
+base64 = "0.23"
 tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
 
