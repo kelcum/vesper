@@ -59,7 +59,7 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <a class="btn btn-primary" href="download/Vesper_0.2.0_x64-setup.exe" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.0_x64-setup.exe" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -75,7 +75,7 @@
             </svg>
             Download for Windows</a
           >
-          <a class="btn btn-primary" href="download/Vesper_0.2.0_universal.dmg" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.0_universal.dmg" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -96,7 +96,7 @@
         </div>
         <!-- build:hero-meta -->
         <p class="cta-meta reveal">
-          Version 0.2.0 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
+          Version 0.3.0 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
         </p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
@@ -789,7 +789,7 @@
             </p>
             <!-- build:download -->
             <div class="cta">
-              <a class="btn btn-primary" href="download/Vesper_0.2.0_x64-setup.exe" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.0_x64-setup.exe" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -805,7 +805,7 @@
                 </svg>
                 Download for Windows</a
               >
-              <a class="btn btn-primary" href="download/Vesper_0.2.0_universal.dmg" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.0_universal.dmg" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -823,52 +823,74 @@
               >
             </div>
             <ul class="facts">
-              <li><b>4.3 MB</b> installer, released 2026-10-13, no administrator rights needed</li>
+              <li><b>4.5 MB</b> installer, released 2026-10-17, no administrator rights needed</li>
               <li>
                 <b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your
                 settings stay.
               </li>
               <li>
                 <b>Portable:</b>
-                <a href="download/Vesper_0.2.0_x64-portable.zip" download>Vesper_0.2.0_x64-portable.zip</a> (5.4 MB),
+                <a href="download/Vesper_0.3.0_x64-portable.zip" download>Vesper_0.3.0_x64-portable.zip</a> (5.7 MB),
                 keeps everything in a folder next to Vesper.exe
               </li>
-              <li><b>SHA-256</b> <code>c2cdfe378d417bd6cae3e15134c3725e7b4d28422202508f246d04ff21ef98f8</code></li>
+              <li><b>SHA-256</b> <code>291368bb0c649035b88aa424a94edf3cdfaba31ca6f582c2b76896a7c6dcd395</code></li>
               <li>
                 <b>macOS:</b>
-                <a href="download/Vesper_0.2.0_universal.dmg" download>Vesper_0.2.0_universal.dmg</a> (10.1 MB), macOS
+                <a href="download/Vesper_0.3.0_universal.dmg" download>Vesper_0.3.0_universal.dmg</a> (10.5 MB), macOS
                 11 or later, Apple silicon and Intel. SHA-256
-                <code>6877a00326ef8e721f4511ed696a9581f66d89657466278eb988657083b7b0a9</code>
+                <code>0c99879b478eeb68594a448086c7d30970bd9c2f506636fce5a1d70cc0971bfb</code>
               </li>
             </ul>
             <details>
-              <summary>What's new in 0.2.0</summary>
+              <summary>What's new in 0.3.0</summary>
               <h3>Added</h3>
               <ul>
                 <li>
-                  macOS support. Vesper runs on macOS 11 or later (Apple silicon and Intel): it finds Roblox.app,
-                  launches Roblox and games, applies Fast Flags, customisations and the frame-rate limit, checks
-                  Roblox&#39;s log, re-applies everything after Roblox updates itself, shows live CPU and memory use,
-                  and keeps Discord Rich Presence. It uses macOS&#39;s own window buttons and lives in the menu bar when
-                  its window is closed. macOS doesn&#39;t let other apps count Roblox&#39;s frames, read per-app GPU use
-                  or change Roblox&#39;s priority, so Vesper says so instead of showing a number.
+                  Now playing: Home shows the game you&#39;re in (name, creator, icon, how long you&#39;ve played and,
+                  if you turn it on, which city the server is in), with buttons to copy a link that joins your exact
+                  server, open the game&#39;s page, or rejoin. Vesper reads this from Roblox&#39;s own log, so it works
+                  however the game was started.
+                </li>
+                <li>
+                  Recent games: a new page lists the games and servers you&#39;ve played, with the server&#39;s city,
+                  how long you played, and buttons to join the same server again, play the game, or copy the link.
+                  It&#39;s kept only on your computer; turn it off or clear it any time.
+                </li>
+                <li>
+                  Server picking: games you join from Vesper can go to the lowest-ping server, or to a region you choose
+                  (NA East, Europe West, Asia and more, or a single city). Settings → Servers measures your ping to
+                  every Roblox region. Server locations come from RoValra&#39;s public database; only the game&#39;s
+                  place ID is sent. If a region has no open server, Vesper says so and picks the lowest-ping one.
+                </li>
+                <li>
+                  Discord: new options to show the game you&#39;re playing with its icon and your play time, a “Join
+                  server” button that opens Roblox in your server (public servers only), and a “Roblox profile” button.
+                </li>
+                <li>
+                  Avatar (Windows): change your avatar inside Vesper. Wear and take off accessories, wear anything you
+                  own by its ID (Vesper adds no limits of its own; Roblox&#39;s rules decide), browse your inventory,
+                  change body colours, scale and R6/R15, and switch outfits. Roblox&#39;s own editor is a click away.
+                  You sign in on Roblox&#39;s real login page; Vesper never reads your password or session.
+                </li>
+                <li>
+                  Shaders (Windows): colour grading for everything you see in Roblox, with seven looks (Vivid,
+                  Cinematic, Crisp, Golden hour, Moonlight, Soft glow, Noir) and sliders for brightness, contrast,
+                  saturation, warmth, sharpening, glow, film tone and vignette. Nothing is loaded into Roblox: Vesper
+                  grades a capture of Roblox&#39;s window, as screen recorders do, and lays it over the game, so
+                  it&#39;s safe with Roblox&#39;s anti-cheat. It costs about one frame of delay. Switch it from the tray
+                  too.
+                </li>
+                <li>
+                  Custom skies: five built-in skies (Midnight, Sunset, Dawn, Overcast, Void), or your own 360° panorama
+                  or six pictures, in every game that doesn&#39;t set its own sky.
                 </li>
               </ul>
               <h3>Fixed</h3>
               <ul>
                 <li>
-                  Launching Roblox no longer takes Vesper off the taskbar when &quot;Minimize to tray&quot; is on.
-                  &quot;Minimize to the taskbar&quot; now always means the taskbar; only &quot;Hide in the tray&quot;
-                  leaves it.
-                </li>
-                <li>
-                  The frame-rate limit card no longer cuts off its warning about a read-only Roblox settings file; it
-                  explains the lock on its own line. &quot;Restore original&quot; explains a locked file instead of
-                  failing with a generic error.
-                </li>
-                <li>
-                  &quot;Remove flags&quot; (Settings → Backups &amp; recovery) found nothing to remove on case-sensitive
-                  drives.
+                  Launching while Roblox is open did nothing, because Roblox only runs once. The button now says
+                  “Restart and rejoin”: Vesper closes Roblox (asking first, ending it only if it doesn&#39;t respond),
+                  applies your profile and customisations, and joins the same server again. The tray has it too.
                 </li>
               </ul>
             </details>
