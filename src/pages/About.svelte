@@ -65,8 +65,8 @@
         Roblox's public game APIs (game names and icons) and <span class="mono">xan.gripe</span> (update checks). All anonymous.
       </li>
       <li>
-        Only for features you turn on: RoValra's public server list (server picking and server cities), cloud endpoints
-        for the ping test, and Roblox's own website on the Avatar page, where you sign in on Roblox's page.
+        Only for features you turn on: RoValra's public server list (server picking and server cities) and cloud
+        endpoints for the ping test.
       </li>
       <li>Discord Rich Presence goes to the Discord app on your {computer}, and only when you turn it on.</li>
       <li>Logs and diagnostics remove your {osName} user name before they're written.</li>

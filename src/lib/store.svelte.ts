@@ -22,8 +22,7 @@ import type {
   UpdateState,
 } from './types';
 
-export type PageId =
-  'home' | 'recent' | 'avatar' | 'profiles' | 'flags' | 'customize' | 'performance' | 'settings' | 'about';
+export type PageId = 'home' | 'recent' | 'profiles' | 'flags' | 'customize' | 'performance' | 'settings' | 'about';
 
 export interface Toast {
   id: number;

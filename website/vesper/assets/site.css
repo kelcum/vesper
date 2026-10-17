@@ -572,6 +572,9 @@ a.btn-ghost:hover {
 .span-4 {
   grid-column: span 4;
 }
+.span-6 {
+  grid-column: span 6;
+}
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -1199,7 +1202,8 @@ footer .brand {
   .span-4 {
     grid-column: span 1;
   }
-  .bento .wide {
+  .bento .wide,
+  .span-6 {
     grid-column: span 2;
   }
   .spotlight,

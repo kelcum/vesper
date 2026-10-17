@@ -1,14 +1,11 @@
 <script lang="ts">
-  import { Activity, Flag, History, House, Info, Layers, Palette, Settings, UserRound } from '@lucide/svelte';
+  import { Activity, Flag, History, House, Info, Layers, Palette, Settings } from '@lucide/svelte';
   import iconUrl from '../../../assets/branding/icon.svg?url';
-  import { isMac } from '../../lib/platform';
   import { app, type PageId } from '../../lib/store.svelte';
 
   const nav: { id: PageId; label: string; icon: typeof House }[] = [
     { id: 'home', label: 'Home', icon: House },
     { id: 'recent', label: 'Recent', icon: History },
-    // The avatar editor docks Roblox's page into the window, which needs Windows.
-    ...(isMac ? [] : [{ id: 'avatar' as PageId, label: 'Avatar', icon: UserRound }]),
     { id: 'profiles', label: 'Profiles', icon: Layers },
     { id: 'flags', label: 'Fast Flags', icon: Flag },
     { id: 'customize', label: 'Customize', icon: Palette },

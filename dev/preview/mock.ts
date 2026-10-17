@@ -2,13 +2,11 @@
 // screenshotting screens without a backend. Nothing here can reach Roblox.
 //
 //   npm run dev, then open http://localhost:1420/dev/preview/#home
-//   (#home, #profiles, #flags, #customize, #performance, #settings, #about;
-//    add ?running to show Roblox as running, ?platform=macos for the Mac
-//    interface, ?locked for a read-only Roblox settings file, and
+//   (#home, #recent, #profiles, #flags, #customize, #performance, #settings,
+//    #about; add ?running to show Roblox as running, ?platform=macos for the
+//    Mac interface, ?locked for a read-only Roblox settings file,
 //    ?focus=<css selector> to scroll a section into view (&click to press a
-//    button first), ?still to skip
-//    transitions for screenshots; #recent and
-//    #avatar show the newer pages, the avatar signed in as a made-up player)
+//    button first), and ?still to skip transitions for screenshots)
 
 import catalog from '../../src-tauri/resources/flags/catalog.json';
 import sampleFont from '../../assets/fonts/Geist-SemiBold.ttf?url';
@@ -268,130 +266,6 @@ const pings = [
   city('Cape Town', 'ZA', 'africa', 238),
 ];
 
-// ---------------------------------------------------------------- avatar (a made-up player)
-
-const svg = (w: number, h: number, body: string) =>
-  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>${body}</svg>`)}`;
-const avatarRender = svg(
-  420,
-  420,
-  `<ellipse cx='210' cy='388' rx='92' ry='12' fill='#000' opacity='.25'/>` +
-    `<rect x='160' y='300' width='42' height='80' rx='8' fill='#2a2b44'/><rect x='218' y='300' width='42' height='80' rx='8' fill='#2a2b44'/>` +
-    `<rect x='154' y='368' width='52' height='18' rx='7' fill='#f4f4f8'/><rect x='214' y='368' width='52' height='18' rx='7' fill='#f4f4f8'/>` +
-    `<rect x='150' y='184' width='120' height='124' rx='16' fill='#a596ff'/><rect x='190' y='184' width='40' height='54' rx='6' fill='#8b7bf0'/>` +
-    `<rect x='112' y='190' width='36' height='108' rx='12' fill='#a596ff'/><rect x='272' y='190' width='36' height='108' rx='12' fill='#a596ff'/>` +
-    `<rect x='114' y='290' width='32' height='26' rx='10' fill='#f1c7a5'/><rect x='274' y='290' width='32' height='26' rx='10' fill='#f1c7a5'/>` +
-    `<rect x='164' y='86' width='92' height='92' rx='22' fill='#f1c7a5'/>` +
-    `<path d='M158 120 q0-52 52-52 q52 0 52 52 l0 6 q-10-30-52-30 q-42 0-52 30z' fill='#3a2f5e'/>` +
-    `<circle cx='192' cy='134' r='6' fill='#1b1b2a'/><circle cx='228' cy='134' r='6' fill='#1b1b2a'/>` +
-    `<path d='M196 156 q14 10 28 0' stroke='#1b1b2a' stroke-width='4' fill='none' stroke-linecap='round'/>` +
-    `<path d='M154 128 q0-66 56-66 q56 0 56 66' stroke='#22223a' stroke-width='9' fill='none'/>` +
-    `<rect x='144' y='118' width='20' height='34' rx='8' fill='#22223a'/><rect x='256' y='118' width='20' height='34' rx='8' fill='#22223a'/>`,
-);
-const thumb = (body: string) => svg(150, 150, `<rect width='150' height='150' rx='18' fill='#262640'/>${body}`);
-const avatarItems = [
-  {
-    id: 9000000101,
-    name: 'Midnight Waves',
-    type: { id: 41, name: 'HairAccessory' },
-    art: thumb(`<path d='M30 90 q0-60 45-60 q45 0 45 60 l0 20 q-12-34-45-34 q-33 0-45 34z' fill='#3a2f5e'/>`),
-  },
-  {
-    id: 9000000102,
-    name: 'Night Shift Headphones',
-    type: { id: 8, name: 'Hat' },
-    art: thumb(
-      `<path d='M35 90 q0-55 40-55 q40 0 40 55' stroke='#a596ff' stroke-width='10' fill='none'/><rect x='24' y='80' width='24' height='38' rx='9' fill='#a596ff'/><rect x='102' y='80' width='24' height='38' rx='9' fill='#a596ff'/>`,
-    ),
-  },
-  {
-    id: 9000000103,
-    name: 'Lavender Hoodie',
-    type: { id: 67, name: 'JacketAccessory' },
-    art: thumb(
-      `<path d='M45 40 h60 l25 30 -16 14 -9-9 v55 h-60 v-55 l-9 9 -16-14z' fill='#a596ff'/><rect x='62' y='40' width='26' height='30' rx='6' fill='#8b7bf0'/>`,
-    ),
-  },
-  {
-    id: 9000000104,
-    name: 'Dusk Joggers',
-    type: { id: 12, name: 'Pants' },
-    art: thumb(`<path d='M50 30 h50 l6 90 h-22 l-9-60 -9 60 h-22z' fill='#2f3150'/>`),
-  },
-  {
-    id: 9000000105,
-    name: 'Cloud Runners',
-    type: { id: 70, name: 'LeftShoeAccessory' },
-    art: thumb(`<path d='M30 95 q4-28 30-28 l22 10 q30 4 40 18 v12 h-92z' fill='#f4f4f8'/>`),
-  },
-  {
-    id: 9000000106,
-    name: 'Starlight Backpack',
-    type: { id: 46, name: 'BackAccessory' },
-    art: thumb(
-      `<rect x='42' y='36' width='66' height='84' rx='18' fill='#5fd3a6'/><rect x='56' y='72' width='38' height='28' rx='8' fill='#46b48b'/>`,
-    ),
-  },
-];
-const wearing = new Set(avatarItems.slice(0, 5).map((i) => i.id));
-const asset = (i: (typeof avatarItems)[number]) => ({ id: i.id, name: i.name, assetType: i.type });
-const skin = 'F1C7A5';
-function avatarApi({ url }: { url: string }) {
-  const u = new URL(url);
-  const path = u.pathname;
-  if (path === '/v1/users/authenticated') return { id: 1, name: 'player', displayName: 'Player' };
-  if (path === '/v2/avatar/avatar')
-    return {
-      scales: { height: 1, width: 1, head: 1, depth: 1, proportion: 0, bodyType: 0 },
-      playerAvatarType: 'R15',
-      bodyColor3s: {
-        headColor3: skin,
-        torsoColor3: skin,
-        rightArmColor3: skin,
-        leftArmColor3: skin,
-        rightLegColor3: skin,
-        leftLegColor3: skin,
-      },
-      assets: avatarItems.filter((i) => wearing.has(i.id)).map(asset),
-    };
-  if (path === '/v1/avatar-rules')
-    return {
-      scales: {
-        height: { min: 0.9, max: 1.05, increment: 0.01 },
-        width: { min: 0.7, max: 1, increment: 0.01 },
-        head: { min: 0.95, max: 1, increment: 0.01 },
-        proportion: { min: 0, max: 1, increment: 0.01 },
-        bodyType: { min: 0, max: 1, increment: 0.01 },
-      },
-      wearableAssetTypes: [{ id: 8, name: 'Hat', maxNumber: 3 }],
-      bodyColorsPalette: ['F1C7A5', 'E0A57E', 'C58C5E', '8D5A3B', '5C3A25', 'F8E1CF'].map((hex, i) => ({
-        brickColorId: i + 1,
-        hexColor: `#${hex}`,
-        name: `Skin ${i + 1}`,
-      })),
-    };
-  if (path === '/v1/users/avatar') return { data: [{ targetId: 1, state: 'Completed', imageUrl: avatarRender }] };
-  if (path === '/v1/assets') {
-    const ids = (u.searchParams.get('assetIds') ?? '').split(',').map(Number);
-    return {
-      data: avatarItems
-        .filter((i) => ids.includes(i.id))
-        .map((i) => ({ targetId: i.id, state: 'Completed', imageUrl: i.art })),
-    };
-  }
-  if (path.includes('/inventory'))
-    return { data: avatarItems.map((i) => ({ assetId: i.id, assetName: i.name })), nextPageCursor: null };
-  if (path.includes('/outfits')) return { data: [] };
-  return {};
-}
-if (location.hash === '#avatar') {
-  try {
-    localStorage.setItem('vesper.avatar.used', '1');
-  } catch {
-    /* preview only */
-  }
-}
-
 const bootstrap = () => ({
   version: pkg.version,
   portable: false,
@@ -522,7 +396,6 @@ const handlers: Record<string, (args: any) => unknown> = {
     },
   }),
   history_get: () => history,
-  avatar_api: avatarApi,
   servers_regions: () => regions,
   servers_scan: async () => (await new Promise((r) => setTimeout(r, 600)), pings),
   shaders_info: () => ({

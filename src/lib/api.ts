@@ -36,14 +36,6 @@ import type {
   ShaderStatus,
 } from './types';
 
-/** Physical pixels inside Vesper's window. */
-export interface Bounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 export class ProblemError extends Error {
   constructor(public problem: Problem) {
     super(problem.what || problem.title);
@@ -98,15 +90,6 @@ export const api = {
   shadersInfo: () => call<{ status: ShaderStatus; presets: Option[] }>('shaders_info'),
   shadersPreset: (id: string) => call<ShaderParams>('shaders_preset', { id }),
 
-  avatarOpen: (bounds: Bounds, page: 'editor' | 'bridge' | 'login' | null, visible: boolean) =>
-    call<void>('avatar_open', { bounds, page, visible }),
-  avatarBounds: (bounds: Bounds) => call<void>('avatar_bounds', { bounds }),
-  avatarHide: () => call<void>('avatar_hide'),
-  avatarClose: () => call<void>('avatar_close'),
-  avatarReload: () => call<void>('avatar_reload'),
-  avatarApi: <T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, body?: unknown) =>
-    call<T>('avatar_api', { method, url, body: body ?? null }),
-  avatarSignOut: () => call<void>('avatar_sign_out'),
   robloxLatest: (refresh = false) => call<LatestVersion | null>('roblox_latest', { refresh }),
 
   flagsValidate: (flags: FlagSet) => call<Issue[]>('flags_validate', { flags }),

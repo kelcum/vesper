@@ -61,22 +61,13 @@
             immediately closes a connection to a public endpoint in each of 27 cities
             (<code>dynamodb.*.amazonaws.com</code>) to time the round trip. No data is sent over these connections.
           </li>
-          <li>
-            <strong>Roblox's website</strong>, only if you open the Avatar page and sign in (Windows): Roblox's real
-            login page runs inside Vesper, in a separate browser profile. Your password and session stay with that page;
-            Vesper's code never reads them. Vesper's avatar tools ask that page to make Roblox's avatar, inventory and
-            outfit requests for you. “Sign out” ends the session on Roblox's servers and deletes it from your computer.
-          </li>
         </ul>
 
         <h2>What Vesper never does</h2>
         <ul>
           <li>Collect telemetry, analytics or crash reports.</li>
           <li>Read Roblox cookies, authentication tickets, passwords or tokens.</li>
-          <li>
-            Read your friends or chat. Your avatar, inventory and outfits are read only on the Avatar page, when you
-            sign in there.
-          </li>
+          <li>Read your friends, chat, avatar or inventory.</li>
           <li>Inject code into Roblox or interfere with its anti-cheat.</li>
           <li>Install anything else or run hidden processes.</li>
         </ul>

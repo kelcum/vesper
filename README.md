@@ -65,8 +65,6 @@ can't measure something.
 - **Shaders** (Windows): colour grading laid over your game while you play,
   with seven looks and sliders. Nothing is loaded into Roblox: Vesper grades a
   capture of Roblox's window, as screen recorders do.
-- **Avatar** (Windows): wear and take off items, wear anything you own by ID,
-  change body colours, scale and outfits, signed in on Roblox's own page.
 - **Performance**: Roblox's and your PC's CPU, memory and GPU use, plus frame
   rate and frame timing from Direct3D present events where Windows allows it.
 - **Discord Rich Presence**, built in and off until you turn it on: "Using
@@ -86,11 +84,11 @@ can't measure something.
   </tr>
   <tr>
     <td><img src="docs/screenshots/recent.png" alt="Recent games page with the game being played and earlier servers"></td>
-    <td><img src="docs/screenshots/avatar.png" alt="Avatar page with Vesper's tools and the items being worn"></td>
+    <td><img src="docs/screenshots/shaders.png" alt="Shaders section with the Cinematic look and its sliders"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/shaders.png" alt="Shaders section with the Cinematic look and its sliders"></td>
     <td><img src="docs/screenshots/sky.png" alt="Sky card with the Sunset sky and the font card"></td>
+    <td><img src="docs/screenshots/servers.png" alt="Server settings with the ping to every Roblox region"></td>
   </tr>
 </table>
 

@@ -4,7 +4,6 @@
 // on failure paths that are rare and never in hot loops, so its size is fine.
 #![allow(clippy::result_large_err)]
 
-pub mod avatar;
 pub mod backup;
 pub mod cleanup;
 pub mod commands;
@@ -93,6 +92,7 @@ pub fn run() {
             state.refresh_presence();
 
             tray::create(&handle)?;
+            forget_avatar_page(&state.paths.cache);
             if state.roblox_running.load(std::sync::atomic::Ordering::Relaxed) {
                 playing::start(&handle);
             }
@@ -114,10 +114,6 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // The docked Roblox page closes like any other window.
-            if window.label() != "main" {
-                return;
-            }
             let app = window.app_handle();
             let state = app.state::<AppState>();
             match event {
@@ -202,13 +198,6 @@ pub fn run() {
             commands::app_hide,
             commands::app_quit,
             commands::app_ready,
-            avatar::avatar_open,
-            avatar::avatar_bounds,
-            avatar::avatar_hide,
-            avatar::avatar_close,
-            avatar::avatar_reload,
-            avatar::avatar_api,
-            avatar::avatar_sign_out,
             customize::mods_get,
             customize::mods_set_cursor,
             customize::mods_set_wheel,
@@ -254,5 +243,17 @@ fn fit_window_to_screen(app: &tauri::AppHandle) {
         let height = (area.height * 0.92).max(600.0).min(area.height);
         let _ = w.set_size(tauri::LogicalSize::new(width, height));
         let _ = w.center();
+    }
+}
+
+/// 0.3.0 had an Avatar page that kept its own browser profile, holding the
+/// Roblox sign-in made there. The page is gone, so its data goes too.
+fn forget_avatar_page(cache: &std::path::Path) {
+    let dir = cache.join("roblox-web");
+    if dir.exists() {
+        std::thread::spawn(move || match std::fs::remove_dir_all(&dir) {
+            Ok(()) => log::info!("Removed the old Avatar page's browser data"),
+            Err(e) => log::warn!("Couldn't remove the old Avatar page's browser data: {e}"),
+        });
     }
 }

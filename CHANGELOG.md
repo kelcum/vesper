@@ -6,6 +6,16 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-17
+
+### Removed
+
+- The Avatar page. It didn't work reliably, so it's gone rather than half
+  working. When 0.3.2 starts, it deletes the browser data that page kept on
+  your computer, including the Roblox sign-in made there. To end that session
+  on Roblox's side too, use “Log out of all other sessions” in Roblox's
+  security settings.
+
 ## [0.3.1] - 2026-10-17
 
 ### Added
