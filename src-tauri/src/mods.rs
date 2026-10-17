@@ -1060,7 +1060,7 @@ mod tests {
     fn sky_replaces_robloxs_faces_and_restores_them() {
         let e = env();
         for face in crate::sky::FACES {
-            let p = e.install.join(crate::sky::face_rel(face));
+            let p = e.install.join(rel_path(&crate::sky::face_rel(face)));
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
             std::fs::write(p, format!("original {face}")).unwrap();
         }
