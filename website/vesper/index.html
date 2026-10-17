@@ -59,7 +59,7 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <a class="btn btn-primary" href="download/Vesper_0.3.0_x64-setup.exe" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.1_x64-setup.exe" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -75,7 +75,7 @@
             </svg>
             Download for Windows</a
           >
-          <a class="btn btn-primary" href="download/Vesper_0.3.0_universal.dmg" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.1_universal.dmg" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -96,7 +96,7 @@
         </div>
         <!-- build:hero-meta -->
         <p class="cta-meta reveal">
-          Version 0.3.0 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
+          Version 0.3.1 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
         </p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
@@ -106,7 +106,7 @@
               width="1180"
               height="760"
               fetchpriority="high"
-              alt="Vesper's home screen: a Launch Roblox button with the Balanced profile, Roblox 0.742 up to date, one Fast Flag accepted by Roblox, and live CPU and memory."
+              alt="Vesper's home screen while playing: Restart and rejoin, the lowest-ping server choice, and a Now playing card with the game, play time and server city."
             />
           </div>
         </div>
@@ -197,8 +197,9 @@
             </div>
             <h3>Launch, or jump straight in</h3>
             <p>
-              Open Roblox, or paste a game or <code>roblox://</code> link. Vesper follows Roblox through its own updates
-              and tells you plainly if it closes.
+              Open Roblox, or paste a game or <code>roblox://</code> link. Already playing? Restart and rejoin puts you
+              back in the same server. While you play, Vesper minimizes, hides in the tray or leaves completely, as you
+              like.
             </p>
           </article>
           <article class="card glass span-2 reveal">
@@ -348,8 +349,9 @@
             </div>
             <h3>Shaders and skies</h3>
             <p>
-              Seven colour-grading looks with fine-tuning sliders, laid over the game without touching Roblox, so its
-              anti-cheat has nothing to see. Plus built-in skies, or your own 360° picture. Shaders are Windows only.
+              Seven colour-grading looks with fine-tuning sliders, laid over your game while you play without touching
+              Roblox, so its anti-cheat has nothing to see. Plus built-in skies, or your own 360° picture. Shaders are
+              Windows only.
             </p>
           </article>
           <article class="card glass span-3 reveal">
@@ -417,11 +419,13 @@
         <div class="spot-text reveal">
           <p class="eyebrow">Customize</p>
           <h2>Make Roblox <span class="gradient-text">yours.</span></h2>
-          <p class="lead">Swap what you see and hear in every game, and get it all back with one click.</p>
+          <p class="lead">Swap what you see and hear in Roblox, and get it all back with one click.</p>
           <ul>
             <li><b>Your picture as the emote wheel,</b> cut into a circle with Roblox's slots on top</li>
             <li><b>Cursor styles in any colour and size,</b> or your own image</li>
             <li><b>Your font and death sound</b> across Roblox's interface</li>
+            <li><b>Your own sky:</b> built-in looks or a 360° picture, in games that use Roblox's default sky</li>
+            <li><b>Shaders</b> that grade your game while you play (Windows)</li>
             <li><b>Originals backed up</b> and restored when you switch something off</li>
           </ul>
         </div>
@@ -432,6 +436,30 @@
             height="760"
             loading="lazy"
             alt="Vesper's Customize page: cursor styles with size and colour, and an emote wheel preview on a Roblox baseplate."
+          />
+        </figure>
+      </section>
+
+      <!-- ============================================================ play -->
+      <section id="play" class="wrap spotlight">
+        <div class="spot-text reveal">
+          <p class="eyebrow">Playing</p>
+          <h2>Back in your server <span class="gradient-text">in one click.</span></h2>
+          <p class="lead">Vesper knows which game and server you're in, however you started it, and keeps it handy.</p>
+          <ul>
+            <li><b>Now playing</b> with the game, your time in it and the server's city</li>
+            <li><b>Recent games</b> with their servers, kept only on your computer, and easy to clear</li>
+            <li><b>Lowest-ping servers,</b> or one in the region you pick</li>
+            <li><b>Discord</b> can show your game, with Join server and Roblox profile buttons if you want them</li>
+          </ul>
+        </div>
+        <figure class="shot glass reveal">
+          <img
+            src="shots/recent.webp"
+            width="1180"
+            height="760"
+            loading="lazy"
+            alt="Vesper's Recent games page: the game being played, earlier games with their servers' cities, and buttons to join the same server again."
           />
         </figure>
       </section>
@@ -631,9 +659,29 @@
             id="t-home"
             aria-controls="s-home"
             aria-selected="true"
-            data-caption="Home: launch with a profile, or paste a game link. The Last check card shows what Roblox accepted."
+            data-caption="Home: launch with a profile or a game link. While you play, it shows the game, your time in it and the server's city, with Rejoin a click away."
           >
             Home
+          </button>
+          <button
+            role="tab"
+            id="t-recent"
+            aria-controls="s-recent"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Recent games: every game and server you played, kept only on your computer. Join the same server again, or clear the list."
+          >
+            Recent
+          </button>
+          <button
+            role="tab"
+            id="t-avatar"
+            aria-controls="s-avatar"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Avatar (Windows): wear, swap and take off items, change colours, scale and outfits. You sign in on Roblox's own page."
+          >
+            Avatar
           </button>
           <button
             role="tab"
@@ -667,6 +715,26 @@
           </button>
           <button
             role="tab"
+            id="t-sky"
+            aria-controls="s-sky"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Sky: five built-in skies or your own 360° picture, in games that use Roblox's default sky."
+          >
+            Sky
+          </button>
+          <button
+            role="tab"
+            id="t-shaders"
+            aria-controls="s-shaders"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Shaders (Windows): colour grading over your game while you play, with seven looks and fine-tuning. Nothing is loaded into Roblox."
+          >
+            Shaders
+          </button>
+          <button
+            role="tab"
             id="t-perf"
             aria-controls="s-perf"
             aria-selected="false"
@@ -677,11 +745,31 @@
           </button>
           <button
             role="tab"
+            id="t-discord"
+            aria-controls="s-discord"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Discord: show the game you're in, your play time, and Join server and Roblox profile buttons, each with its own switch."
+          >
+            Discord
+          </button>
+          <button
+            role="tab"
+            id="t-servers"
+            aria-controls="s-servers"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Servers: join the lowest-ping server or one in a region you pick, with your ping to every Roblox region."
+          >
+            Servers
+          </button>
+          <button
+            role="tab"
             id="t-settings"
             aria-controls="s-settings"
             aria-selected="false"
             tabindex="-1"
-            data-caption="Settings: updates, backups and recovery, all in one place."
+            data-caption="Settings: what Vesper does while you play (down to hiding completely), updates, backups and recovery."
           >
             Settings
           </button>
@@ -695,7 +783,23 @@
               width="1180"
               height="760"
               loading="lazy"
-              alt="Vesper's home screen."
+              alt="Vesper's home screen while playing a game."
+            />
+            <img
+              id="s-recent"
+              src="shots/recent.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Recent games page."
+            />
+            <img
+              id="s-avatar"
+              src="shots/avatar.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Avatar page with Vesper's tools."
             />
             <img
               id="s-flags"
@@ -722,12 +826,44 @@
               alt="The Customize page."
             />
             <img
+              id="s-sky"
+              src="shots/sky.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Sky card on the Customize page."
+            />
+            <img
+              id="s-shaders"
+              src="shots/shaders.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Shaders section on the Customize page."
+            />
+            <img
               id="s-perf"
               src="shots/performance.webp"
               width="1180"
               height="760"
               loading="lazy"
               alt="The Performance page."
+            />
+            <img
+              id="s-discord"
+              src="shots/discord.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="Discord settings with a preview of the status."
+            />
+            <img
+              id="s-servers"
+              src="shots/servers.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="Server settings with ping to every region."
             />
             <img
               id="s-settings"
@@ -740,7 +876,8 @@
           </div>
         </div>
         <p class="tour-caption" aria-live="polite">
-          Home: launch with a profile, or paste a game link. The Last check card shows what Roblox accepted.
+          Home: launch with a profile or a game link. While you play, it shows the game, your time in it and the
+          server's city, with Rejoin a click away.
         </p>
       </section>
 
@@ -789,7 +926,7 @@
             </p>
             <!-- build:download -->
             <div class="cta">
-              <a class="btn btn-primary" href="download/Vesper_0.3.0_x64-setup.exe" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.1_x64-setup.exe" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -805,7 +942,7 @@
                 </svg>
                 Download for Windows</a
               >
-              <a class="btn btn-primary" href="download/Vesper_0.3.0_universal.dmg" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.1_universal.dmg" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -830,67 +967,70 @@
               </li>
               <li>
                 <b>Portable:</b>
-                <a href="download/Vesper_0.3.0_x64-portable.zip" download>Vesper_0.3.0_x64-portable.zip</a> (5.7 MB),
+                <a href="download/Vesper_0.3.1_x64-portable.zip" download>Vesper_0.3.1_x64-portable.zip</a> (5.7 MB),
                 keeps everything in a folder next to Vesper.exe
               </li>
-              <li><b>SHA-256</b> <code>291368bb0c649035b88aa424a94edf3cdfaba31ca6f582c2b76896a7c6dcd395</code></li>
+              <li><b>SHA-256</b> <code>b91294654bad7a470b2277bd3d9ca7664a2522eaad397cc6389e8b7aa49654b5</code></li>
               <li>
                 <b>macOS:</b>
-                <a href="download/Vesper_0.3.0_universal.dmg" download>Vesper_0.3.0_universal.dmg</a> (10.5 MB), macOS
+                <a href="download/Vesper_0.3.1_universal.dmg" download>Vesper_0.3.1_universal.dmg</a> (10.6 MB), macOS
                 11 or later, Apple silicon and Intel. SHA-256
-                <code>0c99879b478eeb68594a448086c7d30970bd9c2f506636fce5a1d70cc0971bfb</code>
+                <code>20f3be26d661406d58e829ae1c281eca05a77a0bc76cd40e787123bdac0e8c13</code>
               </li>
             </ul>
             <details>
-              <summary>What's new in 0.3.0</summary>
+              <summary>What's new in 0.3.1</summary>
               <h3>Added</h3>
               <ul>
                 <li>
-                  Now playing: Home shows the game you&#39;re in (name, creator, icon, how long you&#39;ve played and,
-                  if you turn it on, which city the server is in), with buttons to copy a link that joins your exact
-                  server, open the game&#39;s page, or rejoin. Vesper reads this from Roblox&#39;s own log, so it works
-                  however the game was started.
+                  “Hide completely” in Settings → After launching Roblox: Vesper leaves the taskbar and the tray while
+                  Roblox runs. It comes back when Roblox closes, or when you open Vesper again.
+                </li>
+              </ul>
+              <h3>Changed</h3>
+              <ul>
+                <li>
+                  Shaders run only while you&#39;re in a game, not on Roblox&#39;s home screen and menus, and stay on
+                  when you click another window. Windows you put in front of Roblox stay in front of it.
                 </li>
                 <li>
-                  Recent games: a new page lists the games and servers you&#39;ve played, with the server&#39;s city,
-                  how long you played, and buttons to join the same server again, play the game, or copy the link.
-                  It&#39;s kept only on your computer; turn it off or clear it any time.
+                  Customize explains where a custom font and sky show: Roblox&#39;s menus and the games that use
+                  Roblox&#39;s built-in fonts and default sky. Games that bring their own fonts or sky keep them.
                 </li>
                 <li>
-                  Server picking: games you join from Vesper can go to the lowest-ping server, or to a region you choose
-                  (NA East, Europe West, Asia and more, or a single city). Settings → Servers measures your ping to
-                  every Roblox region. Server locations come from RoValra&#39;s public database; only the game&#39;s
-                  place ID is sent. If a region has no open server, Vesper says so and picks the lowest-ping one.
-                </li>
-                <li>
-                  Discord: new options to show the game you&#39;re playing with its icon and your play time, a “Join
-                  server” button that opens Roblox in your server (public servers only), and a “Roblox profile” button.
-                </li>
-                <li>
-                  Avatar (Windows): change your avatar inside Vesper. Wear and take off accessories, wear anything you
-                  own by its ID (Vesper adds no limits of its own; Roblox&#39;s rules decide), browse your inventory,
-                  change body colours, scale and R6/R15, and switch outfits. Roblox&#39;s own editor is a click away.
-                  You sign in on Roblox&#39;s real login page; Vesper never reads your password or session.
-                </li>
-                <li>
-                  Shaders (Windows): colour grading for everything you see in Roblox, with seven looks (Vivid,
-                  Cinematic, Crisp, Golden hour, Moonlight, Soft glow, Noir) and sliders for brightness, contrast,
-                  saturation, warmth, sharpening, glow, film tone and vignette. Nothing is loaded into Roblox: Vesper
-                  grades a capture of Roblox&#39;s window, as screen recorders do, and lays it over the game, so
-                  it&#39;s safe with Roblox&#39;s anti-cheat. It costs about one frame of delay. Switch it from the tray
-                  too.
-                </li>
-                <li>
-                  Custom skies: five built-in skies (Midnight, Sunset, Dawn, Overcast, Void), or your own 360° panorama
-                  or six pictures, in every game that doesn&#39;t set its own sky.
+                  Discord: if you turned Rich Presence on before 0.3, it doesn&#39;t start showing the game you&#39;re
+                  playing until you switch that on.
                 </li>
               </ul>
               <h3>Fixed</h3>
               <ul>
                 <li>
-                  Launching while Roblox is open did nothing, because Roblox only runs once. The button now says
-                  “Restart and rejoin”: Vesper closes Roblox (asking first, ending it only if it doesn&#39;t respond),
-                  applies your profile and customisations, and joins the same server again. The tray has it too.
+                  Avatar: Roblox&#39;s page could stay on top of Vesper&#39;s avatar tools (and other pages) after
+                  leaving Roblox&#39;s editor, and could show up blank.
+                </li>
+                <li>
+                  Avatar: the Outfits tab kept reloading when you had no saved outfits, items you own more than once
+                  appeared twice in Inventory, and signing in could queue up repeated checks.
+                </li>
+                <li>
+                  Recent games: servers from before Vesper opened were recorded as played until Vesper started, and
+                  rejoining a server kept its old start time, which could also mix up the days.
+                </li>
+                <li>
+                  Restarting Roblox could miss that it had closed, so the old game stayed shown during the relaunch.
+                </li>
+                <li>
+                  Shaders: the status could read “off” after going straight to another game, and the grade didn&#39;t
+                  show over a Roblox window set to always on top.
+                </li>
+                <li>Server picking could mix up two cities with the same name in different countries.</li>
+                <li>
+                  A sky that couldn&#39;t be encoded completely could leave one side of the previous sky in place; now
+                  nothing changes and Vesper says so.
+                </li>
+                <li>
+                  Ending a Roblox that didn&#39;t close only tried until the first failure, and could also end a Roblox
+                  that started meanwhile.
                 </li>
               </ul>
             </details>
@@ -1066,6 +1206,14 @@
               anti-cheat. Vesper grades a capture of Roblox's window, as screen recorders do, and lays the result over
               the game while you play. For experiences you build yourself, the same looks come as a Roblox Studio
               script.
+            </p>
+          </details>
+          <details>
+            <summary>Why don't I see my sky or font in some games?</summary>
+            <p>
+              Vesper replaces Roblox's default sky and Roblox's built-in fonts. Games that set their own sky, or draw
+              text with their own fonts, show theirs instead, as they do with every launcher. Roblox's menus and games
+              that keep the defaults show yours. Changes appear the next time Roblox starts.
             </p>
           </details>
           <details>

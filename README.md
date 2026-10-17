@@ -15,7 +15,7 @@ A fast, private Roblox launcher for Windows and macOS.</p>
   <a href="SECURITY.md">Security</a>
 </p>
 
-<p align="center"><img src="docs/screenshots/home.png" alt="Vesper's home screen showing Roblox 0.742 up to date and one Fast Flag accepted by Roblox" width="860"></p>
+<p align="center"><img src="docs/screenshots/home.png" alt="Vesper's home screen while playing: Restart and rejoin, the lowest-ping server choice and a Now playing card" width="860"></p>
 
 ---
 
@@ -38,7 +38,14 @@ can't measure something.
 - **Launch** the Roblox app, or join a game from a place ID, game link,
   private-server link or `roblox://` link. Vesper follows Roblox through its
   own self-updates and tells you, in plain language, if Roblox closes or never
-  opens.
+  opens. Already playing? *Restart and rejoin* puts you back in the same
+  server. While Roblox runs, Vesper can stay, minimize, hide in the tray or
+  leave the taskbar and tray completely.
+- **Now playing and Recent games**: the game and server you're in (with the
+  server's city, if you turn that on), and a list of earlier games and servers
+  to join again. Kept only on your computer; turn it off or clear it any time.
+- **Server picking**: join the lowest-ping server, or one in a region or city
+  you choose, using RoValra's public server list and your measured ping.
 - **Fast Flags** for all 18 allowlisted flags, explained in plain language,
   with risk, confidence in the described behaviour, sources, and Roblox's
   published values. Conflicts (two graphics APIs at once, a texture level
@@ -52,10 +59,19 @@ can't measure something.
   240, 360, 480, unlimited, custom, or your display's refresh rate.
 - **Customize** Roblox's cursor and emote wheel (built-in styles or your own
   image, generated at every size Roblox uses, with a highlight colour), its
-  font and death sound, or any other file. Originals are backed up and put back.
+  font and death sound, its default sky (built-in skies, a 360° picture or six
+  pictures), or any other file. Originals are backed up and put back. Games
+  that bring their own fonts or sky keep them.
+- **Shaders** (Windows): colour grading laid over your game while you play,
+  with seven looks and sliders. Nothing is loaded into Roblox: Vesper grades a
+  capture of Roblox's window, as screen recorders do.
+- **Avatar** (Windows): wear and take off items, wear anything you own by ID,
+  change body colours, scale and outfits, signed in on Roblox's own page.
 - **Performance**: Roblox's and your PC's CPU, memory and GPU use, plus frame
   rate and frame timing from Direct3D present events where Windows allows it.
-- **Discord Rich Presence**, built in: "Using Vesper" with a *Get Vesper* button.
+- **Discord Rich Presence**, built in and off until you turn it on: "Using
+  Vesper", or the game you're in with your play time, and optional *Join
+  server* and *Roblox profile* buttons.
 - **Backups and recovery**, diagnostics you can paste into a bug report, a
   system tray icon, start with Windows, and signed updates.
 
@@ -67,6 +83,14 @@ can't measure something.
   <tr>
     <td><img src="docs/screenshots/customize.png" alt="Customize page with the Vesper dot cursor and Dusk emote wheel"></td>
     <td><img src="docs/screenshots/performance.png" alt="Performance page with live Roblox CPU, memory and GPU use"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/recent.png" alt="Recent games page with the game being played and earlier servers"></td>
+    <td><img src="docs/screenshots/avatar.png" alt="Avatar page with Vesper's tools and the items being worn"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/shaders.png" alt="Shaders section with the Cinematic look and its sliders"></td>
+    <td><img src="docs/screenshots/sky.png" alt="Sky card with the Sunset sky and the font card"></td>
   </tr>
 </table>
 

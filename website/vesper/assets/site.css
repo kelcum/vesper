@@ -779,7 +779,8 @@ td:nth-child(3) {
   gap: 2px;
   margin-top: 40px;
   padding: 5px;
-  border-radius: 999px;
+  /* A pill on one row, rounded corners when the tabs wrap. */
+  border-radius: 26px;
 }
 .tour-tabs button {
   height: 42px;
