@@ -6,9 +6,11 @@
 //! clears the presence immediately; closing Vesper closes the pipe, which
 //! makes Discord remove it.
 //!
-//! The presence contains only: Vesper's name and artwork, a short status,
-//! the session start time, and a "Get Vesper" button. No paths, games,
-//! account names or anything from Roblox.
+//! The presence contains: Vesper's name and artwork, a short status and the
+//! session start time. When the player turns them on, it also shows the game
+//! being played (name, creator, icon, time in game), a button that joins the
+//! same public server, and a button to their Roblox profile. Never paths,
+//! account names, server addresses or anything else from Roblox.
 
 use super::ipc::{default_pipe_base, Connection, IpcError};
 use serde::Serialize;
@@ -38,16 +40,73 @@ pub enum PresenceStatus {
     Error(String),
 }
 
+/// The game being played, as far as the player chose to share it.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GamePresence {
+    pub name: String,
+    pub creator: String,
+    /// A Roblox CDN image.
+    pub icon_url: Option<String>,
+    /// When the server was joined; `None` hides the timer.
+    pub joined_unix: Option<i64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PresenceState {
     pub roblox_running: bool,
     pub profile: Option<String>,
     pub show_profile: bool,
     pub show_roblox_status: bool,
+    pub game: Option<GamePresence>,
+    /// Opens Roblox in the same public server.
+    pub join_url: Option<String>,
+    pub profile_url: Option<String>,
+}
+
+/// Discord requires 2 to 128 characters for text fields.
+fn text(s: &str, max: usize) -> String {
+    let t: String = s.chars().take(max).collect();
+    if t.chars().count() < 2 {
+        format!("{t}  ")
+    } else {
+        t
+    }
+}
+
+fn buttons(state: &PresenceState) -> Value {
+    let mut b = Vec::new();
+    if let Some(url) = &state.join_url {
+        b.push(json!({ "label": "Join server", "url": url }));
+    }
+    if let Some(url) = &state.profile_url {
+        b.push(json!({ "label": "Roblox profile", "url": url }));
+    }
+    if b.len() < 2 {
+        b.push(json!({ "label": "Get Vesper", "url": PAGE_URL }));
+    }
+    Value::Array(b)
 }
 
 /// The activity Discord shows. Pure, so it is easy to test for privacy.
 pub fn activity(state: &PresenceState, started_unix: i64) -> Value {
+    if let Some(g) = &state.game {
+        let mut a = json!({
+            "details": text(&g.name, 128),
+            "state": text(&format!("by {}", g.creator), 128),
+            "assets": {
+                "large_image": g.icon_url.as_deref().unwrap_or(LARGE_IMAGE),
+                "large_text": text(&g.name, 128),
+                "small_image": LARGE_IMAGE,
+                "small_text": "Playing with Vesper",
+            },
+            "buttons": buttons(state),
+            "instance": false,
+        });
+        if let Some(t) = g.joined_unix {
+            a["timestamps"] = json!({ "start": t });
+        }
+        return a;
+    }
     let status = if state.roblox_running { "Playing Roblox" } else { "In the launcher" };
     let line = match (state.show_roblox_status, state.show_profile.then_some(state.profile.as_deref()).flatten()) {
         (true, Some(p)) => Some(format!("{status} · {p} profile")),
@@ -62,7 +121,7 @@ pub fn activity(state: &PresenceState, started_unix: i64) -> Value {
             "large_image": LARGE_IMAGE,
             "large_text": "Vesper · Roblox, tuned and verified",
         },
-        "buttons": [ { "label": "Get Vesper", "url": PAGE_URL } ],
+        "buttons": buttons(state),
         "instance": false,
     });
     // The badge shows whether Roblox is running, so it follows the same setting.
@@ -292,7 +351,37 @@ mod tests {
             profile: profile.map(str::to_owned),
             show_profile: true,
             show_roblox_status: true,
+            ..Default::default()
         }
+    }
+
+    #[test]
+    fn games_show_with_their_icon_timer_and_chosen_buttons() {
+        let mut s = state(true, Some("Balanced"));
+        s.game = Some(GamePresence {
+            name: "MIC UP".into(),
+            creator: "Wild Roleplay".into(),
+            icon_url: Some("https://tr.rbxcdn.com/x/512/512/Image/Png/noFilter".into()),
+            joined_unix: Some(1_800_000_000),
+        });
+        let a = activity(&s, 0);
+        assert_eq!(a["details"], "MIC UP");
+        assert_eq!(a["state"], "by Wild Roleplay");
+        assert_eq!(a["timestamps"]["start"], 1_800_000_000);
+        assert_eq!(a["assets"]["large_image"], "https://tr.rbxcdn.com/x/512/512/Image/Png/noFilter");
+        assert_eq!(a["buttons"].as_array().unwrap().len(), 1, "only Get Vesper without opt-in buttons");
+
+        s.join_url = Some("https://www.roblox.com/games/start?placeId=1&gameInstanceId=x".into());
+        s.profile_url = Some("https://www.roblox.com/users/1/profile".into());
+        let a = activity(&s, 0);
+        let labels: Vec<&str> = a["buttons"].as_array().unwrap().iter().map(|b| b["label"].as_str().unwrap()).collect();
+        assert_eq!(labels, ["Join server", "Roblox profile"], "Discord allows two buttons");
+
+        s.game.as_mut().unwrap().joined_unix = None;
+        s.game.as_mut().unwrap().name = "X".into();
+        let a = activity(&s, 0);
+        assert!(a.get("timestamps").is_none(), "play time can be hidden");
+        assert_eq!(a["details"].as_str().unwrap().len(), 3, "padded to Discord's minimum");
     }
 
     #[test]

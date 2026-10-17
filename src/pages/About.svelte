@@ -61,8 +61,12 @@
       <li>No telemetry, analytics or accounts.</li>
       <li>Never reads Roblox cookies, tokens or passwords.</li>
       <li>
-        Talks to <span class="mono">clientsettingscdn.roblox.com</span> (Roblox's public version and flag values) and
-        <span class="mono">xan.gripe</span> (update checks). Both anonymous.
+        Talks to <span class="mono">clientsettingscdn.roblox.com</span> (Roblox's public version and flag values),
+        Roblox's public game APIs (game names and icons) and <span class="mono">xan.gripe</span> (update checks). All anonymous.
+      </li>
+      <li>
+        Only for features you turn on: RoValra's public server list (server picking and server cities), cloud endpoints
+        for the ping test, and Roblox's own website on the Avatar page, where you sign in on Roblox's page.
       </li>
       <li>Discord Rich Presence goes to the Discord app on your {computer}, and only when you turn it on.</li>
       <li>Logs and diagnostics remove your {osName} user name before they're written.</li>

@@ -1,6 +1,6 @@
 [package]
 name = "vesper"
-version = "0.2.0"
+version = "0.3.0"
 description = "A calm, honest Roblox launcher for Windows and macOS."
 authors = ["The Vesper Authors"]
 license = "MIT"
@@ -39,7 +39,7 @@ notify = "8"
 url = "2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 base64 = "0.22"
-tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+tokio = { version = "1", features = ["sync", "time", "rt", "macros", "net"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
 
 [target.'cfg(windows)'.dependencies]
@@ -60,6 +60,20 @@ windows = { version = "0.62", features = [
   "Win32_Graphics_Dxgi_Common",
   "Win32_Graphics_Gdi",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_Graphics_Direct3D",
+  "Win32_Graphics_Direct3D_Fxc",
+  "Win32_Graphics_Direct3D11",
+  "Win32_Graphics_Dwm",
+  "Win32_System_LibraryLoader",
+  "Win32_System_WinRT",
+  "Win32_System_WinRT_Direct3D11",
+  "Win32_System_WinRT_Graphics_Capture",
+  "Foundation",
+  "Graphics",
+  "Graphics_Capture",
+  "Graphics_DirectX",
+  "Graphics_DirectX_Direct3D11",
   "Wdk_System_SystemInformation",
   "Wdk_System_SystemServices",
 ] }

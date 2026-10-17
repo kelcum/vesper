@@ -94,3 +94,17 @@ export function minorVersion(v: string | null | undefined): string {
   const p = v.split('.');
   return p.length >= 2 ? `${p[0]}.${p[1]}` : v;
 }
+
+/** "1 h 12 min", "4 min", "less than a minute" */
+export function duration(ms: number): string {
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'less than a minute';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  return min % 60 ? `${h} h ${min % 60} min` : `${h} h`;
+}
+
+/** "Private server", "Reserved server", or null for public servers. */
+export function serverKindLabel(kind: 'public' | 'private' | 'reserved'): string | null {
+  return kind === 'private' ? 'Private server' : kind === 'reserved' ? 'Reserved server' : null;
+}

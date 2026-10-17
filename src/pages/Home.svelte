@@ -5,6 +5,7 @@
     FolderOpen,
     Play,
     RefreshCw,
+    RotateCw,
     ShieldCheck,
     TriangleAlert,
     Download,
@@ -13,6 +14,8 @@
   import Badge from '../components/ui/Badge.svelte';
   import Button from '../components/ui/Button.svelte';
   import Card from '../components/ui/Card.svelte';
+  import NowPlaying from '../components/games/NowPlaying.svelte';
+  import ServerPicker from '../components/games/ServerPicker.svelte';
   import ProblemView from '../components/ui/ProblemView.svelte';
   import Select from '../components/ui/Select.svelte';
   import Sparkline from '../components/ui/Sparkline.svelte';
@@ -86,7 +89,11 @@
       case 'updating':
         return 'Roblox is updating…';
       default:
-        return app.robloxRunning ? 'Launch another' : parsed?.kind === 'experience' ? 'Join game' : 'Launch Roblox';
+        if (app.robloxRunning) {
+          if (parsed?.kind === 'experience') return 'Restart and join';
+          return app.nowPlaying ? 'Restart and rejoin' : 'Restart Roblox';
+        }
+        return parsed?.kind === 'experience' ? 'Join game' : 'Launch Roblox';
     }
   });
 
@@ -103,7 +110,9 @@
 
   async function launch() {
     if (parseError) return;
-    await app.attempt(() => api.robloxLaunch(target));
+    // Roblox runs once at a time: close it and start again (back into the same server when nothing else was asked for).
+    if (app.robloxRunning) await app.attempt(() => api.robloxRestart(target.trim() || null, !target.trim()));
+    else await app.attempt(() => api.robloxLaunch(target));
   }
 
   function setProfile(id: string) {
@@ -129,7 +138,7 @@
       <Button
         variant="primary"
         size="lg"
-        icon={Play}
+        icon={app.robloxRunning ? RotateCw : Play}
         loading={busy}
         disabled={!install || !!parseError}
         onclick={launch}
@@ -149,6 +158,9 @@
         />
         <p id="target-hint" class="hint" class:bad={!!parseError}>{targetHint}</p>
       </div>
+      <div class="server" title="For games you join from Vesper">
+        <ServerPicker />
+      </div>
     </div>
 
     {#if app.launch.state === 'failed'}
@@ -157,9 +169,12 @@
         <Button size="sm" variant="ghost" onclick={() => api.robloxDismissLaunch()}>Dismiss</Button>
       </div>
     {:else if app.robloxRunning}
+      {#if app.nowPlaying}
+        <NowPlaying now={app.nowPlaying} />
+      {/if}
       <p class="state ok">
-        <CircleCheck size={15} aria-hidden="true" /> Roblox is running. Flag and frame-rate changes apply the next time it
-        starts.
+        <CircleCheck size={15} aria-hidden="true" /> Roblox is running. Flag, customisation and frame-rate changes apply the
+        next time it starts; “{launchLabel}” does that now.
       </p>
     {:else if install && !busy}
       <p class="state">
@@ -361,6 +376,12 @@
     padding: var(--space-6);
     border-radius: var(--radius-xl);
     background: radial-gradient(120% 140% at 0% 0%, rgba(149, 132, 255, 0.16), transparent 50%), var(--surface);
+  }
+  .server {
+    flex: none;
+  }
+  .server :global(select) {
+    min-width: 200px;
   }
   .launch-row {
     display: flex;

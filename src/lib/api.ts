@@ -27,7 +27,22 @@ import type {
   UpdateState,
   Appearance,
   PresenceStatus,
+  NowPlaying,
+  Player,
+  History,
+  CityPing,
+  Option,
+  ShaderParams,
+  ShaderStatus,
 } from './types';
+
+/** Physical pixels inside Vesper's window. */
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export class ProblemError extends Error {
   constructor(public problem: Problem) {
@@ -72,6 +87,26 @@ export const api = {
   robloxParseTarget: (input: string) => call<LaunchTarget>('roblox_parse_target', { input }),
   robloxLaunch: (input?: string) => call<void>('roblox_launch', { input: input ?? null }),
   robloxDismissLaunch: () => call<void>('roblox_dismiss_launch'),
+  robloxRestart: (input: string | null, rejoin: boolean) => call<void>('roblox_restart', { input, rejoin }),
+
+  playingGet: () => call<{ now: NowPlaying | null; player: Player | null }>('playing_get'),
+  historyGet: () => call<History>('history_get'),
+  historyClear: () => call<History>('history_clear'),
+  historyRemove: (jobId: string) => call<History>('history_remove', { jobId }),
+  serversRegions: () => call<Option[]>('servers_regions'),
+  serversScan: (input: string | null, refresh = false) => call<CityPing[]>('servers_scan', { input, refresh }),
+  shadersInfo: () => call<{ status: ShaderStatus; presets: Option[] }>('shaders_info'),
+  shadersPreset: (id: string) => call<ShaderParams>('shaders_preset', { id }),
+
+  avatarOpen: (bounds: Bounds, page: 'editor' | 'bridge' | 'login' | null, visible: boolean) =>
+    call<void>('avatar_open', { bounds, page, visible }),
+  avatarBounds: (bounds: Bounds) => call<void>('avatar_bounds', { bounds }),
+  avatarHide: () => call<void>('avatar_hide'),
+  avatarClose: () => call<void>('avatar_close'),
+  avatarReload: () => call<void>('avatar_reload'),
+  avatarApi: <T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, body?: unknown) =>
+    call<T>('avatar_api', { method, url, body: body ?? null }),
+  avatarSignOut: () => call<void>('avatar_sign_out'),
   robloxLatest: (refresh = false) => call<LatestVersion | null>('roblox_latest', { refresh }),
 
   flagsValidate: (flags: FlagSet) => call<Issue[]>('flags_validate', { flags }),
@@ -141,9 +176,15 @@ export const api = {
     }),
   modsSetFont: (path: string) => call<ModsView>('mods_set_font', { path }),
   modsSetSound: (path: string) => call<ModsView>('mods_set_sound', { path }),
+  modsSetSky: (args: { preset?: string; panorama?: string; faces?: string[] }) =>
+    call<ModsView>('mods_set_sky', {
+      preset: args.preset ?? null,
+      panorama: args.panorama ?? null,
+      faces: args.faces ?? null,
+    }),
   modsUseLauncherFont: (launcher: string) => call<ModsView>('mods_use_launcher_font', { launcher }),
   modsSetCustom: (enabled: boolean) => call<ModsView>('mods_set_custom', { enabled }),
-  modsClear: (kind: 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'customFiles' | 'all') =>
+  modsClear: (kind: 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'sky' | 'customFiles' | 'all') =>
     call<ModsView>('mods_clear', { kind }),
   modsOpenCustomFolder: () => call<void>('mods_open_custom_folder'),
 

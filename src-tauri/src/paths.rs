@@ -114,6 +114,16 @@ impl AppPaths {
         self.config.join("profiles.json")
     }
 
+    /// Recently played games (only kept while history is on).
+    pub fn history_file(&self) -> PathBuf {
+        self.config.join("history.json")
+    }
+
+    /// Last known list of Roblox's server cities, for when RoValra can't be reached.
+    pub fn datacenters_file(&self) -> PathBuf {
+        self.cache.join("datacenters.json")
+    }
+
     /// Records which Roblox files Vesper wrote, so it never removes files it does not own.
     pub fn ownership_file(&self) -> PathBuf {
         self.config.join("applied.json")

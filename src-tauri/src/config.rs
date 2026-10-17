@@ -6,6 +6,7 @@
 //! shown to the user.
 
 use crate::paths::write_atomic;
+pub use crate::servers::ServerPick;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -214,11 +215,78 @@ pub struct DiscordSettings {
     pub show_profile: bool,
     /// Say whether Roblox is running.
     pub show_roblox_status: bool,
+    /// Show the game being played, with its icon.
+    pub show_game: bool,
+    /// Show how long the current game has been played.
+    pub show_play_time: bool,
+    /// A "Join server" button that opens Roblox in the same public server.
+    pub join_button: bool,
+    /// A "Roblox profile" button linking to the player's profile.
+    pub profile_button: bool,
 }
 
 impl Default for DiscordSettings {
     fn default() -> Self {
-        Self { rich_presence: false, show_profile: true, show_roblox_status: true }
+        Self {
+            rich_presence: false,
+            show_profile: true,
+            show_roblox_status: true,
+            show_game: true,
+            show_play_time: true,
+            join_button: false,
+            profile_button: false,
+        }
+    }
+}
+
+/// Which server a launch from Vesper joins.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ServerSettings {
+    pub pick: ServerPick,
+    /// A region id (`us-east`) or a city (`city:DE:Frankfurt am Main`).
+    pub region: String,
+}
+
+impl Default for ServerSettings {
+    fn default() -> Self {
+        Self { pick: ServerPick::Off, region: "us-east".into() }
+    }
+}
+
+/// Colour grading laid over Roblox's window (see `shade.rs`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ShaderSettings {
+    pub enabled: bool,
+    /// The look the sliders started from; `None` once they were moved.
+    pub preset: Option<String>,
+    pub params: crate::shade::ShaderParams,
+}
+
+impl Default for ShaderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            preset: Some("cinematic".into()),
+            params: crate::shade::preset("cinematic").unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GamesSettings {
+    /// Keep a list of recently played games and servers on this PC.
+    pub history: bool,
+    /// Look up which city a game's server is in (asks RoValra about the server's address).
+    pub locate_servers: bool,
+}
+
+impl Default for GamesSettings {
+    fn default() -> Self {
+        // Lookups ask RoValra, a third party, so they wait for the player's go-ahead.
+        Self { history: true, locate_servers: false }
     }
 }
 
@@ -267,6 +335,9 @@ pub struct Settings {
     pub performance: Performance,
     pub roblox: RobloxSettings,
     pub discord: DiscordSettings,
+    pub servers: ServerSettings,
+    pub games: GamesSettings,
+    pub shaders: ShaderSettings,
     pub updates: UpdateSettings,
     pub advanced: Advanced,
     pub last_launch: Option<LastLaunch>,
@@ -284,6 +355,9 @@ impl Default for Settings {
             performance: Performance::default(),
             roblox: RobloxSettings::default(),
             discord: DiscordSettings::default(),
+            servers: ServerSettings::default(),
+            games: GamesSettings::default(),
+            shaders: ShaderSettings::default(),
             updates: UpdateSettings::default(),
             advanced: Advanced::default(),
             last_launch: None,
@@ -313,6 +387,16 @@ impl Settings {
             if b.contains(['/', '\\']) || b.contains("..") || !b.starts_with("background.") {
                 self.appearance.background = None;
             }
+        }
+        self.shaders.params = self.shaders.params.clamped();
+        if self.shaders.preset.as_deref().is_some_and(|p| crate::shade::preset(p).is_none()) {
+            self.shaders.preset = None;
+        }
+        let region = &self.servers.region;
+        let valid_region = crate::servers::REGIONS.iter().any(|r| r.id == region)
+            || (region.starts_with("city:") && region.len() <= 80 && region.matches(':').count() == 2);
+        if !valid_region {
+            self.servers.region = ServerSettings::default().region;
         }
         if !["error", "warn", "info", "debug", "trace"].contains(&self.advanced.log_level.as_str()) {
             self.advanced.log_level = "info".into();

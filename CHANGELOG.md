@@ -6,6 +6,52 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-17
+
+### Added
+
+- Now playing: Home shows the game you're in (name, creator, icon, how long
+  you've played and, if you turn it on, which city the server is in), with
+  buttons to copy a link that joins your exact server, open the game's page,
+  or rejoin. Vesper reads this from Roblox's own log, so it works however the
+  game was started.
+- Recent games: a new page lists the games and servers you've played, with
+  the server's city, how long you played, and buttons to join the same server
+  again, play the game, or copy the link. It's kept only on your computer;
+  turn it off or clear it any time.
+- Server picking: games you join from Vesper can go to the lowest-ping
+  server, or to a region you choose (NA East, Europe West, Asia and more, or a
+  single city). Settings → Servers measures your ping to every Roblox region.
+  Server locations come from RoValra's public database; only the game's place
+  ID is sent. If a region has no open server, Vesper says so and picks the
+  lowest-ping one.
+- Discord: new options to show the game you're playing with its icon and your
+  play time, a “Join server” button that opens Roblox in your server (public
+  servers only), and a “Roblox profile” button.
+- Avatar (Windows): change your avatar inside Vesper. Wear and take off
+  accessories, wear anything you own by its ID (Vesper adds no limits of its
+  own; Roblox's rules decide), browse your inventory, change body colours,
+  scale and R6/R15, and switch outfits. Roblox's own editor is a click away.
+  You sign in on Roblox's real login page; Vesper never reads your password
+  or session.
+- Shaders (Windows): colour grading for everything you see in Roblox, with
+  seven looks (Vivid, Cinematic, Crisp, Golden hour, Moonlight, Soft glow,
+  Noir) and sliders for brightness, contrast, saturation, warmth, sharpening,
+  glow, film tone and vignette. Nothing is loaded into Roblox: Vesper grades a
+  capture of Roblox's window, as screen recorders do, and lays it over the
+  game, so it's safe with Roblox's anti-cheat. It costs about one frame of
+  delay. Switch it from the tray too.
+- Custom skies: five built-in skies (Midnight, Sunset, Dawn, Overcast, Void),
+  or your own 360° panorama or six pictures, in every game that doesn't set
+  its own sky.
+
+### Fixed
+
+- Launching while Roblox is open did nothing, because Roblox only runs once.
+  The button now says “Restart and rejoin”: Vesper closes Roblox (asking
+  first, ending it only if it doesn't respond), applies your profile and
+  customisations, and joins the same server again. The tray has it too.
+
 ## [0.2.0] - 2026-10-13
 
 ### Added

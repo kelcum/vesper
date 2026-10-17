@@ -6,7 +6,11 @@ import { applyAppearance } from './appearance';
 import type {
   Bootstrap,
   Detection,
+  History,
   LaunchReport,
+  NowPlaying,
+  Player,
+  ShaderStatus,
   LaunchStatus,
   PerfSample,
   PresenceStatus,
@@ -18,7 +22,8 @@ import type {
   UpdateState,
 } from './types';
 
-export type PageId = 'home' | 'profiles' | 'flags' | 'customize' | 'performance' | 'settings' | 'about';
+export type PageId =
+  'home' | 'recent' | 'avatar' | 'profiles' | 'flags' | 'customize' | 'performance' | 'settings' | 'about';
 
 export interface Toast {
   id: number;
@@ -48,6 +53,10 @@ class AppStore {
   update = $state<UpdateState>({ state: 'idle' });
   perf = $state<PerfSample[]>([]);
   lastReport = $state<LaunchReport | null>(null);
+  nowPlaying = $state<NowPlaying | null>(null);
+  player = $state<Player | null>(null);
+  history = $state<History>({ visits: [] });
+  shaders = $state<ShaderStatus>({ state: 'off' });
 
   page = $state<PageId>('home');
   settingsSection = $state<string | null>(null);
@@ -74,6 +83,17 @@ class AppStore {
       const b = await api.bootstrap();
       this.applyBoot(b);
       await this.subscribe();
+      const [playing, history, shaders] = await Promise.all([
+        api.playingGet().catch(() => null),
+        api.historyGet().catch(() => null),
+        api.shadersInfo().catch(() => null),
+      ]);
+      if (playing) {
+        this.nowPlaying = playing.now;
+        this.player = playing.player;
+      }
+      if (history) this.history = history;
+      if (shaders) this.shaders = shaders.status;
       await applyAppearance(this.settings.appearance);
       this.ready = true;
       for (const n of b.notices) this.toast(n, 'info');
@@ -117,6 +137,10 @@ class AppStore {
         applyAppearance(e.payload.appearance);
       }),
       listen('app://close-requested', () => this.onCloseRequested()),
+      listen<NowPlaying | null>('roblox://activity', (e) => (this.nowPlaying = e.payload)),
+      listen<Player | null>('roblox://player', (e) => (this.player = e.payload)),
+      listen<History>('history://changed', (e) => (this.history = e.payload)),
+      listen<ShaderStatus>('shaders://status', (e) => (this.shaders = e.payload)),
       listen<string>('app://navigate', (e) => this.go(e.payload as PageId)),
     ]);
   }

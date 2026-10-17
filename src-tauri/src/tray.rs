@@ -17,7 +17,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
     let status = MenuItem::with_id(app, "status", status_line(running, &store.active().name), false, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "Open Vesper", true, None::<&str>)?;
-    let launch = MenuItem::with_id(app, "launch", "Launch Roblox", !running, None::<&str>)?;
+    let launch = if running {
+        MenuItem::with_id(app, "rejoin", "Restart Roblox and rejoin", true, None::<&str>)?
+    } else {
+        MenuItem::with_id(app, "launch", "Launch Roblox", true, None::<&str>)?
+    };
+    // Shaders use Windows Graphics Capture.
+    let shaders_on = state.settings().shaders.enabled;
+    let shaders = CheckMenuItem::with_id(app, "shaders", "Shaders", cfg!(windows), shaders_on, None::<&str>)?;
     let profiles = Submenu::with_id(app, "profiles", format!("Profile: {}", store.active().name), true)?;
     for p in &store.profiles {
         let item = CheckMenuItem::with_id(
@@ -41,6 +48,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &launch,
             &PredefinedMenuItem::separator(app)?,
             &profiles,
+            &shaders,
             &settings,
             &PredefinedMenuItem::separator(app)?,
             &quit,
@@ -132,6 +140,21 @@ fn on_menu(app: &AppHandle, id: &str) {
                 show_main(app);
                 let state = app.state::<AppState>();
                 state.set_launch(app, crate::state::LaunchStatus::Failed { problem });
+            }
+        }
+        "rejoin" => {
+            let state = app.state::<AppState>();
+            if let Err(problem) = crate::commands::roblox_restart(app.clone(), state, None, true) {
+                show_main(app);
+                app.state::<AppState>().set_launch(app, crate::state::LaunchStatus::Failed { problem });
+            }
+        }
+        "shaders" => {
+            let state = app.state::<AppState>();
+            let on = !state.settings().shaders.enabled;
+            let patch = serde_json::json!({ "shaders": { "enabled": on } });
+            if let Err(e) = crate::commands::settings_update(app.clone(), state, patch) {
+                log::warn!("Couldn't switch shaders: {e}");
             }
         }
         "settings" => {

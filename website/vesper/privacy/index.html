@@ -21,7 +21,7 @@
       <p class="eyebrow">Privacy</p>
       <h1><span class="gradient-text">Vesper doesn't collect your data.</span></h1>
       <p class="updated">
-        Last updated 13 October 2026. This covers the Vesper app for Windows and macOS and this website.
+        Last updated 17 October 2026. This covers the Vesper app for Windows and macOS and this website.
       </p>
 
       <div class="glass">
@@ -40,7 +40,32 @@
           <li>
             <strong>Discord, on your computer</strong>: only if you turn on Rich Presence. Vesper talks to the Discord
             app running locally, which shows “Using Vesper”, a button to this site and, unless you turn them off in
-            Settings → Discord, whether Roblox is running and your profile's name.
+            Settings → Discord, whether Roblox is running, your profile's name and the game you're playing (its name,
+            creator, icon and your time in it). A “Join server” button (public servers only) and a “Roblox profile”
+            button appear only if you turn them on.
+          </li>
+          <li>
+            <strong>Roblox's public game APIs</strong> (<code>games.roblox.com</code>,
+            <code>thumbnails.roblox.com</code>, <code>users.roblox.com</code>, <code>apis.roblox.com</code>): while you
+            play, to show the game's name and icon and, for the profile button, your user name. Only the game's or
+            user's public ID is sent.
+          </li>
+          <li>
+            <strong>RoValra's public server database</strong> (<code>apis.rovalra.com</code>), only for features you
+            turn on. With server picking (Settings → Servers), the game's place ID, to find its servers by city. With
+            server locations (Recent games), the address of the Roblox server you're in, to find its city. Nothing about
+            you is sent, but like any web request it reveals your IP address to RoValra.
+          </li>
+          <li>
+            <strong>Amazon Web Services</strong>, only when you test your ping or use server picking: Vesper opens and
+            immediately closes a connection to a public endpoint in each of 27 cities
+            (<code>dynamodb.*.amazonaws.com</code>) to time the round trip. No data is sent over these connections.
+          </li>
+          <li>
+            <strong>Roblox's website</strong>, only if you open the Avatar page and sign in (Windows): Roblox's real
+            login page runs inside Vesper, in a separate browser profile. Your password and session stay with that page;
+            Vesper's code never reads them. Vesper's avatar tools ask that page to make Roblox's avatar, inventory and
+            outfit requests for you. “Sign out” ends the session on Roblox's servers and deletes it from your computer.
           </li>
         </ul>
 
@@ -48,7 +73,10 @@
         <ul>
           <li>Collect telemetry, analytics or crash reports.</li>
           <li>Read Roblox cookies, authentication tickets, passwords or tokens.</li>
-          <li>Read your Roblox account, friends, inventory or chat.</li>
+          <li>
+            Read your friends or chat. Your avatar, inventory and outfits are read only on the Avatar page, when you
+            sign in there.
+          </li>
           <li>Inject code into Roblox or interfere with its anti-cheat.</li>
           <li>Install anything else or run hidden processes.</li>
         </ul>
@@ -60,8 +88,9 @@
           <code>~/Library/Application Support/Vesper</code>, <code>~/Library/Logs/Vesper</code> and
           <code>~/Library/Caches/gripe.xan.vesper</code> on macOS. Pictures you pick for the emote wheel or cursor are
           copied there too, and only into Roblox's own files on your computer. Logs and the diagnostics you can copy
-          remove your Windows or macOS user name and anything that looks like a secret. Uninstalling on Windows with
-          “Delete the application data” ticked removes these folders; on a Mac, delete them yourself.
+          remove your Windows or macOS user name and anything that looks like a secret. The Recent games list (games,
+          servers, their cities and times) stays in the same folder; turn it off or clear it on its page. Uninstalling
+          on Windows with “Delete the application data” ticked removes these folders; on a Mac, delete them yourself.
         </p>
 
         <h2>This website</h2>

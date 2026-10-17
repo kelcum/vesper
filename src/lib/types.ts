@@ -13,6 +13,22 @@ export type Motion = 'system' | 'full' | 'reduced' | 'off';
 export type Density = 'comfortable' | 'compact';
 export type FlagMode = 'applyOnLaunch' | 'keepApplied' | 'off';
 export type UpdateChannel = 'stable' | 'beta';
+export type ServerPick = 'off' | 'lowestPing' | 'region';
+
+export interface ShaderParams {
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  vibrance: number;
+  temperature: number;
+  tint: number;
+  sharpen: number;
+  vignette: number;
+  bloom: number;
+  tonemap: number;
+}
+export type ShaderStatus =
+  { state: 'off' } | { state: 'waiting' } | { state: 'running' } | { state: 'failed'; detail: string };
 
 export interface Appearance {
   theme: Theme;
@@ -47,7 +63,18 @@ export interface Settings {
     verifyAfterLaunch: boolean;
     checkRobloxUpdates: boolean;
   };
-  discord: { richPresence: boolean; showProfile: boolean; showRobloxStatus: boolean };
+  discord: {
+    richPresence: boolean;
+    showProfile: boolean;
+    showRobloxStatus: boolean;
+    showGame: boolean;
+    showPlayTime: boolean;
+    joinButton: boolean;
+    profileButton: boolean;
+  };
+  servers: { pick: ServerPick; region: string };
+  games: { history: boolean; locateServers: boolean };
+  shaders: { enabled: boolean; preset: string | null; params: ShaderParams };
   updates: { autoCheck: boolean; channel: UpdateChannel };
   advanced: { logLevel: string };
   lastLaunch: { at: string; robloxVersion: string | null; profile: string; target: string; outcome: string } | null;
@@ -337,6 +364,7 @@ export interface ModsConfig {
   emoteWheel: { source: ModSource | null; accent: string | null; look: WheelLook } | null;
   font: { name: string } | null;
   deathSound: { name: string } | null;
+  sky: { source: ModSource; layout: 'panorama' | 'faces' } | null;
   customFiles: boolean;
 }
 export interface ModReport {
@@ -351,6 +379,7 @@ export interface ModsView {
   config: ModsConfig;
   cursorPresets: { id: string; label: string }[];
   wheelPresets: { id: string; label: string }[];
+  skyPresets: { id: string; label: string }[];
   customDir: string;
   customFileCount: number;
   cursorScale: [number, number];
@@ -369,7 +398,65 @@ export interface ModsView {
     wheelLine: string | null;
     /** The chosen font file, for showing text in it. */
     font: string | null;
+    /** A 360° strip of the sky in use. */
+    sky: string | null;
   };
+}
+
+// ---------------------------------------------------------------- games, servers, history
+
+export type ServerKind = 'public' | 'private' | 'reserved';
+export interface GameInfo {
+  universeId: number;
+  rootPlaceId: number;
+  name: string;
+  creator: string;
+  iconUrl: string | null;
+}
+export interface NowPlaying {
+  placeId: number;
+  universeId: number | null;
+  jobId: string;
+  kind: ServerKind;
+  joinedAt: string;
+  game: GameInfo | null;
+  location: string | null;
+  joinUrl: string | null;
+  pageUrl: string;
+}
+export interface Player {
+  id: number;
+  info: { id: number; name: string; displayName: string } | null;
+  profileUrl: string;
+}
+export interface Visit {
+  placeId: number;
+  universeId: number | null;
+  jobId: string;
+  kind: ServerKind;
+  name: string | null;
+  creator: string | null;
+  iconUrl: string | null;
+  location: string | null;
+  joinedAt: string;
+  leftAt: string | null;
+}
+export interface History {
+  visits: Visit[];
+}
+export interface CityPing {
+  key: string;
+  city: string;
+  countryCode: string;
+  region: string;
+  regionLabel: string;
+  ms: number | null;
+  measured: boolean;
+  servers: number;
+}
+export interface Option {
+  id: string;
+  label: string;
 }
 
 // ---------------------------------------------------------------- bootstrap

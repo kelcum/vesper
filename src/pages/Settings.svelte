@@ -10,6 +10,7 @@
     Trash,
     Upload,
     FileText,
+    Gauge,
   } from '@lucide/svelte';
   import { open, save } from '@tauri-apps/plugin-dialog';
   import { onMount, tick } from 'svelte';
@@ -27,7 +28,9 @@
   import { bytes, relativeTime, sourceLabel } from '../lib/format';
   import { isMac, osName, trayName } from '../lib/platform';
   import { app } from '../lib/store.svelte';
-  import type { BackupInfo, LogEntry } from '../lib/types';
+  import type { BackupInfo, CityPing, LogEntry, Option } from '../lib/types';
+  import GameIcon from '../components/games/GameIcon.svelte';
+  import ServerPicker from '../components/games/ServerPicker.svelte';
 
   const sections = [
     ['general', 'General'],
@@ -35,6 +38,7 @@
     ['performance', 'Performance'],
     ['roblox', 'Roblox'],
     ['discord', 'Discord'],
+    ['servers', 'Servers'],
     ['updates', 'Updates'],
     ['recovery', 'Backups & recovery'],
     ['advanced', 'Advanced'],
@@ -174,6 +178,45 @@
       default:
         return { tone: 'neutral' as const, label: 'Off' };
     }
+  });
+
+  // ------------------------------------------------ servers
+  let regions = $state<Option[]>([]);
+  let pings = $state<CityPing[] | null>(null);
+  let pinging = $state(false);
+  onMount(async () => {
+    regions = (await api.serversRegions().catch(() => [])) ?? [];
+  });
+  async function testPing() {
+    pinging = true;
+    const r = await app.attempt(() => api.serversScan(null, true));
+    if (r) pings = r;
+    pinging = false;
+  }
+  /** Best city per region, in region order. */
+  const byRegion = $derived.by(() => {
+    if (!pings) return [];
+    return regions
+      .map((r) => ({ region: r, cities: pings!.filter((c) => c.region === r.id) }))
+      .filter((g) => g.cities.length);
+  });
+  const regionChoice = $derived(s.servers.region);
+  const regionOptions = $derived.by(() => {
+    const list = regions.map((r) => ({ value: r.id, label: r.label }));
+    for (const c of pings ?? []) list.push({ value: c.key, label: `${c.city} (${c.regionLabel})` });
+    if (regionChoice.startsWith('city:') && !list.some((o) => o.value === regionChoice)) {
+      list.push({ value: regionChoice, label: regionChoice.split(':').slice(2).join(':') });
+    }
+    return list;
+  });
+
+  const gamePreview = $derived(app.nowPlaying?.game && s.discord.showGame ? app.nowPlaying : null);
+  const presenceButtons = $derived.by(() => {
+    const b: string[] = [];
+    if (gamePreview && s.discord.joinButton && gamePreview.joinUrl) b.push('Join server');
+    if (s.discord.profileButton && app.player) b.push('Roblox profile');
+    if (b.length < 2) b.push('Get Vesper');
+    return b;
   });
 
   const presencePreview = $derived.by(() => {
@@ -516,7 +559,10 @@
     </Card>
 
     <Card id="s-discord" title="Discord">
-      <Field label="Rich Presence" hint="Shows “Using Vesper” on your Discord profile with a button to get Vesper.">
+      <Field
+        label="Rich Presence"
+        hint="Shows what you’re up to in Vesper and Roblox on your Discord profile. The options below choose what’s included."
+      >
         <Toggle
           label="Rich Presence"
           checked={s.discord.richPresence}
@@ -543,10 +589,52 @@
           onchange={(v) => app.saveSettings({ discord: { showRobloxStatus: v } })}
         />
       </Field>
+      <Field label="Show the game you're playing" hint="The game's name, creator and icon, while you're in a game.">
+        <Toggle
+          label="Show the game"
+          checked={s.discord.showGame}
+          onchange={(v) => app.saveSettings({ discord: { showGame: v } })}
+        />
+      </Field>
+      <Field label="Show play time" hint="How long you've been in the current server.">
+        <Toggle
+          label="Show play time"
+          checked={s.discord.showPlayTime}
+          disabled={!s.discord.showGame}
+          onchange={(v) => app.saveSettings({ discord: { showPlayTime: v } })}
+        />
+      </Field>
+      <Field
+        label="“Join server” button"
+        hint="Lets friends open Roblox in your exact server. Only for public servers; private and reserved servers never get it."
+      >
+        <Toggle
+          label="Join server button"
+          checked={s.discord.joinButton}
+          disabled={!s.discord.showGame}
+          onchange={(v) => app.saveSettings({ discord: { joinButton: v } })}
+        />
+      </Field>
+      <Field
+        label="“Roblox profile” button"
+        hint={app.player
+          ? `Links to ${app.player.info ? '@' + app.player.info.name : 'your profile'} on roblox.com.`
+          : 'Links to your Roblox profile. Vesper learns which account it is the first time you join a game.'}
+      >
+        <Toggle
+          label="Roblox profile button"
+          checked={s.discord.profileButton}
+          onchange={(v) => app.saveSettings({ discord: { profileButton: v } })}
+        />
+      </Field>
       <div class="presence">
         <div class="pv glass">
           <span class="pv-art">
-            <img src={iconUrl} alt="" width="56" height="56" />
+            {#if gamePreview}
+              <GameIcon url={gamePreview.game?.iconUrl} size={56} />
+            {:else}
+              <img src={iconUrl} alt="" width="56" height="56" />
+            {/if}
             {#if s.discord.showRobloxStatus}<span
                 class="pv-badge"
                 class:playing={app.robloxRunning}
@@ -555,19 +643,88 @@
           </span>
           <div>
             <div class="pv-name">Vesper</div>
-            <div class="pv-line">Using Vesper</div>
-            {#if presencePreview}<div class="pv-line faint">{presencePreview}</div>{/if}
-            <div class="pv-btn">Get Vesper</div>
+            {#if gamePreview}
+              <div class="pv-line">{gamePreview.game?.name}</div>
+              <div class="pv-line faint">by {gamePreview.game?.creator}</div>
+            {:else}
+              <div class="pv-line">Using Vesper</div>
+              {#if presencePreview}<div class="pv-line faint">{presencePreview}</div>{/if}
+            {/if}
+            {#each presenceButtons as b (b)}<div class="pv-btn">{b}</div>{/each}
           </div>
         </div>
         <div>
           <Badge tone={presenceText.tone} dot>{s.discord.richPresence ? presenceText.label : 'Off'}</Badge>
           <p class="faint small">
-            What friends see. Discord hides the button on your own profile. Nothing else (paths, games, account) is
-            shared.
+            What friends see. Discord hides buttons on your own profile. Nothing else (paths, account details, server
+            addresses) is shared. If Discord is closed, Vesper connects when it opens.
           </p>
         </div>
       </div>
+    </Card>
+
+    <Card id="s-servers" title="Servers" subtitle="For games you join from Vesper">
+      <Field
+        label="Which server to join"
+        hint="Roblox normally picks a server for you. Vesper can pick the one with the lowest ping, or one in a region you choose."
+      >
+        <ServerPicker />
+      </Field>
+      {#if s.servers.pick === 'region'}
+        <Field
+          label="Region or city"
+          hint="If the game has no open server there, Vesper picks the lowest-ping one and says so."
+        >
+          <Select
+            label="Region or city"
+            value={regionChoice}
+            options={regionOptions}
+            onchange={(v) => app.saveSettings({ servers: { region: v } })}
+          />
+        </Field>
+      {/if}
+      <div class="pings">
+        <div class="pings-head">
+          <div>
+            <div class="label">Your ping to Roblox's regions</div>
+            <p class="faint small">
+              Measured with a quick connection to a cloud data centre in or next to each city; cities without one are
+              estimated from distance.
+            </p>
+          </div>
+          <Button size="sm" icon={Gauge} loading={pinging} onclick={testPing}
+            >{pings ? 'Test again' : 'Test ping'}</Button
+          >
+        </div>
+        {#if byRegion.length}
+          <div class="ping-grid">
+            {#each byRegion as g (g.region.id)}
+              {@const best = g.cities[0]}
+              <div class="ping glass">
+                <div class="ping-region">{g.region.label}</div>
+                <div
+                  class="ping-ms"
+                  class:good={(best.ms ?? 999) < 80}
+                  class:ok={(best.ms ?? 999) >= 80 && (best.ms ?? 999) < 150}
+                >
+                  {best.ms ?? '—'}<span> ms</span>
+                </div>
+                <div class="ping-cities faint">
+                  {#each g.cities as c (c.key)}<span title={c.measured ? 'Measured' : 'Estimated from distance'}
+                      >{c.city} {c.ms ?? '—'}{c.measured ? '' : '*'}</span
+                    >{/each}
+                </div>
+              </div>
+            {/each}
+          </div>
+          <p class="faint small">* estimated from distance.</p>
+        {/if}
+      </div>
+      <p class="faint small">
+        Server locations come from RoValra's public database (apis.rovalra.com): Vesper sends the game's place ID and
+        nothing about you. Vesper then joins a server Roblox lists as open right now. Games opened from the website use
+        Roblox's own matchmaking.
+      </p>
     </Card>
 
     <Card id="s-updates" title="Updates">
@@ -872,6 +1029,57 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .pings {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+  }
+  .pings-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .pings-head .label {
+    font-weight: 600;
+  }
+  .ping-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .ping {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+  }
+  .ping-region {
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  .ping-ms {
+    margin: 2px 0;
+    font-size: var(--text-xl);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--bad);
+  }
+  .ping-ms.ok {
+    color: var(--warn);
+  }
+  .ping-ms.good {
+    color: var(--ok);
+  }
+  .ping-ms span {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .ping-cities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    font-size: var(--text-xs);
   }
   .presence {
     display: flex;

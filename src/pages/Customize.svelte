@@ -12,6 +12,8 @@
     FolderTree,
     Image as ImageIcon,
     Paintbrush,
+    CloudSun,
+    Images,
   } from '@lucide/svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
@@ -26,7 +28,7 @@
   import { invalidateBackground } from '../lib/appearance';
   import { isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
-  import type { ModsView } from '../lib/types';
+  import type { ModsView, Option, ShaderParams } from '../lib/types';
   import studioScript from '../../docs/studio/ColorPresets.client.lua?raw';
 
   const thumbs = import.meta.glob('../assets/mods/*.png', { eager: true, query: '?url', import: 'default' }) as Record<
@@ -77,6 +79,104 @@
   const CURSOR_COLOURS = [{ value: null, label: 'Original colours' }, ...COLOURS];
 
   onMount(load);
+
+  // ------------------------------------------------ sky
+  const SKY_ART: Record<string, string> = {
+    midnight: 'linear-gradient(#04050d, #111739 60%, #1d2550)',
+    sunset: 'linear-gradient(#2c2f6b, #d8667a 55%, #ffa05a)',
+    dawn: 'linear-gradient(#7ea6e0, #c7d6f0 55%, #ffd8c2)',
+    overcast: 'linear-gradient(#858d98, #a6adb7 55%, #c6cbd2)',
+    void: '#000',
+  };
+  const skySel = $derived.by(() => {
+    const sky = view?.config.sky;
+    if (!sky) return null;
+    if (sky.source.kind === 'preset') return sky.source.id;
+    return sky.layout === 'faces' ? 'faces' : 'panorama';
+  });
+  async function skyFromPanorama() {
+    const path = await pick('360° picture', ['png', 'jpg', 'jpeg', 'webp']);
+    if (path) run('sky', () => api.modsSetSky({ panorama: path }));
+  }
+  async function skyFromFaces() {
+    const p = await open({
+      multiple: true,
+      filters: [{ name: 'Six pictures', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+    });
+    const faces = Array.isArray(p) ? p : typeof p === 'string' ? [p] : [];
+    if (faces.length) run('sky', () => api.modsSetSky({ faces }));
+  }
+
+  // ------------------------------------------------ shaders
+  let shaderLooks = $state<Option[]>([]);
+  onMount(async () => {
+    const info = await api.shadersInfo().catch(() => null);
+    if (info) {
+      shaderLooks = info.presets;
+      app.shaders = info.status;
+    }
+  });
+  const shaders = $derived(app.settings.shaders);
+  /** Sliders work in whole numbers; the settings keep the shader's units. */
+  const SLIDERS: {
+    key: keyof ShaderParams;
+    label: string;
+    min: number;
+    max: number;
+    scale: number;
+    offset?: number;
+    unit: string;
+  }[] = [
+    { key: 'exposure', label: 'Brightness', min: -100, max: 100, scale: 100, unit: '' },
+    { key: 'contrast', label: 'Contrast', min: 50, max: 150, scale: 100, unit: '%' },
+    { key: 'saturation', label: 'Saturation', min: 0, max: 200, scale: 100, unit: '%' },
+    { key: 'vibrance', label: 'Vibrance', min: -100, max: 100, scale: 100, unit: '' },
+    { key: 'temperature', label: 'Warmth', min: -100, max: 100, scale: 100, unit: '' },
+    { key: 'tint', label: 'Tint', min: -100, max: 100, scale: 100, unit: '' },
+    { key: 'sharpen', label: 'Sharpen', min: 0, max: 100, scale: 100, unit: '' },
+    { key: 'bloom', label: 'Glow', min: 0, max: 100, scale: 100, unit: '' },
+    { key: 'tonemap', label: 'Film tone', min: 0, max: 100, scale: 100, unit: '' },
+    { key: 'vignette', label: 'Vignette', min: 0, max: 100, scale: 100, unit: '' },
+  ];
+  let sliderValues = $state<Record<string, number>>({});
+  $effect(() => {
+    const p = shaders.params;
+    const next: Record<string, number> = {};
+    for (const sl of SLIDERS) next[sl.key] = Math.round(p[sl.key] * sl.scale);
+    sliderValues = next;
+  });
+  function setParam(key: keyof ShaderParams, v: number, scale: number) {
+    const params = { ...shaders.params, [key]: v / scale };
+    app.saveSettings({ shaders: { params, preset: null } });
+  }
+  async function shaderLook(id: string) {
+    const params = await app.attempt(() => api.shadersPreset(id));
+    if (params) app.saveSettings({ shaders: { params, preset: id, enabled: true } });
+  }
+  const shaderBadge = $derived.by(() => {
+    if (!shaders.enabled) return { tone: 'neutral' as const, label: 'Off' };
+    switch (app.shaders.state) {
+      case 'running':
+        return { tone: 'ok' as const, label: 'On in Roblox' };
+      case 'failed':
+        return { tone: 'bad' as const, label: "Couldn't start" };
+      default:
+        return { tone: 'info' as const, label: app.robloxRunning ? 'Starting…' : 'Waiting for Roblox' };
+    }
+  });
+  /** A rough stand-in for the grade, using the browser's own filters, for the preview. */
+  const previewFilter = $derived.by(() => {
+    const p = shaders.params;
+    const warm = Math.max(p.temperature, 0);
+    const cool = Math.max(-p.temperature, 0);
+    return [
+      `brightness(${Math.pow(2, p.exposure).toFixed(3)})`,
+      `contrast(${p.contrast.toFixed(3)})`,
+      `saturate(${(p.saturation * (1 + p.vibrance * 0.4)).toFixed(3)})`,
+      warm ? `sepia(${(warm * 0.35).toFixed(3)})` : '',
+      cool ? `hue-rotate(${(-cool * 14).toFixed(1)}deg)` : '',
+    ].join(' ');
+  });
 
   async function load() {
     view = (await app.attempt(() => api.modsGet())) ?? view;
@@ -443,6 +543,62 @@
   </Card>
 
   <!-- Death sound -->
+  <Card title="Sky" subtitle="The skybox in games that don't set their own" icon={CloudSun}>
+    {#snippet actions()}
+      {#if cfg?.sky}<Button
+          size="sm"
+          variant="ghost"
+          icon={RotateCcw}
+          onclick={() => run('sky', () => api.modsClear('sky'))}>Reset</Button
+        >{/if}
+    {/snippet}
+    <div class="sky-view">
+      {#if view?.previews.sky}
+        <img src={view.previews.sky} alt="The sky all the way around the horizon" />
+      {:else}
+        <span class="faint small">Roblox's sky preview isn't available.</span>
+      {/if}
+      {#if busy === 'sky'}<span class="sky-busy">Building the sky…</span>{/if}
+    </div>
+    <div class="tiles">
+      <button
+        class="tile"
+        class:sel={skySel === null}
+        onclick={() => run('sky', () => api.modsClear('sky'))}
+        disabled={busy === 'sky'}
+      >
+        <span class="tile-art roblox">R</span><span>Roblox</span>
+      </button>
+      {#each view?.skyPresets ?? [] as p (p.id)}
+        <button
+          class="tile"
+          class:sel={skySel === p.id}
+          onclick={() => run('sky', () => api.modsSetSky({ preset: p.id }))}
+          disabled={busy === 'sky'}
+        >
+          <span class="tile-art" style:background={SKY_ART[p.id]}></span><span>{p.label}</span>
+        </button>
+      {/each}
+      <button class="tile" class:sel={skySel === 'panorama'} onclick={skyFromPanorama} disabled={busy === 'sky'}>
+        <span class="tile-art"><ImagePlus size={20} aria-hidden="true" /></span><span>360° picture…</span>
+      </button>
+      <button class="tile" class:sel={skySel === 'faces'} onclick={skyFromFaces} disabled={busy === 'sky'}>
+        <span class="tile-art"><Images size={20} aria-hidden="true" /></span><span>Six pictures…</span>
+      </button>
+    </div>
+    {#if cfg?.sky?.source.kind === 'file'}<p class="current">{cfg.sky.source.name}</p>{/if}
+    <div class="row-buttons">
+      <Button variant="ghost" icon={ExternalLink} onclick={() => api.openUrl('https://polyhaven.com/hdris')}
+        >Find free 360° skies</Button
+      >
+    </div>
+    <p class="faint xs">
+      A 360° picture is a panorama twice as wide as it is tall (on Poly Haven, download the “Tonemapped JPG”). Six
+      pictures are named Back, Down, Front, Left, Right and Up, like a Roblox Sky. Games that place their own Sky keep
+      it.
+    </p>
+  </Card>
+
   <Card title="Death sound" subtitle="Plays when your character resets or dies" icon={Volume2}>
     {#snippet actions()}
       {#if cfg?.deathSound}<Button
@@ -539,30 +695,83 @@
   </Card>
 </div>
 
-<section class="shaders glass">
-  <div class="row top">
-    <span class="ico"><Paintbrush size={16} aria-hidden="true" /></span>
-    <h3>Shaders and colour filters</h3>
-  </div>
-  <p class="muted">
-    Roblox doesn't support post-processing shaders from outside the game, and none of its allowlisted Fast Flags do
-    colour grading. Tools that inject shaders or scripts into Roblox are detected by its anti-cheat and can get accounts
-    banned, so Vesper doesn't do that.
-  </p>
-  <p class="muted">
-    In experiences you build yourself, colour grading is a normal Roblox feature. Vesper includes your colour presets
-    (Pink, Purple, Blue, Red, Green, Warm, Cold, Saturated, Night) as a ready-to-use Studio script.
-  </p>
-  <div class="row">
-    <Button
-      icon={Copy}
-      onclick={async () => {
-        await navigator.clipboard.writeText(studioScript);
-        app.toast('Studio script copied. Paste it into a LocalScript in StarterPlayerScripts.', 'ok');
-      }}>Copy Studio script</Button
-    >
-  </div>
-</section>
+{#if !isMac}<section class="shaders glass">
+    <div class="row top">
+      <span class="ico"><Paintbrush size={16} aria-hidden="true" /></span>
+      <div class="sh-titles">
+        <h3>Shaders</h3>
+        <p class="faint small">Colour grading for everything you see in Roblox</p>
+      </div>
+      <Badge tone={shaderBadge.tone} dot>{shaderBadge.label}</Badge>
+      <Toggle
+        label="Shaders"
+        checked={shaders.enabled}
+        onchange={(v) => app.saveSettings({ shaders: { enabled: v } })}
+      />
+    </div>
+    {#if app.shaders.state === 'failed' && shaders.enabled}
+      <p class="small bad">{app.shaders.detail}</p>
+    {/if}
+    <div class="sh-body">
+      <div class="sh-preview">
+        <div class="sh-scene" style:filter={previewFilter}>
+          <RobloxScene height={190}>
+            <div class="sh-parts" aria-hidden="true">
+              <span style:--c="#e8473b" style:--h="58px"></span>
+              <span style:--c="#3b7ae8" style:--h="88px"></span>
+              <span style:--c="#f2c94c" style:--h="42px"></span>
+              <span style:--c="#3fbf6f" style:--h="70px"></span>
+              <span style:--c="#f7f7f7" style:--h="30px"></span>
+            </div>
+          </RobloxScene>
+          {#if shaders.params.vignette > 0}<span class="sh-vignette" style:opacity={shaders.params.vignette}
+            ></span>{/if}
+        </div>
+        <p class="faint xs">Preview is approximate; the real grade runs on your graphics card.</p>
+        <div class="tiles looks">
+          {#each shaderLooks as l (l.id)}
+            <button class="tile" class:sel={shaders.preset === l.id} onclick={() => shaderLook(l.id)}>
+              <span>{l.label}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="sh-sliders">
+        {#each SLIDERS as sl (sl.key)}
+          <div class="sh-row">
+            <span class="sh-label">{sl.label}</span>
+            <Slider
+              label={sl.label}
+              min={sl.min}
+              max={sl.max}
+              unit={sl.unit}
+              bind:value={sliderValues[sl.key]}
+              onchange={(v) => setParam(sl.key, v, sl.scale)}
+            />
+          </div>
+        {/each}
+      </div>
+    </div>
+    <p class="muted small">
+      Vesper never loads anything into Roblox; its anti-cheat blocks tools that do (ReShade included). Instead it works
+      like a screen recorder: Windows hands over each frame Roblox draws, your graphics card grades it, and Vesper shows
+      the result in a click-through layer exactly over Roblox's window. That adds about one frame of delay. The layer
+      hides whenever Roblox isn't the active window. Turn it on or off from the tray icon too.
+    </p>
+    <details class="studio">
+      <summary class="small">Making your own game? Copy these looks as a Studio script</summary>
+      <div class="row">
+        <Button
+          size="sm"
+          icon={Copy}
+          onclick={async () => {
+            await navigator.clipboard.writeText(studioScript);
+            app.toast('Studio script copied. Paste it into a LocalScript in StarterPlayerScripts.', 'ok');
+          }}>Copy Studio script</Button
+        >
+      </div>
+    </details>
+  </section>{/if}
 
 {#if view?.lastReport && (view.lastReport.errors.length || view.lastReport.missing.length)}
   <section class="report glass">
@@ -753,7 +962,118 @@
     gap: var(--space-3);
   }
   .shaders p {
-    max-width: 78ch;
+    max-width: 90ch;
+  }
+  .sh-titles {
+    flex: 1;
+  }
+  .sh-titles h3 {
+    margin: 0;
+  }
+  .sh-titles p {
+    margin: 0;
+  }
+  .sh-body {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-5);
+  }
+  @media (max-width: 1060px) {
+    .sh-body {
+      grid-template-columns: 1fr;
+    }
+  }
+  .sh-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .sh-scene {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .sh-parts {
+    position: absolute;
+    inset: auto 0 34px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 14px;
+  }
+  .sh-parts span {
+    width: 34px;
+    height: var(--h);
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 70%, #000));
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.25);
+  }
+  .sh-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.85));
+  }
+  .looks {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+  .looks .tile {
+    padding: 8px 6px;
+  }
+  .sh-sliders {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-5);
+    align-content: start;
+  }
+  @media (max-width: 1260px) {
+    .sh-sliders {
+      grid-template-columns: 1fr;
+    }
+  }
+  .sh-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sh-row :global(.slider) {
+    min-width: 0;
+  }
+  .sh-label {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .studio summary {
+    cursor: pointer;
+    color: var(--text-3);
+  }
+  .studio .row {
+    margin-top: var(--space-2);
+  }
+  .sky-view {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 4 / 1;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-3);
+  }
+  .sky-view img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .sky-busy {
+    position: absolute;
+    inset: auto 8px 8px auto;
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-xs);
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
   }
   .top {
     gap: var(--space-3);

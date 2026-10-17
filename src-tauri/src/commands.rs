@@ -169,6 +169,10 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
     if old.performance != new.performance {
         state.restart_monitor(&app);
     }
+    if old.shaders != new.shaders {
+        state.sync_shaders(&app);
+        crate::tray::refresh(&app);
+    }
     let _ = app.emit(events::SETTINGS, &new);
     Ok(new)
 }
@@ -219,6 +223,30 @@ pub fn roblox_launch(app: AppHandle, input: Option<String>) -> Result<()> {
     crate::session::begin(app, target)
 }
 
+/// Closes Roblox and launches it again: into `input` when given, otherwise
+/// back into the current server when `rejoin` is set (or the same game, for
+/// servers that can't be joined by link).
+#[tauri::command]
+pub fn roblox_restart(app: AppHandle, state: State<'_, AppState>, input: Option<String>, rejoin: bool) -> Result<()> {
+    let input = input.unwrap_or_default();
+    let target = if !input.trim().is_empty() {
+        roblox_parse_target(input)?
+    } else if rejoin {
+        match lock(&state.activity).as_ref() {
+            Some(a) => LaunchTarget::Experience {
+                place_id: a.place_id,
+                game_instance_id: (a.kind == crate::roblox::activity::ServerKind::Public).then(|| a.job_id.clone()),
+                link_code: None,
+                launch_data: None,
+            },
+            None => LaunchTarget::App,
+        }
+    } else {
+        LaunchTarget::App
+    };
+    crate::session::begin_restart(app, target)
+}
+
 #[tauri::command]
 pub fn roblox_dismiss_launch(app: AppHandle, state: State<'_, AppState>) {
     let mut l = lock(&state.launch);
@@ -246,6 +274,105 @@ pub async fn roblox_latest(state: State<'_, AppState>, refresh: bool) -> Result<
             Ok(cached)
         }
     }
+}
+
+// ------------------------------------------------------------------ games, servers, history
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayingInfo {
+    pub now: Option<crate::playing::NowPlaying>,
+    pub player: Option<crate::playing::Player>,
+}
+
+#[tauri::command]
+pub fn playing_get(state: State<'_, AppState>) -> PlayingInfo {
+    PlayingInfo { now: crate::playing::now_playing(&state), player: crate::playing::player(&state) }
+}
+
+#[tauri::command]
+pub fn history_get(state: State<'_, AppState>) -> crate::history::History {
+    lock(&state.history).clone()
+}
+
+fn history_changed(app: &AppHandle, state: &AppState) -> Result<crate::history::History> {
+    let h = lock(&state.history).clone();
+    h.save(&state.paths.history_file()).map_err(|e| Problem::io("Couldn't save the recent games list.", &e))?;
+    let _ = app.emit(events::HISTORY, &h);
+    Ok(h)
+}
+
+#[tauri::command]
+pub fn history_clear(app: AppHandle, state: State<'_, AppState>) -> Result<crate::history::History> {
+    lock(&state.history).visits.clear();
+    log::info!("Cleared the recent games list");
+    history_changed(&app, &state)
+}
+
+#[tauri::command]
+pub fn history_remove(app: AppHandle, state: State<'_, AppState>, job_id: String) -> Result<crate::history::History> {
+    lock(&state.history).remove(&job_id);
+    history_changed(&app, &state)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionInfo {
+    pub id: &'static str,
+    pub label: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShaderInfo {
+    pub status: crate::shade::ShaderStatus,
+    pub presets: Vec<RegionInfo>,
+}
+
+#[tauri::command]
+pub fn shaders_info(state: State<'_, AppState>) -> ShaderInfo {
+    ShaderInfo {
+        status: lock(&state.shade_status).clone(),
+        presets: crate::shade::PRESETS.iter().map(|(id, label)| RegionInfo { id, label }).collect(),
+    }
+}
+
+/// The slider values of a built-in look.
+#[tauri::command]
+pub fn shaders_preset(id: String) -> Result<crate::shade::ShaderParams> {
+    crate::shade::preset(&id).ok_or_else(|| Problem::invalid("That look doesn't exist.", "Pick one from the list."))
+}
+
+#[tauri::command]
+pub fn servers_regions() -> Vec<RegionInfo> {
+    crate::servers::REGIONS.iter().map(|r| RegionInfo { id: r.id, label: r.label }).collect()
+}
+
+/// Ping to every Roblox city, or to the cities a game (link or place id) has servers in.
+#[tauri::command]
+pub async fn servers_scan(
+    state: State<'_, AppState>,
+    input: Option<String>,
+    refresh: bool,
+) -> Result<Vec<crate::servers::CityPing>> {
+    let place = match input.filter(|s| !s.trim().is_empty()) {
+        Some(i) => match roblox_parse_target(i)? {
+            LaunchTarget::Experience { place_id, .. } => Some(place_id),
+            _ => {
+                return Err(Problem::invalid("That link doesn't point at a game.", "Paste a game link or a place ID."))
+            }
+        },
+        None => None,
+    };
+    crate::servers::scan(&state.http, &state.server_cache, &state.paths.datacenters_file(), place, refresh)
+        .await
+        .map_err(|e| {
+            Problem::new("servers.scan", "Couldn't check server locations")
+                .what(e)
+                .why("Server locations come from RoValra's public database, and ping is measured over the internet.")
+                .fix("Check your connection and try again in a minute.")
+                .action(ProblemAction::Retry)
+        })
 }
 
 // ------------------------------------------------------------------ flags
@@ -610,6 +737,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     // Free fonts for the Customize page.
     "fonts.google.com",
     "www.fontshare.com",
+    // Free 360° skies for the Customize page.
+    "polyhaven.com",
 ];
 
 #[tauri::command]
@@ -790,6 +919,7 @@ pub fn app_ready(app: AppHandle, state: State<'_, AppState>) {
     if state.settings().roblox.flag_mode == FlagMode::KeepApplied {
         state.sync_keep_applied(&app);
     }
+    state.sync_shaders(&app);
     // "Launch Roblox when Vesper starts": once per run, not on every window reload.
     static LAUNCHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if state.settings().general.launch_roblox_on_start

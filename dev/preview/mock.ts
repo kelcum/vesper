@@ -11,6 +11,7 @@ import sampleFont from '../../assets/fonts/Geist-SemiBold.ttf?url';
 import pkg from '../../package.json';
 import cursorRing from '../../src/assets/mods/cursor-ring.png';
 import defaults from './defaults.json';
+import skySunset from './sky-sunset.png';
 
 const running = location.search.includes('running');
 const mac = new URLSearchParams(location.search).get('platform') === 'macos';
@@ -19,7 +20,32 @@ const version = '0.742.0.7421053';
 const versionHash = 'version-cec3ad5889b447cf';
 
 const settings = structuredClone(defaults.settings) as Record<string, any>;
-settings.discord.richPresence = true;
+settings.discord = {
+  ...settings.discord,
+  richPresence: true,
+  showGame: true,
+  showPlayTime: true,
+  joinButton: true,
+  profileButton: true,
+};
+settings.servers = { pick: 'lowestPing', region: 'us-east' };
+settings.games = { history: true, locateServers: true };
+settings.shaders = {
+  enabled: true,
+  preset: 'cinematic',
+  params: {
+    exposure: 0,
+    contrast: 1.12,
+    saturation: 0.92,
+    vibrance: 0,
+    temperature: 0.12,
+    tint: 0.04,
+    sharpen: 0,
+    vignette: 0.35,
+    bloom: 0.15,
+    tonemap: 0.7,
+  },
+};
 settings.lastLaunch = {
   at: minutesAgo(12),
   robloxVersion: version,
@@ -90,6 +116,7 @@ const modsView = {
     emoteWheel: { source: { kind: 'preset', id: 'dusk' }, accent: '#a596ff', look: { dim: 30, dividers: true } },
     font: { name: "Fishstrap's font" },
     deathSound: null,
+    sky: { source: { kind: 'preset', id: 'sunset' }, layout: 'panorama' },
     customFiles: false,
   },
   cursorPresets: [
@@ -98,6 +125,13 @@ const modsView = {
     { id: 'ring', label: 'Ring' },
     { id: 'plus', label: 'Plus' },
     { id: 'arrow', label: 'Arrow' },
+  ],
+  skyPresets: [
+    { id: 'midnight', label: 'Midnight' },
+    { id: 'sunset', label: 'Sunset' },
+    { id: 'dawn', label: 'Dawn' },
+    { id: 'overcast', label: 'Overcast' },
+    { id: 'void', label: 'Void' },
   ],
   wheelPresets: [
     { id: 'dusk', label: 'Dusk' },
@@ -120,8 +154,113 @@ const modsView = {
     wheelGradient: null,
     wheelLine: null,
     font: sampleFont,
+    sky: skySunset,
   },
 };
+
+const icon = (seed: string) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${seed}'/><stop offset='1' stop-color='#1b1b2a'/></linearGradient></defs><rect width='64' height='64' fill='url(#g)'/></svg>`)}`;
+const nowPlaying = running
+  ? {
+      placeId: 6884319169,
+      universeId: 2626227051,
+      jobId: '0d6a1c3e-4b7f-4e21-9a55-3f0c2d8e1b11',
+      kind: 'public',
+      joinedAt: minutesAgo(23),
+      game: {
+        universeId: 2626227051,
+        rootPlaceId: 6884319169,
+        name: 'MIC UP',
+        creator: 'Wild Roleplay',
+        iconUrl: icon('#e35d6a'),
+      },
+      location: 'London, GB',
+      joinUrl:
+        'https://www.roblox.com/games/start?placeId=6884319169&gameInstanceId=0d6a1c3e-4b7f-4e21-9a55-3f0c2d8e1b11',
+      pageUrl: 'https://www.roblox.com/games/6884319169',
+    }
+  : null;
+const history = {
+  visits: [
+    ...(nowPlaying
+      ? [{ ...nowPlaying, name: 'MIC UP', creator: 'Wild Roleplay', iconUrl: icon('#e35d6a'), leftAt: null }]
+      : []),
+    {
+      placeId: 606849621,
+      universeId: 245683,
+      jobId: '3f8b2a61-6c0d-4e9f-8a1b-5d7e2c9f0a33',
+      kind: 'public',
+      name: 'Jailbreak',
+      creator: 'Badimo',
+      iconUrl: icon('#3b7ae8'),
+      location: 'Frankfurt am Main, DE',
+      joinedAt: minutesAgo(180),
+      leftAt: minutesAgo(118),
+    },
+    {
+      placeId: 920587237,
+      universeId: 383310974,
+      jobId: '9a4d7e12-2b6f-4c80-9e3a-1f5b8c7d6e44',
+      kind: 'private',
+      name: 'Adopt Me!',
+      creator: 'Uplift Games',
+      iconUrl: icon('#f2c94c'),
+      location: 'Amsterdam, NL',
+      joinedAt: minutesAgo(60 * 27),
+      leftAt: minutesAgo(60 * 26),
+    },
+    {
+      placeId: 4924922222,
+      universeId: 1686885941,
+      jobId: '5e1c9b80-7a2d-4f63-8b4e-0c6d3a9f2b55',
+      kind: 'public',
+      name: 'Brookhaven 🏡RP',
+      creator: 'Wolfpaq Games',
+      iconUrl: icon('#3fbf6f'),
+      location: 'London, GB',
+      joinedAt: minutesAgo(60 * 50),
+      leftAt: minutesAgo(60 * 49),
+    },
+  ],
+};
+const regions = [
+  { id: 'us-east', label: 'NA East' },
+  { id: 'us-central', label: 'NA Central' },
+  { id: 'us-west', label: 'NA West' },
+  { id: 'latam', label: 'Latin America' },
+  { id: 'eu-west', label: 'Europe West' },
+  { id: 'eu-east', label: 'Europe East & Middle East' },
+  { id: 'asia', label: 'Asia' },
+  { id: 'oceania', label: 'Oceania' },
+  { id: 'africa', label: 'Africa' },
+];
+const city = (cityName: string, cc: string, region: string, ms: number, measured = true) => ({
+  key: `city:${cc}:${cityName}`,
+  city: cityName,
+  countryCode: cc,
+  region,
+  regionLabel: regions.find((r) => r.id === region)!.label,
+  ms,
+  measured,
+  servers: 0,
+});
+const pings = [
+  city('Frankfurt am Main', 'DE', 'eu-west', 31),
+  city('London', 'GB', 'eu-west', 36),
+  city('Amsterdam', 'NL', 'eu-west', 38, false),
+  city('Warsaw', 'PL', 'eu-east', 41, false),
+  city('Ashburn', 'US', 'us-east', 116),
+  city('New York City', 'US', 'us-east', 121, false),
+  city('Chicago', 'US', 'us-central', 133, false),
+  city('Dallas', 'US', 'us-central', 152, false),
+  city('Los Angeles', 'US', 'us-west', 171, false),
+  city('San Jose', 'US', 'us-west', 177),
+  city('São Paulo', 'BR', 'latam', 199),
+  city('Singapore', 'SG', 'asia', 188),
+  city('Tokyo', 'JP', 'asia', 253),
+  city('Sydney', 'AU', 'oceania', 305),
+  city('Cape Town', 'ZA', 'africa', 179),
+];
 
 const bootstrap = () => ({
   version: pkg.version,
@@ -244,6 +383,29 @@ const handlers: Record<string, (args: any) => unknown> = {
   diagnostics_text: () => 'Vesper 0.1.0 (preview)',
   updates_check: () => ({ state: 'upToDate', checkedAt: new Date().toISOString() }),
   mods_get: () => modsView,
+  playing_get: () => ({
+    now: nowPlaying,
+    player: {
+      id: 1,
+      info: { id: 1, name: 'player', displayName: 'Player' },
+      profileUrl: 'https://www.roblox.com/users/1/profile',
+    },
+  }),
+  history_get: () => history,
+  servers_regions: () => regions,
+  servers_scan: async () => (await new Promise((r) => setTimeout(r, 600)), pings),
+  shaders_info: () => ({
+    status: { state: running ? 'running' : 'waiting' },
+    presets: [
+      { id: 'vivid', label: 'Vivid' },
+      { id: 'cinematic', label: 'Cinematic' },
+      { id: 'crisp', label: 'Crisp' },
+      { id: 'warm', label: 'Golden hour' },
+      { id: 'cool', label: 'Moonlight' },
+      { id: 'soft', label: 'Soft glow' },
+      { id: 'noir', label: 'Noir' },
+    ],
+  }),
   appearance_background_data: () => null,
   'plugin:event|listen': ({ event, handler }) => {
     listeners.set(event, [...(listeners.get(event) ?? []), handler]);
@@ -262,7 +424,7 @@ const handlers: Record<string, (args: any) => unknown> = {
   invoke: async (cmd: string, args: unknown) => {
     const h = handlers[cmd];
     // Anything else (window controls, saving, applying) quietly does nothing here.
-    return h ? structuredClone(h(args ?? {})) : null;
+    return h ? structuredClone(await h(args ?? {})) : null;
   },
   convertFileSrc: (p: string) => p,
 };

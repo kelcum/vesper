@@ -25,6 +25,8 @@ pub struct Previews {
     pub wheel_line: Option<String>,
     /// The chosen font, so the page can show text in it.
     pub font: Option<String>,
+    /// A 360° strip of the sky: the custom one, or Roblox's own.
+    pub sky: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -33,6 +35,7 @@ pub struct ModsView {
     pub config: ModsConfig,
     pub cursor_presets: Vec<PresetInfo>,
     pub wheel_presets: Vec<PresetInfo>,
+    pub sky_presets: Vec<PresetInfo>,
     pub custom_dir: String,
     pub custom_file_count: usize,
     pub cursor_scale: (u8, u8),
@@ -84,6 +87,11 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
         wheel_gradient: highlight("SelectedGradient", cut),
         wheel_line: highlight("SelectedLine", None),
         font: None,
+        sky: if config.sky.is_some() {
+            std::fs::read(mods::sky_preview(&state.mod_paths)).ok().map(|b| data_url(&b))
+        } else {
+            roblox_sky_preview(state)
+        },
     };
     let font = config
         .font
@@ -110,6 +118,7 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
         config,
         cursor_presets: mods::presets(mods::CURSOR_PRESETS),
         wheel_presets: mods::presets(mods::WHEEL_PRESETS),
+        sky_presets: mods::presets(crate::sky::PRESETS),
         last_report: lock(&state.last_mod_report).clone(),
         roblox_running: state.roblox_running.load(Ordering::Relaxed),
         applied_now,
@@ -123,6 +132,32 @@ fn roblox_original_bytes(state: &AppState, rel: &str) -> Option<Vec<u8>> {
     let rel = mods::rel_path(rel);
     let backup = state.mod_paths.originals.join(install.build_id()).join(&rel);
     std::fs::read(backup).ok().or_else(|| std::fs::read(install.content_root().join(&rel)).ok())
+}
+
+/// Roblox's own sky as a preview strip, made once per Roblox version.
+fn roblox_sky_preview(state: &AppState) -> Option<String> {
+    static CACHE: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+    let version = state.preferred_install()?.version_hash;
+    if let Some((v, url)) = lock(&CACHE).as_ref() {
+        if *v == version {
+            return Some(url.clone());
+        }
+    }
+    let faces: Vec<(&str, image::RgbaImage)> = crate::sky::FACES
+        .iter()
+        .filter_map(|f| {
+            let bytes = roblox_original_bytes(state, &crate::sky::face_rel(f))?;
+            Some((*f, crate::sky::decode_dds(&bytes)?))
+        })
+        .collect();
+    if faces.len() < 4 {
+        return None;
+    }
+    let mut png = std::io::Cursor::new(Vec::new());
+    crate::sky::preview_strip(&faces, 160).write_to(&mut png, image::ImageFormat::Png).ok()?;
+    let url = data_url(png.get_ref());
+    *lock(&CACHE) = Some((version, url.clone()));
+    Some(url)
 }
 
 fn roblox_original(state: &AppState, rel: &str) -> Option<String> {
@@ -366,6 +401,43 @@ pub async fn mods_set_custom(app: AppHandle, enabled: bool) -> Result<ModsView> 
     .await
 }
 
+/// Sets a custom sky from a built-in look, a 360° panorama, or six pictures.
+#[tauri::command]
+pub async fn mods_set_sky(
+    app: AppHandle,
+    preset: Option<String>,
+    panorama: Option<PathBuf>,
+    faces: Option<Vec<PathBuf>>,
+) -> Result<ModsView> {
+    blocking(app, move |app| {
+        let state = app.state::<AppState>();
+        let (built, sky) = if let Some(id) = preset {
+            let colour = crate::sky::preset_color(&id).ok_or_else(|| problem("That sky style doesn't exist."))?;
+            let faces = crate::sky::render(crate::sky::FACE_SIZE, &colour);
+            (faces, mods::SkyMod { source: Source::Preset { id }, layout: mods::SkyLayout::Panorama })
+        } else if let Some(path) = panorama {
+            let faces = crate::sky::faces_from_panorama(&path).map_err(problem)?;
+            (faces, mods::SkyMod { source: Source::File { name: file_name(&path) }, layout: mods::SkyLayout::Panorama })
+        } else if let Some(paths) = faces {
+            let faces = crate::sky::faces_from_files(&paths).map_err(problem)?;
+            let name = paths
+                .first()
+                .and_then(|p| p.parent())
+                .and_then(|d| d.file_name())
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Six pictures".into());
+            (faces, mods::SkyMod { source: Source::File { name }, layout: mods::SkyLayout::Faces })
+        } else {
+            return Err(Problem::invalid("Choose a sky.", "Pick a style or a picture."));
+        };
+        mods::prepare_sky(&state.mod_paths, &built).map_err(problem)?;
+        lock(&state.mods).sky = Some(sky);
+        let applied = commit(app, &state)?;
+        Ok(view(&state, applied))
+    })
+    .await
+}
+
 /// Turns one customisation off and restores Roblox's original files.
 #[tauri::command]
 pub async fn mods_clear(app: AppHandle, kind: String) -> Result<ModsView> {
@@ -378,13 +450,14 @@ pub async fn mods_clear(app: AppHandle, kind: String) -> Result<ModsView> {
                 "emoteWheel" => m.emote_wheel = None,
                 "font" => m.font = None,
                 "deathSound" => m.death_sound = None,
+                "sky" => m.sky = None,
                 "customFiles" => m.custom_files = false,
                 "all" => *m = ModsConfig::default(),
                 _ => return Err(Problem::invalid("Unknown customisation.", "This is a bug in Vesper.")),
             }
         }
         if kind == "all" {
-            for k in ["cursor", "emoteWheel", "font", "deathSound"] {
+            for k in ["cursor", "emoteWheel", "font", "deathSound", "sky"] {
                 mods::clear_prepared(&state.mod_paths, k);
             }
         } else {

@@ -154,6 +154,24 @@ pub struct FileMod {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum SkyLayout {
+    /// One 360° picture.
+    #[default]
+    Panorama,
+    /// Six pictures, one per side.
+    Faces,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkyMod {
+    pub source: Source,
+    #[serde(default)]
+    pub layout: SkyLayout,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ModsConfig {
@@ -161,6 +179,7 @@ pub struct ModsConfig {
     pub emote_wheel: Option<WheelMod>,
     pub font: Option<FileMod>,
     pub death_sound: Option<FileMod>,
+    pub sky: Option<SkyMod>,
     /// Apply everything in the custom files folder.
     pub custom_files: bool,
 }
@@ -533,9 +552,39 @@ pub fn prepare_sound(p: &ModPaths, file: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Where the preview of the prepared sky is kept.
+pub fn sky_preview(p: &ModPaths) -> PathBuf {
+    p.root.join("previews").join("sky.png")
+}
+
+/// Encodes six faces the way Roblox's own sky is stored, plus a preview.
+pub fn prepare_sky(p: &ModPaths, faces: &[(&str, RgbaImage)]) -> Result<(), String> {
+    if faces.len() != crate::sky::FACES.len() {
+        return Err("A skybox needs all six sides.".into());
+    }
+    let encoded: Vec<(String, Vec<u8>)> = std::thread::scope(|s| {
+        let jobs: Vec<_> = faces
+            .iter()
+            .map(|(face, img)| s.spawn(move || (crate::sky::face_rel(face), crate::sky::encode_dds(img))))
+            .collect();
+        jobs.into_iter().filter_map(|j| j.join().ok()).collect()
+    });
+    for (rel, bytes) in &encoded {
+        write_atomic(&p.prepared(rel), bytes).map_err(|e| format!("Couldn't save the sky: {e}"))?;
+    }
+    let strip = crate::sky::preview_strip(faces, 160);
+    let preview = sky_preview(p);
+    std::fs::create_dir_all(preview.parent().expect("has parent")).map_err(|e| e.to_string())?;
+    write_atomic(&preview, &png_bytes(&strip)?).map_err(|e| format!("Couldn't save the sky preview: {e}"))
+}
+
 /// Removes a mod's prepared files.
 pub fn clear_prepared(p: &ModPaths, kind: &str) {
     let rels: Vec<String> = match kind {
+        "sky" => {
+            let _ = std::fs::remove_file(sky_preview(p));
+            crate::sky::FACES.iter().map(|f| crate::sky::face_rel(f)).collect()
+        }
         "cursor" => CURSOR_FILES.iter().map(|s| s.to_string()).collect(),
         "font" => vec![FONT_FILE.to_string()],
         "deathSound" => DEATH_SOUNDS.iter().map(|s| s.to_string()).collect(),
@@ -679,6 +728,11 @@ fn desired_files(
                     }
                 }
             }
+        }
+    }
+    if cfg.sky.is_some() {
+        for face in crate::sky::FACES {
+            add_prepared(&crate::sky::face_rel(face), "sky", false, &mut out);
         }
     }
     if cfg.font.is_some() {
@@ -1000,6 +1054,33 @@ mod tests {
         assert_eq!(off.restored, 2);
         assert_eq!(read(&e, CURSOR_FILES[0]), png(64, 64, [255, 255, 255, 255]), "original is back");
         assert!(ledger.files.is_empty());
+    }
+
+    #[test]
+    fn sky_replaces_robloxs_faces_and_restores_them() {
+        let e = env();
+        for face in crate::sky::FACES {
+            let p = e.install.join(crate::sky::face_rel(face));
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, format!("original {face}")).unwrap();
+        }
+        let faces = crate::sky::render(64, &crate::sky::preset_color("sunset").unwrap());
+        prepare_sky(&e.mods, &faces).unwrap();
+        assert!(sky_preview(&e.mods).is_file());
+        let cfg = ModsConfig {
+            sky: Some(SkyMod { source: Source::Preset { id: "sunset".into() }, layout: SkyLayout::Panorama }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!(r.written, 6, "{r:?}");
+        let ft = read(&e, &crate::sky::face_rel("ft"));
+        assert!(crate::sky::decode_dds(&ft).is_some(), "a DXT1 texture like Roblox's");
+        let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
+        assert_eq!(off.restored, 6);
+        assert_eq!(read(&e, &crate::sky::face_rel("up")), b"original up");
+        clear_prepared(&e.mods, "sky");
+        assert!(!sky_preview(&e.mods).exists());
     }
 
     #[test]

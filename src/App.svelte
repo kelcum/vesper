@@ -11,6 +11,8 @@
   import { isMac, trayName } from './lib/platform';
   import { app } from './lib/store.svelte';
   import About from './pages/About.svelte';
+  import Avatar from './pages/Avatar.svelte';
+  import Recent from './pages/Recent.svelte';
   import Customize from './pages/Customize.svelte';
   import FastFlags from './pages/FastFlags.svelte';
   import FirstRun from './pages/FirstRun.svelte';
@@ -21,6 +23,8 @@
 
   const pages = {
     home: Home,
+    recent: Recent,
+    avatar: Avatar,
     profiles: Profiles,
     flags: FastFlags,
     customize: Customize,

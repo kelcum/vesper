@@ -36,6 +36,10 @@ pub mod events {
     pub const SETTINGS: &str = "settings://changed";
     pub const CLOSE_REQUESTED: &str = "app://close-requested";
     pub const NAVIGATE: &str = "app://navigate";
+    pub const ACTIVITY: &str = "roblox://activity";
+    pub const PLAYER: &str = "roblox://player";
+    pub const HISTORY: &str = "history://changed";
+    pub const SHADERS: &str = "shaders://status";
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -91,6 +95,20 @@ pub struct AppState {
     pub mods: Mutex<ModsConfig>,
     pub mod_ledger: Mutex<ModLedger>,
     pub last_mod_report: Mutex<Option<ModReport>>,
+    /// The game and server the player is in, from Roblox's log.
+    pub activity: Mutex<Option<crate::roblox::activity::Activity>>,
+    pub activity_watch: Mutex<Option<crate::roblox::activity::ActivityWatcher>>,
+    /// The signed-in Roblox player's id, from Roblox's log.
+    pub roblox_user: Mutex<Option<u64>>,
+    pub user_info: Mutex<Option<crate::roblox::web::UserInfo>>,
+    /// Game names and icons by universe id.
+    pub games: Mutex<std::collections::HashMap<u64, crate::roblox::web::GameInfo>>,
+    /// Server cities by server address.
+    pub locations: Mutex<std::collections::HashMap<String, crate::roblox::web::Location>>,
+    pub history: Mutex<crate::history::History>,
+    pub server_cache: crate::servers::ServerCache,
+    pub shade: Mutex<Option<crate::shade::Overlay>>,
+    pub shade_status: Mutex<crate::shade::ShaderStatus>,
     pub roblox_running: AtomicBool,
     /// Vesper hid or minimized itself when it launched Roblox.
     pub hidden_for_roblox: AtomicBool,
@@ -147,6 +165,16 @@ impl AppState {
             mod_ledger: Mutex::new(mod_ledger),
             mod_paths,
             last_mod_report: Mutex::new(None),
+            activity: Mutex::new(None),
+            activity_watch: Mutex::new(None),
+            roblox_user: Mutex::new(None),
+            user_info: Mutex::new(None),
+            games: Mutex::new(Default::default()),
+            locations: Mutex::new(Default::default()),
+            history: Mutex::new(crate::history::History::load(&paths.history_file())),
+            server_cache: Default::default(),
+            shade: Mutex::new(None),
+            shade_status: Mutex::new(crate::shade::ShaderStatus::Off),
             roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
             hidden_for_roblox: AtomicBool::new(false),
             minimized_for_roblox: AtomicBool::new(false),
@@ -273,11 +301,23 @@ impl AppState {
     pub fn presence_state(&self) -> PresenceState {
         let s = self.settings();
         let profile = lock(&self.profiles).active().name.clone();
+        let game = crate::playing::game_presence(self);
+        let join_url = (s.discord.join_button && game.is_some())
+            .then(|| lock(&self.activity).as_ref().and_then(|a| a.join_url()))
+            .flatten();
+        let profile_url = s
+            .discord
+            .profile_button
+            .then(|| (*lock(&self.roblox_user)).map(crate::roblox::web::UserInfo::profile_url))
+            .flatten();
         PresenceState {
             roblox_running: self.roblox_running.load(Ordering::Relaxed),
             profile: Some(profile),
             show_profile: s.discord.show_profile,
             show_roblox_status: s.discord.show_roblox_status,
+            game,
+            join_url,
+            profile_url,
         }
     }
 
@@ -324,6 +364,30 @@ impl AppState {
     pub fn restart_monitor(&self, app: &AppHandle) {
         lock(&self.monitor).handle = None;
         self.sync_monitor(app);
+    }
+
+    /// Starts or stops the shader overlay: on while it's enabled and Roblox runs.
+    pub fn sync_shaders(&self, app: &AppHandle) {
+        let s = lock(&self.settings).shaders.clone();
+        let wanted = s.enabled && self.roblox_running.load(Ordering::Relaxed);
+        let mut slot = lock(&self.shade);
+        match (wanted, slot.as_ref()) {
+            (true, Some(o)) => o.set_params(s.params),
+            (true, None) => {
+                let emitter = app.clone();
+                *slot = Some(crate::shade::Overlay::start(s.params, crate::shade::roblox_window, move |status| {
+                    let state = emitter.state::<AppState>();
+                    *lock(&state.shade_status) = status.clone();
+                    let _ = emitter.emit(events::SHADERS, &status);
+                }));
+            }
+            (false, Some(_)) => {
+                *slot = None;
+                *lock(&self.shade_status) = crate::shade::ShaderStatus::Off;
+                let _ = app.emit(events::SHADERS, crate::shade::ShaderStatus::Off);
+            }
+            (false, None) => {}
+        }
     }
 
     /// Starts or stops the Versions-folder watcher to match the flag mode.
@@ -428,6 +492,12 @@ pub fn spawn_roblox_watcher(app: AppHandle) {
             if state.roblox_running.swap(running, Ordering::Relaxed) != running {
                 log::info!("Roblox {}", if running { "started" } else { "closed" });
                 let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": running, "pids": pids }));
+                if running {
+                    crate::playing::start(&app);
+                } else {
+                    crate::playing::stop(&app);
+                }
+                state.sync_shaders(&app);
                 state.refresh_presence();
                 if !running {
                     let mut l = lock(&state.launch);

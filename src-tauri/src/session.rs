@@ -3,7 +3,7 @@
 //! Runs on a background thread and reports progress through `launch://status`
 //! events, so the window never blocks.
 
-use crate::config::{AfterLaunch, FlagMode, LastLaunch};
+use crate::config::{AfterLaunch, FlagMode, LastLaunch, ServerPick};
 use crate::error::{Problem, ProblemAction};
 use crate::flags::apply;
 use crate::flags::model::FlagSet;
@@ -24,9 +24,19 @@ use tauri::{AppHandle, Emitter, Manager};
 const START_TIMEOUT: Duration = Duration::from_secs(60);
 const UPDATE_TIMEOUT: Duration = Duration::from_secs(300);
 const VERIFY_TIMEOUT: Duration = Duration::from_secs(60);
+const PICK_TIMEOUT: Duration = Duration::from_secs(25);
 
 /// Starts a launch in the background. Returns an error only if one is already running.
 pub fn begin(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
+    start(app, target, false)
+}
+
+/// Closes Roblox (it can only run once), then launches `target`.
+pub fn begin_restart(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
+    start(app, target, true)
+}
+
+fn start(app: AppHandle, target: LaunchTarget, restart: bool) -> Result<(), Problem> {
     let state = app.state::<AppState>();
     {
         let current = lock(&state.launch);
@@ -37,12 +47,15 @@ pub fn begin(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
                 .fix("Wait a moment for the current launch to finish."));
         }
     }
-    state.set_launch(&app, LaunchStatus::Preparing { step: "Checking Roblox".into() });
+    let first = if restart { "Closing Roblox" } else { "Checking Roblox" };
+    state.set_launch(&app, LaunchStatus::Preparing { step: first.into() });
     std::thread::Builder::new()
         .name("vesper-launch".into())
         .spawn(move || {
             let state = app.state::<AppState>();
-            if let Err(problem) = run(&app, &target) {
+            let result =
+                if restart { close_roblox(&app).and_then(|()| run(&app, &target)) } else { run(&app, &target) };
+            if let Err(problem) = result {
                 log::warn!("Launch failed: {problem}");
                 record_last(&app, &target, "failed", None);
                 state.set_launch(&app, LaunchStatus::Failed { problem });
@@ -50,6 +63,92 @@ pub fn begin(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
         })
         .map_err(|e| Problem::internal("Couldn't start the launch.", e))?;
     Ok(())
+}
+
+/// Closes the running Roblox so a new launch can take its place.
+fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
+    let state = app.state::<AppState>();
+    if process::roblox_pids().is_empty() {
+        return Ok(());
+    }
+    // Vesper shouldn't come back on screen for this close.
+    state.hidden_for_roblox.store(false, Ordering::Relaxed);
+    match process::close_players(Duration::from_secs(10)) {
+        Ok(process::Closed::Forced) => {
+            log::info!("Roblox didn't close when asked and was ended");
+        }
+        Ok(c) => log::info!("Closed Roblox for a restart ({c:?})"),
+        Err(e) => {
+            return Err(Problem::new("roblox.wont_close", "Roblox didn't close")
+                .what("Vesper asked Roblox to close so it could start again, but it's still running.")
+                .why("Roblox may be stuck, or Windows didn't allow Vesper to end it.")
+                .fix("Close Roblox from the taskbar or Task Manager, then launch again.")
+                .details(e)
+                .action(ProblemAction::Retry));
+        }
+    }
+    // Let Roblox release its single-instance lock and finish writing settings.
+    std::thread::sleep(Duration::from_millis(1500));
+    state.roblox_running.store(false, Ordering::Relaxed);
+    Ok(())
+}
+
+/// For a game launch with server picking on, finds a server to join.
+fn choose_server(app: &AppHandle, target: &LaunchTarget) -> LaunchTarget {
+    let LaunchTarget::Experience { place_id, game_instance_id: None, link_code: None, launch_data } = target else {
+        return target.clone();
+    };
+    let state = app.state::<AppState>();
+    let prefs = state.settings().servers;
+    if prefs.pick == ServerPick::Off {
+        return target.clone();
+    }
+    let label = crate::servers::region_label(&prefs.region);
+    step(
+        app,
+        &if prefs.pick == ServerPick::Region {
+            format!("Finding a server in {label}")
+        } else {
+            "Finding the lowest-ping server".into()
+        },
+    );
+    let result = tauri::async_runtime::block_on(async {
+        tokio::time::timeout(
+            PICK_TIMEOUT,
+            crate::servers::pick(
+                &state.http,
+                &state.server_cache,
+                &state.paths.datacenters_file(),
+                *place_id,
+                prefs.pick,
+                &prefs.region,
+            ),
+        )
+        .await
+        .unwrap_or_else(|_| Err("finding a server took too long".into()))
+    });
+    match result {
+        Ok(p) => {
+            let ping = p.ms.map(|ms| format!(" (about {ms} ms)")).unwrap_or_default();
+            log::info!("Picked a server in {}{ping}, {}/{} players", p.city, p.playing, p.max_players);
+            lock(&state.notices).push(if p.fallback {
+                format!("No servers in {label} right now, so Vesper picked the lowest-ping one: {}{ping}.", p.city)
+            } else {
+                format!("Joining a server in {}{ping}.", p.city)
+            });
+            LaunchTarget::Experience {
+                place_id: *place_id,
+                game_instance_id: Some(p.server_id),
+                link_code: None,
+                launch_data: launch_data.clone(),
+            }
+        }
+        Err(e) => {
+            log::info!("Server picking skipped: {e}");
+            lock(&state.notices).push(format!("Vesper couldn't pick a server ({e}), so Roblox chose one as usual."));
+            target.clone()
+        }
+    }
 }
 
 fn step(app: &AppHandle, s: &str) {
@@ -72,7 +171,13 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     let install = state.require_install()?;
     let settings = state.settings();
     let profile = lock(&state.profiles).active().clone();
-    let roblox_running = !process::roblox_pids().is_empty();
+    if !process::roblox_pids().is_empty() {
+        // A second copy would only hand its link to the open one, or nothing at all.
+        return Err(Problem::new("roblox.already_running", "Roblox is already open")
+            .what("Roblox runs one copy at a time, so a second launch wouldn't start anything.")
+            .why("Roblox keeps a single window open.")
+            .fix("Use “Restart Roblox” on Home: Vesper closes Roblox and launches it again, into the same server if you like."));
+    }
     let launched_at = SystemTime::now();
 
     // 1. Fast Flags
@@ -121,22 +226,20 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     }
 
     // 2. Customisations (cursor, emote wheel, font, sounds). Roblox reads them at startup.
-    if !roblox_running {
-        if let Some(r) = state.apply_mods(&install.dir) {
-            if !r.missing.is_empty() {
-                lock(&state.notices).push(format!(
-                    "This Roblox version doesn't have {} file(s) a customisation replaces, so they were skipped. Roblox may have moved them.",
-                    r.missing.len()
-                ));
-            }
-            for e in r.errors.iter().take(3) {
-                lock(&state.notices).push(e.clone());
-            }
+    if let Some(r) = state.apply_mods(&install.dir) {
+        if !r.missing.is_empty() {
+            lock(&state.notices).push(format!(
+                "This Roblox version doesn't have {} file(s) a customisation replaces, so they were skipped. Roblox may have moved them.",
+                r.missing.len()
+            ));
+        }
+        for e in r.errors.iter().take(3) {
+            lock(&state.notices).push(e.clone());
         }
     }
 
-    // 3. Frame-rate limit (Roblox's own setting; only while Roblox is closed).
-    if settings.roblox.apply_fps_cap && !roblox_running {
+    // 3. Frame-rate limit (Roblox's own setting).
+    if settings.roblox.apply_fps_cap {
         if let Some(cap) = profile.fps_cap {
             step(app, "Setting the frame-rate limit");
             match cap.resolve(state.system.display_hz) {
@@ -173,7 +276,10 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 4. Start Roblox.
+    // 4. Pick a server, when asked to.
+    let picked = choose_server(app, target);
+
+    // 5. Start Roblox.
     state.set_launch(app, LaunchStatus::Starting);
     // If Roblox updates itself during this launch, carry the flags into the new version.
     let has_mods = *lock(&state.mods) != crate::mods::ModsConfig::default();
@@ -190,7 +296,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     let request = SpawnRequest {
         exe: install.exe(),
         working_dir: install.dir.clone(),
-        argument: launch_argument(target),
+        argument: launch_argument(&picked),
         priority: profile.priority,
         affinity: profile.affinity,
     };
@@ -211,7 +317,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
             .push(format!("Roblox's priority wasn't changed ({err}). Roblox started at normal priority."));
     }
 
-    // 5. Wait for the player window process (Roblox may update itself first).
+    // 6. Wait for the player window process (Roblox may update itself first).
     let pid = wait_for_player(app, spawned.pid)?;
     state.roblox_running.store(true, Ordering::Relaxed);
     let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": true, "pids": [pid] }));
@@ -220,7 +326,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     crate::tray::refresh(app);
     after_launch(app, settings.general.after_launch);
 
-    // 6. Confirm with Roblox's own log. Read the log of the client that is
+    // 7. Confirm with Roblox's own log. Read the log of the client that is
     // actually running: if Roblox updated itself, the first client's short
     // log (written before it handed off to the updater) must be ignored.
     let since = process::start_time(pid).map_or(launched_at, |t| t.max(launched_at));

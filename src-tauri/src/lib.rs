@@ -4,6 +4,7 @@
 // on failure paths that are rare and never in hot loops, so its size is fine.
 #![allow(clippy::result_large_err)]
 
+pub mod avatar;
 pub mod backup;
 pub mod cleanup;
 pub mod commands;
@@ -13,14 +14,20 @@ pub mod diagnostics;
 pub mod discord;
 pub mod error;
 pub mod flags;
+pub mod history;
 pub mod logging;
 pub mod mods;
+pub mod net;
 pub mod paths;
 pub mod perf;
+pub mod playing;
 pub mod profiles;
 pub mod redact;
 pub mod roblox;
+pub mod servers;
 pub mod session;
+pub mod shade;
+pub mod sky;
 pub mod state;
 pub mod tray;
 pub mod updates;
@@ -86,6 +93,9 @@ pub fn run() {
             state.refresh_presence();
 
             tray::create(&handle)?;
+            if state.roblox_running.load(std::sync::atomic::Ordering::Relaxed) {
+                playing::start(&handle);
+            }
             state::spawn_roblox_watcher(handle.clone());
             fit_window_to_screen(&handle);
 
@@ -104,6 +114,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // The docked Roblox page closes like any other window.
+            if window.label() != "main" {
+                return;
+            }
             let app = window.app_handle();
             let state = app.state::<AppState>();
             match event {
@@ -143,6 +157,15 @@ pub fn run() {
             commands::roblox_parse_target,
             commands::roblox_launch,
             commands::roblox_dismiss_launch,
+            commands::roblox_restart,
+            commands::playing_get,
+            commands::history_get,
+            commands::history_clear,
+            commands::history_remove,
+            commands::servers_regions,
+            commands::shaders_info,
+            commands::shaders_preset,
+            commands::servers_scan,
             commands::roblox_latest,
             commands::flags_validate,
             commands::flags_published,
@@ -179,11 +202,19 @@ pub fn run() {
             commands::app_hide,
             commands::app_quit,
             commands::app_ready,
+            avatar::avatar_open,
+            avatar::avatar_bounds,
+            avatar::avatar_hide,
+            avatar::avatar_close,
+            avatar::avatar_reload,
+            avatar::avatar_api,
+            avatar::avatar_sign_out,
             customize::mods_get,
             customize::mods_set_cursor,
             customize::mods_set_wheel,
             customize::mods_set_font,
             customize::mods_set_sound,
+            customize::mods_set_sky,
             customize::mods_use_launcher_font,
             customize::mods_set_custom,
             customize::mods_clear,
@@ -198,6 +229,7 @@ pub fn run() {
             tauri::RunEvent::Exit => {
                 let state = app.state::<AppState>();
                 lock(&state.monitor).handle = None;
+                lock(&state.shade).take();
                 if let Some(p) = lock(&state.presence).take() {
                     p.shutdown();
                 }
