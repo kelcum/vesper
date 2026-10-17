@@ -301,7 +301,11 @@
           ? isMac
             ? 'Vesper hides its window while Roblox runs. Open it from the menu bar icon or the Dock.'
             : 'Vesper leaves the taskbar while Roblox runs. Open it from the tray icon.'
-          : undefined}
+          : s.general.afterLaunch === 'hidden'
+            ? isMac
+              ? 'Vesper hides its window and its menu bar icon while Roblox runs. Click it in the Dock to bring it back.'
+              : 'Vesper leaves the taskbar and the tray while Roblox runs. Open Vesper again from the Start menu to bring it back.'
+            : undefined}
       >
         <Select
           label="After launching Roblox"
@@ -310,6 +314,7 @@
             { value: 'stay', label: 'Keep Vesper open' },
             { value: 'minimize', label: isMac ? 'Minimize to the Dock' : 'Minimize to the taskbar' },
             { value: 'tray', label: `Hide in the ${trayName}` },
+            { value: 'hidden', label: 'Hide completely' },
           ]}
           onchange={(v) => app.saveSettings({ general: { afterLaunch: v } })}
         />
@@ -321,7 +326,10 @@
             value={s.general.whenRobloxCloses}
             options={[
               { value: 'show', label: 'Bring Vesper back' },
-              { value: 'stay', label: 'Leave it where it is' },
+              {
+                value: 'stay',
+                label: s.general.afterLaunch === 'hidden' ? `Leave it in the ${trayName}` : 'Leave it where it is',
+              },
               { value: 'quit', label: 'Quit Vesper' },
             ]}
             onchange={(v) => app.saveSettings({ general: { whenRobloxCloses: v } })}

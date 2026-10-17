@@ -6,6 +6,46 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-17
+
+### Added
+
+- “Hide completely” in Settings → After launching Roblox: Vesper leaves the
+  taskbar and the tray while Roblox runs. It comes back when Roblox closes,
+  or when you open Vesper again.
+
+### Changed
+
+- Shaders run only while you're in a game, not on Roblox's home screen and
+  menus, and stay on when you click another window. Windows you put in front
+  of Roblox stay in front of it.
+- Customize explains where a custom font and sky show: Roblox's menus and the
+  games that use Roblox's built-in fonts and default sky. Games that bring
+  their own fonts or sky keep them.
+- Discord: if you turned Rich Presence on before 0.3, it doesn't start
+  showing the game you're playing until you switch that on.
+
+### Fixed
+
+- Avatar: Roblox's page could stay on top of Vesper's avatar tools (and other
+  pages) after leaving Roblox's editor, and could show up blank.
+- Avatar: the Outfits tab kept reloading when you had no saved outfits, items
+  you own more than once appeared twice in Inventory, and signing in could
+  queue up repeated checks.
+- Recent games: servers from before Vesper opened were recorded as played
+  until Vesper started, and rejoining a server kept its old start time, which
+  could also mix up the days.
+- Restarting Roblox could miss that it had closed, so the old game stayed
+  shown during the relaunch.
+- Shaders: the status could read “off” after going straight to another game,
+  and the grade didn't show over a Roblox window set to always on top.
+- Server picking could mix up two cities with the same name in different
+  countries.
+- A sky that couldn't be encoded completely could leave one side of the
+  previous sky in place; now nothing changes and Vesper says so.
+- Ending a Roblox that didn't close only tried until the first failure, and
+  could also end a Roblox that started meanwhile.
+
 ## [0.3.0] - 2026-10-17
 
 ### Added

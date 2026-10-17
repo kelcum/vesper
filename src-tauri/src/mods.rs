@@ -569,6 +569,10 @@ pub fn prepare_sky(p: &ModPaths, faces: &[(&str, RgbaImage)]) -> Result<(), Stri
             .collect();
         jobs.into_iter().filter_map(|j| j.join().ok()).collect()
     });
+    // Never a sky with some of Roblox's old sides left in it.
+    if encoded.len() != faces.len() {
+        return Err("Vesper couldn't encode every side of the sky. Try another picture.".into());
+    }
     for (rel, bytes) in &encoded {
         write_atomic(&p.prepared(rel), bytes).map_err(|e| format!("Couldn't save the sky: {e}"))?;
     }

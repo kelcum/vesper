@@ -112,7 +112,15 @@ pub fn refresh(app: &AppHandle) {
     }
 }
 
+/// Shows or hides the tray icon (Vesper can leave the tray while Roblox runs).
+pub fn set_shown(app: &AppHandle, shown: bool) {
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = tray.set_visible(shown);
+    }
+}
+
 pub fn show_main(app: &AppHandle) {
+    set_shown(app, true);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
         let _ = w.show();

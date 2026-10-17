@@ -87,9 +87,10 @@ fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
                 .action(ProblemAction::Retry));
         }
     }
+    // Everything that follows Roblox closing (game status, history, shaders) happens now.
+    crate::state::roblox_seen(app, &[]);
     // Let Roblox release its single-instance lock and finish writing settings.
     std::thread::sleep(Duration::from_millis(1500));
-    state.roblox_running.store(false, Ordering::Relaxed);
     Ok(())
 }
 
@@ -319,8 +320,7 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
 
     // 6. Wait for the player window process (Roblox may update itself first).
     let pid = wait_for_player(app, spawned.pid)?;
-    state.roblox_running.store(true, Ordering::Relaxed);
-    let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": true, "pids": [pid] }));
+    crate::state::roblox_seen(app, &[pid]);
     state.set_launch(app, LaunchStatus::Running { pid });
     state.refresh_presence();
     crate::tray::refresh(app);
@@ -486,6 +486,14 @@ fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
                 w.minimize().is_ok()
             }
             AfterLaunch::Tray => w.hide().is_ok(),
+            AfterLaunch::Hidden => {
+                let hidden = w.hide().is_ok();
+                if hidden {
+                    // The tray icon comes back when Roblox closes or Vesper is opened again.
+                    crate::tray::set_shown(app, false);
+                }
+                hidden
+            }
         };
         if hidden {
             state.hidden_for_roblox.store(true, Ordering::Relaxed);

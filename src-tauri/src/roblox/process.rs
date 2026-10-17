@@ -106,13 +106,18 @@ pub fn close_players(grace: std::time::Duration) -> io::Result<Closed> {
     if wait(&pids, grace) {
         return Ok(Closed::Gracefully);
     }
-    for pid in roblox_pids() {
-        imp::terminate(pid)?;
+    // Only the players that were asked to close; try each even if one can't be ended.
+    let now = roblox_pids();
+    let mut failed = None;
+    for pid in pids.iter().filter(|p| now.contains(p)) {
+        if let Err(e) = imp::terminate(*pid) {
+            failed.get_or_insert(e);
+        }
     }
     if wait(&pids, Duration::from_secs(8)) {
         Ok(Closed::Forced)
     } else {
-        Err(io::Error::other("Roblox is still running after being asked to close"))
+        Err(failed.unwrap_or_else(|| io::Error::other("Roblox is still running after being asked to close")))
     }
 }
 

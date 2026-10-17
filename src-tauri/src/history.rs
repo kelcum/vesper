@@ -61,10 +61,12 @@ impl History {
     }
 
     /// Records a server being joined. Joining the same server again (after a
-    /// reconnect or a restart) continues its entry.
+    /// reconnect or a restart) moves its entry up and starts its time again,
+    /// so the list stays newest first.
     pub fn joined(&mut self, a: &Activity) {
         if let Some(i) = self.visits.iter().position(|v| v.job_id == a.job_id && v.place_id == a.place_id) {
             let mut v = self.visits.remove(i);
+            v.joined_at = a.joined_at;
             v.left_at = None;
             v.universe_id = v.universe_id.or(a.universe_id);
             self.visits.insert(0, v);
@@ -127,9 +129,11 @@ mod tests {
         h.joined(&act(1, "a"));
         h.joined(&act(2, "b"));
         h.left("b", Utc::now());
-        h.joined(&act(1, "a"));
+        let again = Activity { joined_at: Utc::now() + chrono::Duration::hours(1), ..act(1, "a") };
+        h.joined(&again);
         assert_eq!(h.visits.len(), 2);
         assert_eq!(h.visits[0].job_id, "a");
+        assert_eq!(h.visits[0].joined_at, again.joined_at, "time in the server starts again");
         assert!(h.visits[1].left_at.is_some());
     }
 

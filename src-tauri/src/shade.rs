@@ -146,7 +146,7 @@ impl Overlay {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     continue;
                 };
-                match imp::run(hwnd, &p, &flag, true, on_status.clone()) {
+                match imp::run(hwnd, &p, &flag, on_status.clone()) {
                     Ok(()) => {}
                     Err(e) => {
                         log::warn!("Shaders stopped: {e}");
@@ -174,7 +174,7 @@ impl Overlay {
     }
 }
 
-/// Grades `hwnd` for `seconds` without waiting for focus, then returns.
+/// Grades `hwnd` for `seconds`, then returns.
 /// Used by the self-test.
 pub fn run_for(hwnd: isize, params: ShaderParams, seconds: f32) -> Result<(), String> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -183,7 +183,7 @@ pub fn run_for(hwnd: isize, params: ShaderParams, seconds: f32) -> Result<(), St
         std::thread::sleep(std::time::Duration::from_secs_f32(seconds));
         flag.store(true, Ordering::Relaxed);
     });
-    imp::run(hwnd, &Arc::new(Mutex::new(params.clamped())), &stop, false, Arc::new(|_| {}))
+    imp::run(hwnd, &Arc::new(Mutex::new(params.clamped())), &stop, Arc::new(|_| {}))
 }
 
 /// The main window of a running Roblox player, if any.
@@ -550,13 +550,10 @@ mod imp {
             };
             // Registering twice fails harmlessly.
             RegisterClassW(&wc);
+            // Not topmost: it sits just above Roblox in the window order (see `keep_above`),
+            // so other windows can cover both and it stays on when Roblox loses focus.
             let hwnd = CreateWindowExW(
-                WS_EX_TOPMOST
-                    | WS_EX_LAYERED
-                    | WS_EX_TRANSPARENT
-                    | WS_EX_NOACTIVATE
-                    | WS_EX_TOOLWINDOW
-                    | WS_EX_NOREDIRECTIONBITMAP,
+                WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP,
                 class,
                 w!("Vesper shaders"),
                 WS_POPUP,
@@ -665,12 +662,37 @@ mod imp {
         }
     }
 
+    /// Whether `overlay` is directly above `target` in the window order.
+    fn just_above(overlay: HWND, target: HWND) -> bool {
+        unsafe { GetWindow(target, GW_HWNDPREV) }.is_ok_and(|w| w == overlay)
+    }
+
+    /// Shows `overlay` over `target`, directly above it in the window order: when Roblox
+    /// comes to the front the overlay follows it, and windows above Roblox stay above both.
+    fn keep_above(overlay: HWND, target: HWND, pl: Placement) {
+        unsafe {
+            let topmost = |w: HWND| (GetWindowLongPtrW(w, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0) != 0;
+            // Same band as Roblox: always on top only if Roblox was set to be.
+            let pinned = topmost(target);
+            if topmost(overlay) != pinned {
+                let band = if pinned { HWND_TOPMOST } else { HWND_NOTOPMOST };
+                let _ = SetWindowPos(overlay, Some(band), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+            }
+            // Inserting "after" the window above Roblox puts the overlay between the two.
+            // When that window is in a higher band, Roblox is the top of its band: go to the top.
+            let above = GetWindow(target, GW_HWNDPREV)
+                .ok()
+                .filter(|w| !w.is_invalid() && *w != overlay && topmost(*w) == pinned);
+            let after = above.unwrap_or(if pinned { HWND_TOPMOST } else { HWND_TOP });
+            let _ = SetWindowPos(overlay, Some(after), pl.x, pl.y, pl.w, pl.h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
+    }
+
     /// Grades `target` until it closes or `stop` is set.
     pub fn run(
         target: isize,
         params: &Arc<Mutex<ShaderParams>>,
         stop: &AtomicBool,
-        follow_focus: bool,
         on_status: Arc<dyn Fn(ShaderStatus) + Send + Sync>,
     ) -> Result<(), String> {
         let target = HWND(target as *mut _);
@@ -754,20 +776,14 @@ mod imp {
                 let pl = placement(target).unwrap_or_default();
                 *place.lock().unwrap_or_else(|e| e.into_inner()) = pl;
                 let drawn = renderer.lock().unwrap_or_else(|e| e.into_inner()).frames > 0;
-                let active = !follow_focus || unsafe { GetForegroundWindow() } == target;
-                let visible = drawn && active && !unsafe { IsIconic(target) }.as_bool() && pl.w > 0 && pl.h > 0;
-                if visible && (!shown || pl != last_place) {
-                    unsafe {
-                        let _ = SetWindowPos(
-                            overlay,
-                            Some(HWND_TOPMOST),
-                            pl.x,
-                            pl.y,
-                            pl.w,
-                            pl.h,
-                            SWP_NOACTIVATE | SWP_SHOWWINDOW,
-                        );
-                    }
+                // Stays on whichever window has focus; only a minimised or hidden Roblox hides it.
+                let visible = drawn
+                    && unsafe { IsWindowVisible(target) }.as_bool()
+                    && !unsafe { IsIconic(target) }.as_bool()
+                    && pl.w > 0
+                    && pl.h > 0;
+                if visible && (!shown || pl != last_place || !just_above(overlay, target)) {
+                    keep_above(overlay, target, pl);
                     shown = true;
                     last_place = pl;
                 } else if !visible && shown {
@@ -806,7 +822,6 @@ mod imp {
         _target: isize,
         _params: &Arc<Mutex<ShaderParams>>,
         _stop: &AtomicBool,
-        _follow_focus: bool,
         _on_status: Arc<dyn Fn(ShaderStatus) + Send + Sync>,
     ) -> Result<(), String> {
         Err("Shaders need Windows".into())

@@ -5,7 +5,7 @@ export type FlagSet = Record<string, string>;
 // ---------------------------------------------------------------- settings
 
 export type CloseBehavior = 'tray' | 'quit';
-export type AfterLaunch = 'stay' | 'minimize' | 'tray';
+export type AfterLaunch = 'stay' | 'minimize' | 'tray' | 'hidden';
 export type WhenRobloxCloses = 'show' | 'stay' | 'quit';
 export type Theme = 'system' | 'dark' | 'light';
 export type Transparency = 'full' | 'reduced' | 'off';

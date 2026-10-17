@@ -19,7 +19,7 @@ use crate::roblox::watch::{self, VersionsWatcher};
 use crate::updates::UpdateState;
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -71,6 +71,9 @@ pub struct MonitorControl {
     pub handle: Option<MonitorHandle>,
     pub sources: BTreeSet<String>,
 }
+
+/// Counts shader overlays started, so only the newest one reports its status.
+static SHADE_RUN: AtomicU64 = AtomicU64::new(0);
 
 pub struct AppState {
     pub paths: AppPaths,
@@ -366,22 +369,32 @@ impl AppState {
         self.sync_monitor(app);
     }
 
-    /// Starts or stops the shader overlay: on while it's enabled and Roblox runs.
+    /// Starts or stops the shader overlay: on while it's enabled and the player is in a game.
     pub fn sync_shaders(&self, app: &AppHandle) {
         let s = lock(&self.settings).shaders.clone();
-        let wanted = s.enabled && self.roblox_running.load(Ordering::Relaxed);
+        // Only inside a game: the Roblox app's home and menus stay untouched.
+        let in_game = lock(&self.activity).is_some();
+        let wanted = s.enabled && in_game && self.roblox_running.load(Ordering::Relaxed);
         let mut slot = lock(&self.shade);
         match (wanted, slot.as_ref()) {
             (true, Some(o)) => o.set_params(s.params),
             (true, None) => {
+                let run = SHADE_RUN.fetch_add(1, Ordering::Relaxed) + 1;
                 let emitter = app.clone();
                 *slot = Some(crate::shade::Overlay::start(s.params, crate::shade::roblox_window, move |status| {
                     let state = emitter.state::<AppState>();
-                    *lock(&state.shade_status) = status.clone();
+                    let mut current = lock(&state.shade_status);
+                    // An overlay that was replaced reports "off" as it ends; that's not news.
+                    if SHADE_RUN.load(Ordering::Relaxed) != run {
+                        return;
+                    }
+                    *current = status.clone();
+                    drop(current);
                     let _ = emitter.emit(events::SHADERS, &status);
                 }));
             }
             (false, Some(_)) => {
+                SHADE_RUN.fetch_add(1, Ordering::Relaxed);
                 *slot = None;
                 *lock(&self.shade_status) = crate::shade::ShaderStatus::Off;
                 let _ = app.emit(events::SHADERS, crate::shade::ShaderStatus::Off);
@@ -458,6 +471,8 @@ fn after_roblox_closed(app: AppHandle) {
             state.hidden_for_roblox.store(true, Ordering::Relaxed);
             return;
         }
+        // Back in the tray, whatever happens to the window.
+        crate::tray::set_shown(&app, true);
         let behaviour = lock(&state.settings).general.when_roblox_closes;
         log::info!("Roblox closed; Vesper will {behaviour:?}");
         match behaviour {
@@ -487,31 +502,40 @@ pub fn spawn_roblox_watcher(app: AppHandle) {
             if state.quitting.load(Ordering::Relaxed) {
                 return;
             }
-            let pids = crate::roblox::process::roblox_pids();
-            let running = !pids.is_empty();
-            if state.roblox_running.swap(running, Ordering::Relaxed) != running {
-                log::info!("Roblox {}", if running { "started" } else { "closed" });
-                let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": running, "pids": pids }));
-                if running {
-                    crate::playing::start(&app);
-                } else {
-                    crate::playing::stop(&app);
-                }
-                state.sync_shaders(&app);
-                state.refresh_presence();
-                if !running {
-                    let mut l = lock(&state.launch);
-                    if matches!(*l, LaunchStatus::Running { .. }) {
-                        *l = LaunchStatus::Idle;
-                        let _ = app.emit(events::LAUNCH, &*l);
-                    }
-                    drop(l);
-                    if state.hidden_for_roblox.swap(false, Ordering::Relaxed) {
-                        after_roblox_closed(app.clone());
-                    }
-                }
-                crate::tray::refresh(&app);
-            }
+            roblox_seen(&app, &crate::roblox::process::roblox_pids());
         })
         .expect("spawn roblox watcher");
+}
+
+/// Records whether Roblox is running (`pids` are its players) and, when that
+/// changed, starts or stops everything that follows it. The watcher calls it
+/// every few seconds, and launches and restarts call it as soon as they know,
+/// so a change is never missed whoever notices it first.
+pub fn roblox_seen(app: &AppHandle, pids: &[u32]) {
+    let state = app.state::<AppState>();
+    let running = !pids.is_empty();
+    if state.roblox_running.swap(running, Ordering::Relaxed) == running {
+        return;
+    }
+    log::info!("Roblox {}", if running { "started" } else { "closed" });
+    let _ = app.emit(events::ROBLOX_RUNNING, serde_json::json!({ "running": running, "pids": pids }));
+    if running {
+        crate::playing::start(app);
+    } else {
+        crate::playing::stop(app);
+    }
+    state.sync_shaders(app);
+    state.refresh_presence();
+    if !running {
+        let mut l = lock(&state.launch);
+        if matches!(*l, LaunchStatus::Running { .. }) {
+            *l = LaunchStatus::Idle;
+            let _ = app.emit(events::LAUNCH, &*l);
+        }
+        drop(l);
+        if state.hidden_for_roblox.swap(false, Ordering::Relaxed) {
+            after_roblox_closed(app.clone());
+        }
+    }
+    crate::tray::refresh(app);
 }

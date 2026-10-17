@@ -175,8 +175,9 @@ impl ServerCache {
     }
 }
 
-fn find_dc<'a>(dcs: &'a [Datacenter], city: &str) -> Option<&'a Datacenter> {
-    dcs.iter().find(|d| d.city.eq_ignore_ascii_case(city))
+/// The datacenter behind a scanned city (names repeat across countries).
+fn find_dc<'a>(dcs: &'a [Datacenter], c: &CityPing) -> Option<&'a Datacenter> {
+    dcs.iter().find(|d| d.country_code == c.country_code && d.city.eq_ignore_ascii_case(&c.city))
 }
 
 fn city_ping(dc: &Datacenter, ping: Option<(u32, bool)>, servers: u32) -> CityPing {
@@ -249,7 +250,7 @@ pub async fn pick(
     let dcs = cache.datacenters(http, cache_file).await?;
     let wanted: Vec<&CityPing> = match mode {
         ServerPick::Region => {
-            cities.iter().filter(|c| find_dc(&dcs, &c.city).is_some_and(|dc| in_choice(dc, region))).collect()
+            cities.iter().filter(|c| find_dc(&dcs, c).is_some_and(|dc| in_choice(dc, region))).collect()
         }
         _ => vec![],
     };
@@ -271,7 +272,7 @@ pub async fn pick(
     let live = web::live_servers(http, place_id, LIVE_PAGES).await?;
     let live: HashMap<&str, &web::LiveServer> = live.iter().map(|s| (s.id.as_str(), s)).collect();
     for city in order.into_iter().take(MAX_CITIES) {
-        let Some(dc) = find_dc(&dcs, &city.city) else { continue };
+        let Some(dc) = find_dc(&dcs, city) else { continue };
         let known: Vec<KnownServer> = match web::servers_in_city(http, place_id, &dc.country_code, &dc.city).await {
             Ok(k) => k,
             Err(e) => {

@@ -86,7 +86,7 @@ pub async fn avatar_open(app: AppHandle, bounds: Bounds, page: Option<String>, v
         if visible {
             dock(&app, &w, bounds)?;
         } else {
-            let _ = w.hide();
+            hide(&w);
         }
         return Ok(());
     }
@@ -139,13 +139,34 @@ fn open_outside(app: &AppHandle, u: &url::Url) {
 }
 
 /// Puts the Roblox page inside Vesper's window at `bounds` and shows it.
+///
+/// Showing and hiding go straight to the window: once it's docked, Tauri's own
+/// show/hide would restyle it as a top-level window (and its hide is skipped,
+/// as Tauri still thinks the window is hidden).
 #[cfg(windows)]
 fn dock(app: &AppHandle, w: &tauri::WebviewWindow, b: Bounds) -> Result<()> {
     let main = app.get_webview_window("main").ok_or_else(|| problem("Vesper's window isn't available."))?;
     let (parent, child) =
         (main.hwnd().map_err(|e| problem(e.to_string()))?, w.hwnd().map_err(|e| problem(e.to_string()))?);
-    imp::dock(parent.0 as isize, child.0 as isize, b);
+    if imp::dock(parent.0 as isize, child.0 as isize, b) {
+        // It was hidden: tell the page it's on screen again, or it can stay blank.
+        let page: &tauri::Webview = w.as_ref();
+        let _ = page.hide();
+        let _ = page.show();
+    }
     Ok(())
+}
+
+#[cfg(windows)]
+fn hide(w: &tauri::WebviewWindow) {
+    if let Ok(h) = w.hwnd() {
+        imp::hide(h.0 as isize);
+    }
+}
+
+#[cfg(not(windows))]
+fn hide(w: &tauri::WebviewWindow) {
+    let _ = w.hide();
 }
 
 /// Elsewhere the page is its own window, placed over the same spot.
@@ -170,7 +191,7 @@ pub fn avatar_bounds(app: AppHandle, bounds: Bounds) -> Result<()> {
 #[tauri::command]
 pub fn avatar_hide(app: AppHandle) {
     if let Some(w) = window(&app) {
-        let _ = w.hide();
+        hide(&w);
     }
 }
 
@@ -326,9 +347,11 @@ mod imp {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::*;
 
-    pub fn dock(parent: isize, child: isize, b: Bounds) {
+    /// Docks and shows `child`; true if it was hidden before.
+    pub fn dock(parent: isize, child: isize, b: Bounds) -> bool {
         let (parent, child) = (HWND(parent as *mut _), HWND(child as *mut _));
         unsafe {
+            let was_hidden = !IsWindowVisible(child).as_bool();
             if GetParent(child).ok() != Some(parent) {
                 let style = GetWindowLongPtrW(child, GWL_STYLE) as u32;
                 let docked = (style & !(WS_POPUP.0 | WS_CAPTION.0 | WS_THICKFRAME.0 | WS_SYSMENU.0))
@@ -348,6 +371,13 @@ mod imp {
                 b.height.max(1),
                 SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_NOACTIVATE,
             );
+            was_hidden
+        }
+    }
+
+    pub fn hide(child: isize) {
+        unsafe {
+            let _ = ShowWindow(HWND(child as *mut _), SW_HIDE);
         }
     }
 }

@@ -93,6 +93,9 @@ pub struct Tracker {
     pub current: Option<Activity>,
     /// The signed-in player's user id, from the join report.
     pub user_id: Option<u64>,
+    /// When the line behind the latest change was written; `None` for changes
+    /// that come from Roblox closing rather than from a line.
+    pub at: Option<DateTime<Utc>>,
     next_kind: ServerKind,
 }
 
@@ -103,6 +106,20 @@ fn line_time(line: &str) -> Option<DateTime<Utc>> {
 
 impl Tracker {
     pub fn feed(&mut self, line: &str) -> Option<Change> {
+        let change = self.read(line);
+        if change.is_some() {
+            self.at = line_time(line);
+        }
+        change
+    }
+
+    /// Roblox closed or started a new log: the current game ended now.
+    fn end(&mut self) -> bool {
+        self.at = None;
+        self.current.take().is_some()
+    }
+
+    fn read(&mut self, line: &str) -> Option<Change> {
         if line.contains(PRIVATE_MARKER) {
             self.next_kind = ServerKind::Private;
             return None;
@@ -225,7 +242,7 @@ impl ActivityWatcher {
                     checked = SystemTime::now();
                     if let Some(newest) = super::logs::newest_player_log_since(&logs_dir, since) {
                         if tail.as_ref().is_none_or(|t| t.path != newest) {
-                            if tracker.current.take().is_some() {
+                            if tracker.end() {
                                 on_change(Change::Left, &tracker);
                             }
                             tail = Some(Tail::new(newest));
@@ -241,7 +258,7 @@ impl ActivityWatcher {
                 }
                 std::thread::sleep(Duration::from_secs(1));
             }
-            if tracker.current.take().is_some() {
+            if tracker.end() {
                 on_change(Change::Left, &tracker);
             }
         })?;
@@ -291,6 +308,7 @@ mod tests {
         assert_eq!(a.server_ip.as_deref(), Some("128.116.1.33"));
         assert_eq!(a.kind, ServerKind::Public);
         assert_eq!(a.joined_at.to_rfc3339(), "2026-10-17T04:51:22.938+00:00");
+        assert_eq!(t.at.unwrap().to_rfc3339(), "2026-10-17T04:51:23.021+00:00", "time of the last change's line");
         assert_eq!(t.user_id, Some(42));
         assert_eq!(
             a.join_url().unwrap(),

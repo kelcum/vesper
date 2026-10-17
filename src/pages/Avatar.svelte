@@ -11,7 +11,7 @@
     UserRound,
     X,
   } from '@lucide/svelte';
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import Badge from '../components/ui/Badge.svelte';
   import Button from '../components/ui/Button.svelte';
   import Card from '../components/ui/Card.svelte';
@@ -59,6 +59,7 @@
   let itemsLoading = $state(false);
   // Outfits
   let outfits = $state<Outfit[]>([]);
+  let outfitsLoaded = $state(false);
   let outfitThumbs = $state<Map<number, string>>(new Map());
   // Body
   let colors = $state<BodyColors | null>(null);
@@ -185,9 +186,13 @@
   async function signIn() {
     await show('login');
     clearInterval(signInPoll);
+    let checking = false;
     signInPoll = setInterval(async () => {
       if (signedIn) return clearInterval(signInPoll);
-      await checkSignIn(false);
+      // One question at a time: while Roblox's page is changing, an answer can take a while.
+      if (checking) return;
+      checking = true;
+      await checkSignIn(false).finally(() => (checking = false));
       if (signedIn) {
         clearInterval(signInPoll);
         app.toast(`Signed in as @${me?.name}`, 'ok');
@@ -204,6 +209,8 @@
     me = null;
     data = null;
     render = null;
+    outfits = [];
+    outfitsLoaded = false;
     started = false;
     mode = 'tools';
     try {
@@ -342,7 +349,15 @@
     const r = await app.attempt(() => avatar.inventory(me!.id, cat.types, more ? (cursor ?? undefined) : undefined));
     itemsLoading = false;
     if (!r) return;
-    items = more ? [...items, ...r.data] : r.data;
+    // Roblox lists every copy owned; one tile per item is enough.
+    const seen = new Set(more ? items.map((i) => i.assetId) : []);
+    const fresh: InventoryItem[] = [];
+    for (const i of r.data) {
+      if (seen.has(i.assetId)) continue;
+      seen.add(i.assetId);
+      fresh.push(i);
+    }
+    items = more ? [...items, ...fresh] : fresh;
     cursor = r.nextPageCursor;
     loadThumbs(r.data.map((i) => i.assetId));
   }
@@ -352,6 +367,8 @@
     itemsLoading = true;
     const r = await app.attempt(() => avatar.outfits(me!.id));
     itemsLoading = false;
+    // Loaded once per visit, even when there are none (or it failed), so this doesn't repeat.
+    outfitsLoaded = true;
     if (!r) return;
     outfits = r.data;
     const t = await avatar.outfitThumbs(r.data.map((o) => o.id)).catch(() => null);
@@ -363,8 +380,8 @@
     if (tab === 'inventory') {
       void category;
       loadItems();
-    } else if (tab === 'outfits' && !outfits.length) {
-      loadOutfits();
+    } else if (tab === 'outfits' && !outfitsLoaded) {
+      untrack(loadOutfits);
     }
   });
 

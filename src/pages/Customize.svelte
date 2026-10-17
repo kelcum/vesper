@@ -161,7 +161,9 @@
       case 'failed':
         return { tone: 'bad' as const, label: "Couldn't start" };
       default:
-        return { tone: 'info' as const, label: app.robloxRunning ? 'Starting…' : 'Waiting for Roblox' };
+        // They run inside games only, not on Roblox's home screen.
+        if (!app.robloxRunning) return { tone: 'info' as const, label: 'Waiting for Roblox' };
+        return { tone: 'info' as const, label: app.nowPlaying ? 'Starting…' : 'Waiting for a game' };
     }
   });
   /** A rough stand-in for the grade, using the browser's own filters, for the preview. */
@@ -538,11 +540,12 @@
     </div>
     <p class="faint xs">
       A .ttf or .otf file. Roblox uses this one file for every weight, so pick the exact style you want (for example
-      SemiBold), not a variable font. Games that use their own fonts aren't affected.
+      SemiBold), not a variable font. It shows in Roblox's menus and in games that use Roblox's built-in fonts; games
+      that bring their own fonts keep them. Restart Roblox to see a change.
     </p>
   </Card>
 
-  <!-- Death sound -->
+  <!-- Sky -->
   <Card title="Sky" subtitle="The skybox in games that don't set their own" icon={CloudSun}>
     {#snippet actions()}
       {#if cfg?.sky}<Button
@@ -594,11 +597,13 @@
     </div>
     <p class="faint xs">
       A 360° picture is a panorama twice as wide as it is tall (on Poly Haven, download the “Tonemapped JPG”). Six
-      pictures are named Back, Down, Front, Left, Right and Up, like a Roblox Sky. Games that place their own Sky keep
-      it.
+      pictures are named Back, Down, Front, Left, Right and Up, like a Roblox Sky. This replaces Roblox's default sky,
+      so it shows in games that use it. Many popular games place their own Sky, and theirs wins there. Restart Roblox to
+      see a change.
     </p>
   </Card>
 
+  <!-- Death sound -->
   <Card title="Death sound" subtitle="Plays when your character resets or dies" icon={Volume2}>
     {#snippet actions()}
       {#if cfg?.deathSound}<Button
@@ -700,7 +705,7 @@
       <span class="ico"><Paintbrush size={16} aria-hidden="true" /></span>
       <div class="sh-titles">
         <h3>Shaders</h3>
-        <p class="faint small">Colour grading for everything you see in Roblox</p>
+        <p class="faint small">Colour grading for the games you play in Roblox</p>
       </div>
       <Badge tone={shaderBadge.tone} dot>{shaderBadge.label}</Badge>
       <Toggle
@@ -755,8 +760,9 @@
     <p class="muted small">
       Vesper never loads anything into Roblox; its anti-cheat blocks tools that do (ReShade included). Instead it works
       like a screen recorder: Windows hands over each frame Roblox draws, your graphics card grades it, and Vesper shows
-      the result in a click-through layer exactly over Roblox's window. That adds about one frame of delay. The layer
-      hides whenever Roblox isn't the active window. Turn it on or off from the tray icon too.
+      the result in a click-through layer exactly over Roblox's window. That adds about one frame of delay. It runs
+      while you're in a game (Roblox's home screen and menus stay as they are) and stays on when you click another
+      window; windows you put in front of Roblox stay in front. Turn it on or off from the tray icon too.
     </p>
     <details class="studio">
       <summary class="small">Making your own game? Copy these looks as a Studio script</summary>

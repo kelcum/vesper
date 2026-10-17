@@ -31,6 +31,8 @@ pub enum AfterLaunch {
     #[default]
     Minimize,
     Tray,
+    /// Out of sight entirely: no taskbar button and no tray icon until Roblox closes.
+    Hidden,
 }
 
 /// What Vesper does once Roblox closes, if it had hidden or minimized itself for the launch.
@@ -215,7 +217,9 @@ pub struct DiscordSettings {
     pub show_profile: bool,
     /// Say whether Roblox is running.
     pub show_roblox_status: bool,
-    /// Show the game being played, with its icon.
+    /// Show the game being played, with its icon. On for new installs; settings
+    /// from before it existed keep the presence they agreed to (no game).
+    #[serde(default)]
     pub show_game: bool,
     /// Show how long the current game has been played.
     pub show_play_time: bool,
@@ -446,6 +450,16 @@ mod tests {
         assert_eq!(g.when_roblox_closes, WhenRobloxCloses::Show);
         let g: General = serde_json::from_str(r#"{"whenRobloxCloses":"quit"}"#).unwrap();
         assert_eq!(g.when_roblox_closes, WhenRobloxCloses::Quit);
+        let g: General = serde_json::from_str(r#"{"afterLaunch":"hidden"}"#).unwrap();
+        assert_eq!(g.after_launch, AfterLaunch::Hidden);
+    }
+
+    #[test]
+    fn earlier_discord_settings_dont_start_sharing_the_game() {
+        assert!(DiscordSettings::default().show_game, "new installs show it");
+        let d: DiscordSettings = serde_json::from_str(r#"{"richPresence":true,"showProfile":true}"#).unwrap();
+        assert!(d.rich_presence && !d.show_game, "0.2 settings had no game in the presence");
+        assert!(d.show_play_time, "other new options keep their defaults");
     }
 
     #[test]

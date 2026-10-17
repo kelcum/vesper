@@ -35,8 +35,9 @@
                 month: 'short',
                 year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric',
               });
-      const last = out.at(-1);
-      if (last?.label === label) last.visits.push(v);
+      // Keyed by label below, so a day appears once even if the list is out of order.
+      const group = out.find((g) => g.label === label);
+      if (group) group.visits.push(v);
       else out.push({ label, visits: [v] });
     }
     return out;

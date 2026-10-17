@@ -124,6 +124,9 @@ fn fill_history(app: &AppHandle, a: &Activity) {
 
 fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     let state = app.state::<AppState>();
+    // The log may be read back from the start (Vesper opened mid-game), so
+    // visits end when the log says, not when Vesper got to the line.
+    let at = tracker.at.unwrap_or_else(chrono::Utc::now);
     let previous = lock(&state.activity).clone();
     *lock(&state.activity) = tracker.current.clone();
     if tracker.user_id.is_some() && *lock(&state.roblox_user) != tracker.user_id {
@@ -133,7 +136,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     match change {
         Change::Joined => {
             if let Some(p) = &previous {
-                lock(&state.history).left(&p.job_id, chrono::Utc::now());
+                lock(&state.history).left(&p.job_id, at);
             }
             if let Some(a) = &tracker.current {
                 log::info!("Joined a {:?} server of place {}", a.kind, a.place_id);
@@ -147,7 +150,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
         Change::Left => {
             if let Some(p) = &previous {
                 log::info!("Left place {}", p.place_id);
-                lock(&state.history).left(&p.job_id, chrono::Utc::now());
+                lock(&state.history).left(&p.job_id, at);
                 save_history(&state);
                 emit_history(app);
             }
@@ -160,6 +163,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     }
     emit(app);
     state.refresh_presence();
+    state.sync_shaders(app);
 }
 
 /// Looks up the game's name and icon, and the server's city, then updates everyone.
@@ -193,15 +197,19 @@ fn enrich(app: AppHandle, a: Activity) {
                 }
             }
         }
-        // Only act if the player is still in that server.
-        let still = lock(&state.activity).as_ref().is_some_and(|c| c.job_id == a.job_id);
-        if changed && still {
-            let current = lock(&state.activity).clone();
-            if let Some(c) = current {
+        if !changed {
+            return;
+        }
+        let current = lock(&state.activity).clone().filter(|c| c.job_id == a.job_id);
+        match current {
+            // Still in that server: everything shows it.
+            Some(c) => {
                 fill_history(&app, &c);
+                emit(&app);
+                state.refresh_presence();
             }
-            emit(&app);
-            state.refresh_presence();
+            // Moved on (or the log was read back from the start): the visit still gets its name.
+            None => fill_history(&app, &a),
         }
     });
 }
@@ -252,4 +260,5 @@ pub fn stop(app: &AppHandle) {
         emit_history(app);
     }
     emit(app);
+    state.sync_shaders(app);
 }
