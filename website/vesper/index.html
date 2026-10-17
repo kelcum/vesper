@@ -59,7 +59,7 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <a class="btn btn-primary" href="download/Vesper_0.3.1_x64-setup.exe" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.2_x64-setup.exe" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -75,7 +75,7 @@
             </svg>
             Download for Windows</a
           >
-          <a class="btn btn-primary" href="download/Vesper_0.3.1_universal.dmg" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.2_universal.dmg" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -96,7 +96,7 @@
         </div>
         <!-- build:hero-meta -->
         <p class="cta-meta reveal">
-          Version 0.3.1 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
+          Version 0.3.2 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
         </p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
@@ -886,7 +886,7 @@
             </p>
             <!-- build:download -->
             <div class="cta">
-              <a class="btn btn-primary" href="download/Vesper_0.3.1_x64-setup.exe" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.2_x64-setup.exe" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -902,7 +902,7 @@
                 </svg>
                 Download for Windows</a
               >
-              <a class="btn btn-primary" href="download/Vesper_0.3.1_universal.dmg" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.2_universal.dmg" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -920,77 +920,33 @@
               >
             </div>
             <ul class="facts">
-              <li><b>4.5 MB</b> installer, released 2026-10-17, no administrator rights needed</li>
+              <li><b>4.4 MB</b> installer, released 2026-10-17, no administrator rights needed</li>
               <li>
                 <b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your
                 settings stay.
               </li>
               <li>
                 <b>Portable:</b>
-                <a href="download/Vesper_0.3.1_x64-portable.zip" download>Vesper_0.3.1_x64-portable.zip</a> (5.7 MB),
+                <a href="download/Vesper_0.3.2_x64-portable.zip" download>Vesper_0.3.2_x64-portable.zip</a> (5.7 MB),
                 keeps everything in a folder next to Vesper.exe
               </li>
-              <li><b>SHA-256</b> <code>b91294654bad7a470b2277bd3d9ca7664a2522eaad397cc6389e8b7aa49654b5</code></li>
+              <li><b>SHA-256</b> <code>f79d7f6b2d3d6b7ef331bc71dd01238929e9019efa992fde777b6414d6426c12</code></li>
               <li>
                 <b>macOS:</b>
-                <a href="download/Vesper_0.3.1_universal.dmg" download>Vesper_0.3.1_universal.dmg</a> (10.6 MB), macOS
+                <a href="download/Vesper_0.3.2_universal.dmg" download>Vesper_0.3.2_universal.dmg</a> (10.5 MB), macOS
                 11 or later, Apple silicon and Intel. SHA-256
-                <code>20f3be26d661406d58e829ae1c281eca05a77a0bc76cd40e787123bdac0e8c13</code>
+                <code>6cf88c4c87c884065ce41c453894f6123becddc919ee7784d1730644681f696f</code>
               </li>
             </ul>
             <details>
-              <summary>What's new in 0.3.1</summary>
-              <h3>Added</h3>
+              <summary>What's new in 0.3.2</summary>
+              <h3>Removed</h3>
               <ul>
                 <li>
-                  “Hide completely” in Settings → After launching Roblox: Vesper leaves the taskbar and the tray while
-                  Roblox runs. It comes back when Roblox closes, or when you open Vesper again.
-                </li>
-              </ul>
-              <h3>Changed</h3>
-              <ul>
-                <li>
-                  Shaders run only while you&#39;re in a game, not on Roblox&#39;s home screen and menus, and stay on
-                  when you click another window. Windows you put in front of Roblox stay in front of it.
-                </li>
-                <li>
-                  Customize explains where a custom font and sky show: Roblox&#39;s menus and the games that use
-                  Roblox&#39;s built-in fonts and default sky. Games that bring their own fonts or sky keep them.
-                </li>
-                <li>
-                  Discord: if you turned Rich Presence on before 0.3, it doesn&#39;t start showing the game you&#39;re
-                  playing until you switch that on.
-                </li>
-              </ul>
-              <h3>Fixed</h3>
-              <ul>
-                <li>
-                  Avatar: Roblox&#39;s page could stay on top of Vesper&#39;s avatar tools (and other pages) after
-                  leaving Roblox&#39;s editor, and could show up blank.
-                </li>
-                <li>
-                  Avatar: the Outfits tab kept reloading when you had no saved outfits, items you own more than once
-                  appeared twice in Inventory, and signing in could queue up repeated checks.
-                </li>
-                <li>
-                  Recent games: servers from before Vesper opened were recorded as played until Vesper started, and
-                  rejoining a server kept its old start time, which could also mix up the days.
-                </li>
-                <li>
-                  Restarting Roblox could miss that it had closed, so the old game stayed shown during the relaunch.
-                </li>
-                <li>
-                  Shaders: the status could read “off” after going straight to another game, and the grade didn&#39;t
-                  show over a Roblox window set to always on top.
-                </li>
-                <li>Server picking could mix up two cities with the same name in different countries.</li>
-                <li>
-                  A sky that couldn&#39;t be encoded completely could leave one side of the previous sky in place; now
-                  nothing changes and Vesper says so.
-                </li>
-                <li>
-                  Ending a Roblox that didn&#39;t close only tried until the first failure, and could also end a Roblox
-                  that started meanwhile.
+                  The Avatar page. It didn&#39;t work reliably, so it&#39;s gone rather than half working. When 0.3.2
+                  starts, it deletes the browser data that page kept on your computer, including the Roblox sign-in made
+                  there. To end that session on Roblox&#39;s side too, use “Log out of all other sessions” in
+                  Roblox&#39;s security settings.
                 </li>
               </ul>
             </details>
