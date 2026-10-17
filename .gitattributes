@@ -6,4 +6,5 @@
 *.woff2 binary
 *.jpg binary
 *.webp binary
+*.cso binary
 *.nsh text eol=crlf

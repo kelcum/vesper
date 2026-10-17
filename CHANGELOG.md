@@ -6,6 +6,16 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-17
+
+### Changed
+
+- Shaders come already compiled with Vesper, so it no longer loads
+  Microsoft's shader compiler while it runs.
+- Customize and the website explain what to do if Windows Security wrongly
+  removes Vesper when shaders run, with a link to report the mistake to
+  Microsoft.
+
 ## [0.3.2] - 2026-10-17
 
 ### Removed

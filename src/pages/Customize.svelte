@@ -764,6 +764,19 @@
       while you're in a game (Roblox's home screen and menus stay as they are) and stays on when you click another
       window; windows you put in front of Roblox stay in front. Turn it on or off from the tray icon too.
     </p>
+    <p class="muted small">
+      Windows Security can mistake this for something harmful, because capturing another app's window is also what
+      spyware does, and remove Vesper. If it does, open Windows Security → Virus &amp; threat protection → Protection
+      history, choose Vesper and restore it, then tell Microsoft it was a mistake.
+    </p>
+    <div class="row-buttons">
+      <Button
+        variant="ghost"
+        icon={ExternalLink}
+        onclick={() => api.openUrl('https://www.microsoft.com/wdsi/filesubmission')}
+        >Report a mistake to Microsoft</Button
+      >
+    </div>
     <details class="studio">
       <summary class="small">Making your own game? Copy these looks as a Studio script</summary>
       <div class="row">

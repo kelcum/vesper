@@ -195,62 +195,16 @@ pub fn roblox_window() -> Option<isize> {
     imp::main_window_of(&pids)
 }
 
+/// The colour grade, in HLSL. Vesper ships it compiled (`grade.vs.cso`,
+/// `grade.ps.cso`) so it never loads Microsoft's shader compiler while it runs;
+/// `cargo run --example compile_shaders` rebuilds those after a change here.
+pub const SHADER_SOURCE: &str = include_str!("shade/grade.hlsl");
+/// SHA-256 of `SHADER_SOURCE` when the compiled files were made.
+pub const COMPILED_FROM: &str = include_str!("shade/grade.sha256");
 #[cfg(windows)]
-const SHADER: &str = r#"
-Texture2D src : register(t0);
-SamplerState samp : register(s0);
-cbuffer Params : register(b0) {
-    float4 rect;      // xy: offset, zw: scale of the client area within the capture (uv)
-    float2 texel;     // one pixel of the capture, in uv
-    float exposure, contrast;
-    float saturation, vibrance, temperature, tint;
-    float sharpen, vignette, bloom, tonemap;
-};
-
-struct VsOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
-
-VsOut vs(uint id : SV_VertexID) {
-    VsOut o;
-    o.uv = float2((id << 1) & 2, id & 2);
-    o.pos = float4(o.uv * float2(2, -2) + float2(-1, 1), 0, 1);
-    return o;
-}
-
-float3 tap(float2 uv) { return src.SampleLevel(samp, uv, 0).rgb; }
-
-float4 ps(VsOut i) : SV_Target {
-    float2 t = rect.xy + i.uv * rect.zw;
-    float3 c = tap(t);
-    if (sharpen > 0) {
-        float3 n = tap(t + float2(texel.x, 0)) + tap(t - float2(texel.x, 0)) + tap(t + float2(0, texel.y)) + tap(t - float2(0, texel.y));
-        c = saturate(c + (c - n * 0.25) * sharpen * 1.5);
-    }
-    if (bloom > 0) {
-        float3 b = 0;
-        [unroll] for (int k = 0; k < 12; k++) {
-            float a = k * 0.5236;
-            float2 o = float2(cos(a), sin(a)) * texel * (6 + (k % 3) * 6);
-            float3 s = tap(t + o);
-            b += max(s - 0.6, 0);
-        }
-        c += b / 12 * bloom * 2.5;
-    }
-    c *= exp2(exposure);
-    c *= float3(1 + temperature * 0.12 + tint * 0.04, 1 - tint * 0.08, 1 - temperature * 0.12 + tint * 0.04);
-    if (tonemap > 0) {
-        float3 f = (c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14);
-        c = lerp(c, f, tonemap);
-    }
-    c = (c - 0.5) * contrast + 0.5;
-    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
-    c = lerp(l.xxx, c, saturation);
-    float s = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-    c = lerp(l.xxx, c, 1 + vibrance * (1 - saturate(s)));
-    float2 d = i.uv - 0.5;
-    c *= 1 - vignette * saturate(dot(d, d) * 2.2);
-    return float4(saturate(c), 1);
-}
-"#;
+const VERTEX_SHADER: &[u8] = include_bytes!("shade/grade.vs.cso");
+#[cfg(windows)]
+const PIXEL_SHADER: &[u8] = include_bytes!("shade/grade.ps.cso");
 
 #[cfg(windows)]
 #[repr(C)]
@@ -272,18 +226,17 @@ struct Constants {
 
 #[cfg(windows)]
 mod imp {
-    use super::{Constants, ShaderParams, ShaderStatus, SHADER};
+    use super::{Constants, ShaderParams, ShaderStatus, PIXEL_SHADER, VERTEX_SHADER};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
-    use windows::core::{factory, w, Interface, BOOL, PCSTR};
+    use windows::core::{factory, w, Interface, BOOL};
     use windows::Foundation::TypedEventHandler;
     use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession};
     use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
     use windows::Graphics::DirectX::DirectXPixelFormat;
     use windows::Win32::Foundation::{HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-    use windows::Win32::Graphics::Direct3D::Fxc::D3DCompile;
-    use windows::Win32::Graphics::Direct3D::{ID3DBlob, D3D_DRIVER_TYPE_HARDWARE, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST};
+    use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST};
     use windows::Win32::Graphics::Direct3D11::*;
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Dxgi::Common::*;
@@ -494,40 +447,6 @@ mod imp {
         }
     }
 
-    fn compile(entry: PCSTR, target: PCSTR) -> Result<Vec<u8>, String> {
-        unsafe {
-            let mut blob: Option<ID3DBlob> = None;
-            let mut errors: Option<ID3DBlob> = None;
-            let r = D3DCompile(
-                SHADER.as_ptr() as *const _,
-                SHADER.len(),
-                PCSTR::null(),
-                None,
-                None,
-                entry,
-                target,
-                0,
-                0,
-                &mut blob,
-                Some(&mut errors),
-            );
-            if let Err(e) = r {
-                let detail = errors
-                    .map(|b| {
-                        String::from_utf8_lossy(std::slice::from_raw_parts(
-                            b.GetBufferPointer() as *const u8,
-                            b.GetBufferSize(),
-                        ))
-                        .into_owned()
-                    })
-                    .unwrap_or_default();
-                return Err(format!("shader didn't compile: {} {detail}", e.message()));
-            }
-            let b = blob.ok_or("no shader")?;
-            Ok(std::slice::from_raw_parts(b.GetBufferPointer() as *const u8, b.GetBufferSize()).to_vec())
-        }
-    }
-
     unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
         match msg {
             // Never take clicks or focus.
@@ -617,12 +536,10 @@ mod imp {
                 .CreateSwapChainForHwnd(&device, overlay, &desc, None, None)
                 .map_err(|e| err("swap chain", e))?;
 
-            let vs_code = compile(windows::core::s!("vs"), windows::core::s!("vs_5_0"))?;
-            let ps_code = compile(windows::core::s!("ps"), windows::core::s!("ps_5_0"))?;
             let mut vs = None;
-            device.CreateVertexShader(&vs_code, None, Some(&mut vs)).map_err(|e| err("vertex shader", e))?;
+            device.CreateVertexShader(VERTEX_SHADER, None, Some(&mut vs)).map_err(|e| err("vertex shader", e))?;
             let mut ps = None;
-            device.CreatePixelShader(&ps_code, None, Some(&mut ps)).map_err(|e| err("pixel shader", e))?;
+            device.CreatePixelShader(PIXEL_SHADER, None, Some(&mut ps)).map_err(|e| err("pixel shader", e))?;
             let sd = D3D11_SAMPLER_DESC {
                 Filter: D3D11_FILTER_MIN_MAG_MIP_LINEAR,
                 AddressU: D3D11_TEXTURE_ADDRESS_CLAMP,
@@ -847,6 +764,46 @@ mod tests {
         assert_eq!(p.exposure, 1.0);
         assert_eq!(p.contrast, 1.0);
         assert_eq!(p.saturation, 0.0);
+    }
+
+    #[test]
+    fn compiled_shaders_are_from_the_current_source() {
+        use sha2::{Digest, Sha256};
+        let hash = format!("{:x}", Sha256::digest(SHADER_SOURCE.replace('\r', "").as_bytes()));
+        assert_eq!(
+            hash,
+            COMPILED_FROM.trim(),
+            "grade.hlsl changed: run `cargo run --example compile_shaders` and commit the results"
+        );
+    }
+
+    /// The shipped shaders load on a software (WARP) device, as they will on any graphics card.
+    #[cfg(windows)]
+    #[test]
+    fn compiled_shaders_load() {
+        use windows::Win32::Foundation::HMODULE;
+        use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_WARP;
+        use windows::Win32::Graphics::Direct3D11::*;
+        unsafe {
+            let mut device = None;
+            D3D11CreateDevice(
+                None,
+                D3D_DRIVER_TYPE_WARP,
+                HMODULE::default(),
+                D3D11_CREATE_DEVICE_FLAG(0),
+                None,
+                D3D11_SDK_VERSION,
+                Some(&mut device),
+                None,
+                None,
+            )
+            .expect("WARP device");
+            let device = device.expect("device");
+            let (mut vs, mut ps) = (None, None);
+            device.CreateVertexShader(VERTEX_SHADER, None, Some(&mut vs)).expect("vertex shader");
+            device.CreatePixelShader(PIXEL_SHADER, None, Some(&mut ps)).expect("pixel shader");
+            assert!(vs.is_some() && ps.is_some());
+        }
     }
 
     #[cfg(windows)]

@@ -1,6 +1,6 @@
 [package]
 name = "vesper"
-version = "0.3.2"
+version = "0.3.3"
 description = "A calm, honest Roblox launcher for Windows and macOS."
 authors = ["The Vesper Authors"]
 license = "MIT"
@@ -62,7 +62,6 @@ windows = { version = "0.62", features = [
   "Win32_UI_WindowsAndMessaging",
   "Win32_NetworkManagement_IpHelper",
   "Win32_Graphics_Direct3D",
-  "Win32_Graphics_Direct3D_Fxc",
   "Win32_Graphics_Direct3D11",
   "Win32_Graphics_Dwm",
   "Win32_System_LibraryLoader",
@@ -83,6 +82,10 @@ libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3"
+
+# Only the compile_shaders example uses the shader compiler; the app ships the compiled shaders.
+[target.'cfg(windows)'.dev-dependencies]
+windows = { version = "0.62", features = ["Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D_Fxc"] }
 
 [profile.release]
 codegen-units = 1

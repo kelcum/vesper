@@ -739,6 +739,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     "www.fontshare.com",
     // Free 360° skies for the Customize page.
     "polyhaven.com",
+    // Reporting a wrong Windows Security detection.
+    "www.microsoft.com",
 ];
 
 #[tauri::command]
