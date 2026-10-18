@@ -1,6 +1,6 @@
 [package]
 name = "vesper"
-version = "0.3.3"
+version = "0.3.4"
 description = "A calm, honest Roblox launcher for Windows and macOS."
 authors = ["The Vesper Authors"]
 license = "MIT"
@@ -33,6 +33,7 @@ log = { version = "0.4", features = ["std"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 sha2 = "0.10"
+flate2 = "1"
 hex = "0.4"
 regex = "1"
 notify = "8"

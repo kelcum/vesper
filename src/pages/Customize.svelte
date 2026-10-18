@@ -2,6 +2,7 @@
   import {
     Copy,
     ExternalLink,
+    FilePlus,
     FolderOpen,
     ImagePlus,
     LifeBuoy,
@@ -209,12 +210,25 @@
           `${r.skippedForeign.length} file(s) were changed by another program, so Vesper left them alone.`,
           'warn',
         );
-      else
+      else {
+        const done = v.appliedNow
+          ? 'Applied to Roblox'
+          : v.robloxRunning
+            ? 'Saved. Applies next time Roblox starts'
+            : 'Saved';
+        const cleaned = r?.cleaned.length ?? 0;
         app.toast(
-          v.appliedNow ? 'Applied to Roblox' : v.robloxRunning ? 'Saved. Applies next time Roblox starts.' : 'Saved',
+          cleaned ? `${done}. ${cleaned} file(s) another program had changed are Roblox's own again.` : `${done}.`,
           'ok',
         );
+      }
     }
+  }
+
+  type Revealable = 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'sky';
+  const revealTitle = `Show these files in ${isMac ? 'Finder' : 'File Explorer'}`;
+  function reveal(kind: Revealable) {
+    app.attempt(() => api.modsReveal(kind));
   }
 
   async function pick(name: string, extensions: string[]) {
@@ -231,10 +245,12 @@
     run('cursor', () => api.modsSetCursor({ preset: id, scale: cursorScale, color: cfg?.cursor?.color ?? null }));
   }
 
-  function cursorRedraw(change: { scale?: number; color?: string | null }) {
+  function cursorRedraw(change: { scale?: number; color?: string | null; shiftLock?: boolean }) {
     if (!cfg?.cursor) return;
     const color = 'color' in change ? change.color : cfg.cursor.color;
-    run('cursor', () => api.modsSetCursor({ scale: change.scale ?? cursorScale, color, reuse: true }));
+    run('cursor', () =>
+      api.modsSetCursor({ scale: change.scale ?? cursorScale, color, reuse: true, shiftLock: change.shiftLock }),
+    );
   }
 
   function tryCursor(e: PointerEvent) {
@@ -305,6 +321,7 @@
     <p class="muted lede">
       Swap Roblox's cursor, emote wheel, font and death sound. Vesper backs up every original file and puts it back when
       you switch something off. Changes take effect the next time Roblox starts.
+      {#if isMac}Before applying, files another tool changed are put back to Roblox's own.{/if}
     </p>
   </div>
   {#if view?.robloxRunning}<Badge tone="warn" dot>Roblox is running · changes apply next launch</Badge>{/if}
@@ -318,6 +335,14 @@
   <!-- Cursor -->
   <Card title="Cursor" subtitle="The arrow you aim with in game" icon={MousePointer2}>
     {#snippet actions()}
+      {#if app.install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Show the files"
+          title={revealTitle}
+          onclick={() => reveal('cursor')}
+        />{/if}
       {#if cfg?.cursor}<Button
           size="sm"
           variant="ghost"
@@ -380,6 +405,15 @@
           onchange={(v) => cursorRedraw({ scale: v })}
         />
       </div>
+      <div class="field">
+        <span class="small muted">Use it for Shift Lock too</span>
+        <Toggle
+          label="Use the cursor for Shift Lock too"
+          checked={cfg.cursor.shiftLock}
+          disabled={busy === 'cursor'}
+          onchange={(v) => cursorRedraw({ shiftLock: v })}
+        />
+      </div>
       {#if cfg.cursor.source.kind === 'preset'}
         <div class="field">
           <span class="small muted">Colour</span>
@@ -402,14 +436,23 @@
       {/if}
     {/if}
     <p class="faint xs">
-      Roblox draws the cursor centred on the mouse, so the middle of your image is where you aim. Images are fitted into
-      Roblox's 64×64 cursor; above 100% the edges are cut off.
+      Roblox draws the cursor centred on the mouse, so the middle of your image is where you aim. With Shift Lock on, it
+      sits in the middle of the screen in place of Roblox's crosshair. Images are fitted into Roblox's 64×64 cursor;
+      above 100% the edges are cut off.
     </p>
   </Card>
 
   <!-- Emote wheel -->
   <Card title="Emote wheel" subtitle="The radial menu on the period (.) key" icon={LifeBuoy}>
     {#snippet actions()}
+      {#if app.install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Show the files"
+          title={revealTitle}
+          onclick={() => reveal('emoteWheel')}
+        />{/if}
       {#if cfg?.emoteWheel}<Button
           size="sm"
           variant="ghost"
@@ -496,6 +539,14 @@
   <!-- Font -->
   <Card title="Font" subtitle="Replaces the text font across Roblox's interface" icon={Type}>
     {#snippet actions()}
+      {#if app.install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Show the files"
+          title={revealTitle}
+          onclick={() => reveal('font')}
+        />{/if}
       {#if cfg?.font}<Button
           size="sm"
           variant="ghost"
@@ -520,7 +571,7 @@
     {/if}
     <div class="row-buttons">
       <Button
-        icon={FolderOpen}
+        icon={FilePlus}
         loading={busy === 'font'}
         onclick={async () => {
           const p = await pick('Font', ['ttf', 'otf', 'ttc']);
@@ -548,6 +599,14 @@
   <!-- Sky -->
   <Card title="Sky" subtitle="The skybox in games that don't set their own" icon={CloudSun}>
     {#snippet actions()}
+      {#if app.install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Show the files"
+          title={revealTitle}
+          onclick={() => reveal('sky')}
+        />{/if}
       {#if cfg?.sky}<Button
           size="sm"
           variant="ghost"
@@ -606,6 +665,14 @@
   <!-- Death sound -->
   <Card title="Death sound" subtitle="Plays when your character resets or dies" icon={Volume2}>
     {#snippet actions()}
+      {#if app.install}<Button
+          size="sm"
+          variant="ghost"
+          icon={FolderOpen}
+          label="Show the files"
+          title={revealTitle}
+          onclick={() => reveal('deathSound')}
+        />{/if}
       {#if cfg?.deathSound}<Button
           size="sm"
           variant="ghost"
@@ -615,7 +682,7 @@
     {/snippet}
     <p class="current">{cfg?.deathSound ? cfg.deathSound.name : "Roblox's default"}</p>
     <Button
-      icon={FolderOpen}
+      icon={FilePlus}
       loading={busy === 'sound'}
       onclick={async () => {
         const p = await pick('Sound', ['ogg', 'mp3']);

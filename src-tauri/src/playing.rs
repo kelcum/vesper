@@ -128,7 +128,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     // visits end when the log says, not when Vesper got to the line.
     let at = tracker.at.unwrap_or_else(chrono::Utc::now);
     let previous = lock(&state.activity).clone();
-    *lock(&state.activity) = tracker.current.clone();
+    *lock(&state.activity) = tracker.current.clone().map(|a| with_universe(&state, a));
     if tracker.user_id.is_some() && *lock(&state.roblox_user) != tracker.user_id {
         *lock(&state.roblox_user) = tracker.user_id;
         fetch_user(app.clone());
@@ -157,7 +157,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
         }
         Change::Updated => {}
     }
-    if let Some(a) = tracker.current.clone() {
+    if let Some(a) = lock(&state.activity).clone() {
         fill_history(app, &a);
         enrich(app.clone(), a);
     }
@@ -166,11 +166,34 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     state.sync_shaders(app);
 }
 
+/// Fills in the universe id from an earlier lookup when Roblox's log didn't
+/// give it (the macOS client doesn't always write that line).
+fn with_universe(state: &AppState, mut a: Activity) -> Activity {
+    if a.universe_id.is_none() {
+        a.universe_id = lock(&state.universes).get(&a.place_id).copied();
+    }
+    a
+}
+
 /// Looks up the game's name and icon, and the server's city, then updates everyone.
-fn enrich(app: AppHandle, a: Activity) {
+fn enrich(app: AppHandle, mut a: Activity) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
         let mut changed = false;
+        if a.universe_id.is_none() {
+            match web::universe_of(&state.http, a.place_id).await {
+                Ok(u) => {
+                    lock(&state.universes).insert(a.place_id, u);
+                    a.universe_id = Some(u);
+                    let mut current = lock(&state.activity);
+                    if let Some(c) = current.as_mut().filter(|c| c.job_id == a.job_id && c.universe_id.is_none()) {
+                        c.universe_id = Some(u);
+                    }
+                    changed = true;
+                }
+                Err(e) => log::info!("Couldn't look up the game of this place: {e}"),
+            }
+        }
         if let Some(u) = a.universe_id {
             let known = lock(&state.games).contains_key(&u);
             if !known {

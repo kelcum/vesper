@@ -11,8 +11,10 @@
 
   interface Props {
     now: NowPlaying;
+    /** Off where a Restart and rejoin button is already next to the card. */
+    rejoin?: boolean;
   }
-  let { now }: Props = $props();
+  let { now, rejoin = true }: Props = $props();
 
   let tick = $state(Date.now());
   const timer = setInterval(() => (tick = Date.now()), 15000);
@@ -33,43 +35,52 @@
   }
 </script>
 
-<div class="now">
-  <GameIcon url={now.game?.iconUrl} size={64} alt="" />
-  <div class="info">
-    <p class="eyebrow">Now playing</p>
-    <h3 class="name" title={now.game?.name}>{now.game?.name ?? `Place ${now.placeId}`}</h3>
-    <div class="meta">
-      {#if now.game}<span class="faint">by {now.game.creator}</span>{/if}
-      <span class="faint">{played}</span>
-      {#if now.location}
-        <Badge title="Where this server is"><MapPin size={11} aria-hidden="true" /> {now.location}</Badge>
-      {/if}
-      {#if kind}<Badge tone="info">{kind}</Badge>{/if}
+<div class="wrap">
+  <div class="now">
+    <GameIcon url={now.game?.iconUrl} size={64} alt="" />
+    <div class="info">
+      <p class="eyebrow">Now playing</p>
+      <h3 class="name" title={now.game?.name}>{now.game?.name ?? `Place ${now.placeId}`}</h3>
+      <div class="meta">
+        {#if now.game}<span class="faint">by {now.game.creator}</span>{/if}
+        <span class="faint">{played}</span>
+        {#if now.location}
+          <Badge title="Where this server is"><MapPin size={11} aria-hidden="true" /> {now.location}</Badge>
+        {/if}
+        {#if kind}<Badge tone="info">{kind}</Badge>{/if}
+      </div>
     </div>
-  </div>
-  <div class="actions">
-    {#if now.joinUrl}
-      <Button size="sm" icon={Copy} onclick={copyLink} title="Copy a link that joins this exact server"
-        >Copy join link</Button
-      >
-    {/if}
-    <Button size="sm" variant="ghost" icon={ExternalLink} onclick={() => api.openUrl(now.pageUrl)}>Game page</Button>
-    <Button
-      size="sm"
-      variant="ghost"
-      icon={RotateCw}
-      disabled={busy}
-      title={now.joinUrl
-        ? 'Close Roblox and open it again in this same server'
-        : 'Close Roblox and open this game again (this server can only be joined by invite)'}
-      onclick={() => app.attempt(() => api.robloxRestart(null, true))}>{now.joinUrl ? 'Rejoin' : 'Restart'}</Button
-    >
+    <div class="actions">
+      {#if now.joinUrl}
+        <Button size="sm" icon={Copy} onclick={copyLink} title="Copy a link that joins this exact server"
+          >Copy join link</Button
+        >
+      {/if}
+      <Button size="sm" variant="ghost" icon={ExternalLink} onclick={() => api.openUrl(now.pageUrl)}>Game page</Button>
+      {#if rejoin}
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={RotateCw}
+          disabled={busy}
+          title={now.joinUrl
+            ? 'Force-quit Roblox and open it again in this same server'
+            : 'Force-quit Roblox and open this game again (this server can only be joined by invite)'}
+          onclick={() => app.attempt(() => api.robloxRestart(null, true))}>{now.joinUrl ? 'Rejoin' : 'Restart'}</Button
+        >
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
+  /* The card sits in columns of different widths, so it follows its own width, not the window's. */
+  .wrap {
+    container-type: inline-size;
+  }
   .now {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4);
@@ -78,7 +89,6 @@
     background: color-mix(in srgb, var(--surface-2) 70%, transparent);
   }
   .info {
-    flex: 1;
     min-width: 0;
   }
   .eyebrow {
@@ -109,9 +119,17 @@
   }
   .actions {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
     gap: var(--space-2);
-    max-width: 46%;
+  }
+  /* Too narrow for one line: the buttons go in a row under the game. */
+  @container (max-width: 640px) {
+    .now {
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: var(--space-3);
+    }
+    .actions {
+      grid-column: 1 / -1;
+      flex-wrap: wrap;
+    }
   }
 </style>

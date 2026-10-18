@@ -133,13 +133,21 @@ export const api = {
   updatesInstall: () => call<void>('updates_install'),
 
   modsGet: () => call<ModsView>('mods_get'),
-  modsSetCursor: (args: { preset?: string; path?: string; scale?: number; color?: string | null; reuse?: boolean }) =>
+  modsSetCursor: (args: {
+    preset?: string;
+    path?: string;
+    scale?: number;
+    color?: string | null;
+    reuse?: boolean;
+    shiftLock?: boolean;
+  }) =>
     call<ModsView>('mods_set_cursor', {
       preset: args.preset ?? null,
       path: args.path ?? null,
       scale: args.scale ?? null,
       color: args.color ?? null,
       reuse: args.reuse ?? null,
+      shiftLock: args.shiftLock ?? null,
     }),
   modsSetWheel: (args: {
     preset?: string;
@@ -170,6 +178,7 @@ export const api = {
   modsClear: (kind: 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'sky' | 'customFiles' | 'all') =>
     call<ModsView>('mods_clear', { kind }),
   modsOpenCustomFolder: () => call<void>('mods_open_custom_folder'),
+  modsReveal: (kind: 'cursor' | 'emoteWheel' | 'font' | 'deathSound' | 'sky') => call<void>('mods_reveal', { kind }),
 
   backgroundSet: (path: string) => call<Settings>('appearance_set_background', { path }),
   backgroundClear: () => call<Settings>('appearance_clear_background'),

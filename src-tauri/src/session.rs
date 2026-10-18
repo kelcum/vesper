@@ -47,7 +47,7 @@ fn start(app: AppHandle, target: LaunchTarget, restart: bool) -> Result<(), Prob
                 .fix("Wait a moment for the current launch to finish."));
         }
     }
-    let first = if restart { "Closing Roblox" } else { "Checking Roblox" };
+    let first = if restart { "Quitting Roblox" } else { "Checking Roblox" };
     state.set_launch(&app, LaunchStatus::Preparing { step: first.into() });
     std::thread::Builder::new()
         .name("vesper-launch".into())
@@ -65,7 +65,7 @@ fn start(app: AppHandle, target: LaunchTarget, restart: bool) -> Result<(), Prob
     Ok(())
 }
 
-/// Closes the running Roblox so a new launch can take its place.
+/// Force-quits the running Roblox so a new launch can take its place.
 fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
     let state = app.state::<AppState>();
     if process::roblox_pids().is_empty() {
@@ -73,24 +73,27 @@ fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
     }
     // Vesper shouldn't come back on screen for this close.
     state.hidden_for_roblox.store(false, Ordering::Relaxed);
-    match process::close_players(Duration::from_secs(10)) {
-        Ok(process::Closed::Forced) => {
-            log::info!("Roblox didn't close when asked and was ended");
-        }
-        Ok(c) => log::info!("Closed Roblox for a restart ({c:?})"),
-        Err(e) => {
-            return Err(Problem::new("roblox.wont_close", "Roblox didn't close")
-                .what("Vesper asked Roblox to close so it could start again, but it's still running.")
-                .why("Roblox may be stuck, or Windows didn't allow Vesper to end it.")
-                .fix("Close Roblox from the taskbar or Task Manager, then launch again.")
-                .details(e)
-                .action(ProblemAction::Retry));
-        }
+    if let Err(e) = process::force_quit_players() {
+        return Err(Problem::new("roblox.wont_close", "Roblox didn't close")
+            .what("Vesper force-quit Roblox so it could start again, but it's still running.")
+            .why(if cfg!(target_os = "macos") {
+                "macOS didn't let Vesper end it."
+            } else {
+                "Windows didn't let Vesper end it."
+            })
+            .fix(if cfg!(target_os = "macos") {
+                "Force-quit Roblox from the Apple menu (Option-Command-Esc), then launch again."
+            } else {
+                "End Roblox in Task Manager, then launch again."
+            })
+            .details(e)
+            .action(ProblemAction::Retry));
     }
+    log::info!("Force-quit Roblox for a restart");
     // Everything that follows Roblox closing (game status, history, shaders) happens now.
     crate::state::roblox_seen(app, &[]);
-    // Let Roblox release its single-instance lock and finish writing settings.
-    std::thread::sleep(Duration::from_millis(1500));
+    // Give the system a moment to release Roblox's single-instance lock.
+    std::thread::sleep(Duration::from_millis(1000));
     Ok(())
 }
 

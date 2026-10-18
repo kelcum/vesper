@@ -6,6 +6,35 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-18
+
+### Added
+
+- A folder button on each Customize card shows that customisation's files in
+  Roblox's folder, in Finder or File Explorer.
+
+### Changed
+
+- Restart and rejoin force-quits Roblox instead of asking it to close, so
+  Roblox can't hang or ask “Leave game?” on the way out.
+- While a customisation is on, its files are Vesper's: if another program
+  changes one, Vesper writes it again instead of leaving it alone.
+- macOS: before applying customisations, Vesper puts back Roblox's own copy
+  of anything another tool or an older customisation left in Roblox's cursor,
+  emote wheel, font, death sound and sky files. It checks each file against
+  Roblox.app's code signature and, when one isn't Roblox's, reads just that
+  file from Roblox's own download.
+
+### Fixed
+
+- macOS: Now playing and Discord show the game's name and icon. Roblox's Mac
+  log doesn't always say which game a place belongs to, so Vesper looks it up.
+- Changing the cursor changes the Shift Lock cursor too. Turn off “Use it for
+  Shift Lock too” to keep Roblox's crosshair.
+- Home: the Now playing card no longer touches the server picker, and its
+  buttons stay on one line, or move under the game when there isn't room. Its
+  Rejoin button is gone from Home, where Restart and rejoin does the same.
+
 ## [0.3.3] - 2026-10-17
 
 ### Changed

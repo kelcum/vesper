@@ -208,6 +208,7 @@ pub fn run() {
             customize::mods_set_custom,
             customize::mods_clear,
             customize::mods_open_custom_folder,
+            customize::mods_reveal,
             customize::appearance_set_background,
             customize::appearance_clear_background,
             customize::appearance_background_data,

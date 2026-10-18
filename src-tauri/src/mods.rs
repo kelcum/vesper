@@ -7,15 +7,22 @@
 //! Safety rules:
 //! * Before a Roblox file is replaced, the original is copied to
 //!   `cache\originals\<build>\…` and restored when the mod is turned off.
+//! * Texture and sound mods only replace files that exist in the current
+//!   Roblox build. If Roblox removes or renames one, the mod is skipped and
+//!   reported instead of leaving stray files behind.
+//! * A ledger records the hash of every file written. While a mod is on, its
+//!   files are Vesper's: if something else changed one, it's written again.
+//!   When a mod is turned off, a file someone else changed since is left alone,
+//!   unless Roblox's own copy is known (below).
+//! * On macOS, Roblox.app's code signature says which files are Roblox's own
+//!   (see [`Originals`]). Before applying, every file where Vesper customises
+//!   ([`AREAS`]) that is neither Roblox's own nor Vesper's current file, such
+//!   as another tool's or an older customisation's leftovers, is put back to
+//!   Roblox's own, and so is any backup that wasn't Roblox's own.
 //!
 //! Paths below are written Windows-style (`content\fonts\…`) and turned into
 //! real paths with [`rel_path`]. On macOS they are relative to
 //! `Roblox.app/Contents/Resources`, where Roblox keeps its `content` folder.
-//! * Texture and sound mods only replace files that exist in the current
-//!   Roblox build. If Roblox removes or renames one, the mod is skipped and
-//!   reported instead of leaving stray files behind.
-//! * A ledger records the hash of every file written, so a file someone else
-//!   changed afterwards is never overwritten or deleted silently.
 
 use crate::paths::write_atomic;
 use image::imageops::FilterType;
@@ -31,11 +38,23 @@ pub const CURSOR_FILES: [&str; 2] = [
     r"content\textures\Cursors\KeyboardMouse\ArrowFarCursor.png",
 ];
 pub const CURSOR_SIZE: u32 = 64;
+/// The crosshair Roblox shows while Shift Lock is on. The chosen cursor goes here too, unless turned off.
+pub const SHIFT_LOCK_FILE: &str = r"content\textures\MouseLockedCursor.png";
 pub const DEATH_SOUNDS: [&str; 2] = [r"content\sounds\ouch.ogg", r"content\sounds\oof.ogg"];
 pub const FONT_FILE: &str = r"content\fonts\CustomFont.ttf";
 pub const FONT_FAMILIES: &str = r"content\fonts\families";
 pub const FONT_ASSET: &str = "rbxasset://fonts/CustomFont.ttf";
 pub const WHEEL_DIR: &str = r"content\textures\ui\Emotes";
+/// Where the customisations live, as folders and single files.
+pub const AREAS: [&str; 7] = [
+    r"content\textures\Cursors\KeyboardMouse",
+    SHIFT_LOCK_FILE,
+    WHEEL_DIR,
+    r"content\fonts",
+    DEATH_SOUNDS[0],
+    DEATH_SOUNDS[1],
+    crate::sky::SKY_DIR,
+];
 /// Emote wheel size classes and the diameter of their @1x circle.
 pub const WHEEL_SIZES: [(&str, u32); 3] = [("Small", 300), ("Large", 400), ("TenFoot", 640)];
 pub const SCALES: [(&str, u32); 3] = [("", 1), ("@2x", 2), ("@3x", 3)];
@@ -112,10 +131,17 @@ pub struct CursorMod {
     /// Tint for a built-in style as `#rrggbb`; `None` keeps its own colours.
     #[serde(default)]
     pub color: Option<String>,
+    /// Also shown while Shift Lock is on, in place of Roblox's crosshair.
+    #[serde(default = "yes")]
+    pub shift_lock: bool,
 }
 
 fn full_size() -> u8 {
     100
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// How a picture wheel is drawn.
@@ -654,12 +680,42 @@ pub fn rel_path(rel: &str) -> PathBuf {
     rel.split(['\\', '/']).filter(|c| !c.is_empty()).collect()
 }
 
+/// Tells Roblox's own files from changed ones and gets Roblox's own copy back.
+///
+/// On macOS this comes from Roblox.app's code signature and Roblox's download
+/// (see `roblox::originals`). Windows Roblox gets a fresh folder for every
+/// version, so nothing is needed there ([`NoOriginals`]).
+pub trait Originals {
+    /// Roblox's files in `area` (a folder or a single file), as relative paths.
+    fn files_in(&self, area: &str) -> Vec<String>;
+    /// `Some(true)` when `bytes` is Roblox's own `rel`; `None` when that isn't known.
+    fn is_roblox(&self, rel: &str, bytes: &[u8]) -> Option<bool>;
+    /// Roblox's own copy of `rel`.
+    fn fetch(&self, rel: &str) -> Result<Vec<u8>, String>;
+}
+
+pub struct NoOriginals;
+
+impl Originals for NoOriginals {
+    fn files_in(&self, _: &str) -> Vec<String> {
+        Vec::new()
+    }
+    fn is_roblox(&self, _: &str, _: &[u8]) -> Option<bool> {
+        None
+    }
+    fn fetch(&self, _: &str) -> Result<Vec<u8>, String> {
+        Err("Roblox's own copy isn't known on this system".into())
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModReport {
     pub written: usize,
     pub unchanged: usize,
     pub restored: usize,
+    /// Files another program (or an older customisation) had changed, put back to Roblox's own.
+    pub cleaned: Vec<String>,
     /// Files this Roblox build doesn't have, so the mod was skipped.
     pub missing: Vec<String>,
     /// Files changed by something else since Vesper wrote them; left alone.
@@ -691,9 +747,14 @@ fn desired_files(
             }
             Err(_) => errors.push(format!("{kind}: prepared file {rel} is missing; choose the {kind} again.")),
         };
-    if cfg.cursor.is_some() {
+    if let Some(c) = &cfg.cursor {
         for rel in CURSOR_FILES {
             add_prepared(rel, "cursor", false, &mut out);
+        }
+        // Shift Lock draws the same picture, centred on the screen.
+        if let Some(arrow) = out.get(CURSOR_FILES[0]).filter(|_| c.shift_lock) {
+            let bytes = arrow.bytes.clone();
+            out.insert(SHIFT_LOCK_FILE.to_owned(), Desired { kind: "cursor", bytes, create: false });
         }
     }
     if cfg.death_sound.is_some() {
@@ -841,17 +902,28 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
     let Some(build) = install.file_name().map(|n| n.to_string_lossy().into_owned()) else {
         return ModReport::default();
     };
-    apply_build(cfg, p, install, &build, ledger)
+    apply_build(cfg, p, install, &build, ledger, &NoOriginals)
 }
 
 /// Brings the Roblox files under `install` (the folder holding `content`) in
 /// line with `cfg`. `build` names the Roblox build, so backups of different
-/// builds stay apart (see `detect::build_id`).
-pub fn apply_build(cfg: &ModsConfig, p: &ModPaths, install: &Path, build: &str, ledger: &mut ModLedger) -> ModReport {
+/// builds stay apart (see `detect::build_id`). `roblox` knows Roblox's own
+/// files where that's possible, so leftovers are cleaned up first.
+pub fn apply_build(
+    cfg: &ModsConfig,
+    p: &ModPaths,
+    install: &Path,
+    build: &str,
+    ledger: &mut ModLedger,
+    roblox: &dyn Originals,
+) -> ModReport {
     let mut report = ModReport::default();
     let originals = p.originals.join(build);
+    // The separator matters: "version-a" must not match "version-ab".
+    let prefix = format!("{}{}", key(install), std::path::MAIN_SEPARATOR);
+    put_back_roblox_files(install, &prefix, ledger, roblox, &mut report);
     let (desired, errors) = desired_files(cfg, p, install, &originals);
-    report.errors = errors;
+    report.errors.extend(errors);
 
     for (rel, want) in &desired {
         let target = install.join(rel_path(rel));
@@ -872,13 +944,12 @@ pub fn apply_build(cfg: &ModsConfig, p: &ModPaths, install: &Path, build: &str, 
                 report.unchanged += 1;
                 continue;
             }
+            // Vesper's older file, Roblox's own file back (a repair or a reset), or
+            // another program's change: the mod is on, so Vesper's file goes back.
+            // The backup of Roblox's file stays as it was.
             if sha(cur) != entry.sha256 && !is_original(entry, cur) {
-                // Changed by something else after Vesper wrote it.
-                report.skipped_foreign.push(rel.clone());
-                continue;
+                log::info!("{rel} was changed by another program; writing the customisation again");
             }
-            // Otherwise it's Vesper's file, or Roblox's own file is back (a repair,
-            // a reset or another tool put it back); writing again loses nothing.
         }
         let mut original = ours.and_then(|o| o.original.clone());
         if ours.is_none() {
@@ -916,8 +987,6 @@ pub fn apply_build(cfg: &ModsConfig, p: &ModPaths, install: &Path, build: &str, 
     }
 
     // Undo files from mods that are no longer wanted in this install.
-    // The separator matters: "version-a" must not match "version-ab".
-    let prefix = format!("{}{}", key(install), std::path::MAIN_SEPARATOR);
     let stale: Vec<String> = ledger
         .files
         .keys()
@@ -933,6 +1002,60 @@ pub fn apply_build(cfg: &ModsConfig, p: &ModPaths, install: &Path, build: &str, 
         }
     }
     report
+}
+
+/// Puts Roblox's own files back in [`AREAS`] where `roblox` can tell they
+/// aren't (another tool's or an older customisation's), leaving Vesper's own
+/// current files to the rest of [`apply_build`]. Backups that aren't
+/// Roblox's own file are replaced too, so turning a mod off brings back
+/// Roblox's file rather than the leftover.
+fn put_back_roblox_files(
+    install: &Path,
+    prefix: &str,
+    ledger: &ModLedger,
+    roblox: &dyn Originals,
+    report: &mut ModReport,
+) {
+    let mut failed = Vec::new();
+    for entry in ledger.files.iter().filter(|(k, _)| k.starts_with(prefix)).map(|(_, e)| e) {
+        let (Some(backup), Some(path)) = (&entry.original, &entry.path) else { continue };
+        let Some(rel) = path.strip_prefix(install).ok().map(|r| r.to_string_lossy().replace('/', "\\")) else {
+            continue;
+        };
+        let Ok(bytes) = std::fs::read(backup) else { continue };
+        if roblox.is_roblox(&rel, &bytes) != Some(false) {
+            continue;
+        }
+        match roblox.fetch(&rel).and_then(|own| write_atomic(backup, &own).map_err(|e| e.to_string())) {
+            Ok(()) => log::info!("The backup of {rel} wasn't Roblox's own file; replaced it with Roblox's"),
+            Err(e) => failed.push(format!("{rel}: {e}")),
+        }
+    }
+    for area in AREAS {
+        for rel in roblox.files_in(area) {
+            let target = install.join(rel_path(&rel));
+            if let Ok(current) = std::fs::read(&target) {
+                if roblox.is_roblox(&rel, &current) != Some(false) {
+                    continue;
+                }
+                // Vesper's current file: applying decides whether it stays.
+                if ledger.files.get(&key(&target)).is_some_and(|e| e.sha256 == sha(&current)) {
+                    continue;
+                }
+            }
+            match roblox.fetch(&rel).and_then(|own| write_atomic(&target, &own).map_err(|e| e.to_string())) {
+                Ok(()) => report.cleaned.push(rel),
+                Err(e) => failed.push(format!("{rel}: {e}")),
+            }
+        }
+    }
+    if let Some(first) = failed.first() {
+        log::warn!("Couldn't put back {} of Roblox's own file(s), first: {first}", failed.len());
+        report.errors.push(format!(
+            "Couldn't get Roblox's own copy of {} file(s) another program changed, so they keep that change. Check your connection and try again.",
+            failed.len()
+        ));
+    }
 }
 
 /// Is `current` exactly the Roblox file Vesper backed up before replacing it?
@@ -1011,6 +1134,7 @@ mod tests {
         for rel in CURSOR_FILES {
             w(rel, &png(64, 64, [255, 255, 255, 255]));
         }
+        w(SHIFT_LOCK_FILE, &png(32, 32, [255, 255, 255, 255]));
         for rel in DEATH_SOUNDS {
             w(rel, b"OggS-original");
         }
@@ -1039,7 +1163,12 @@ mod tests {
         prepare_cursor(&e.mods, &Source::File { name: "pick.png".into() }, Some(&src), 50, None).unwrap();
 
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::File { name: "pick.png".into() }, scale: 50, color: None }),
+            cursor: Some(CursorMod {
+                source: Source::File { name: "pick.png".into() },
+                scale: 50,
+                color: None,
+                shift_lock: false,
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -1177,7 +1306,12 @@ mod tests {
         let e = env();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -1190,10 +1324,11 @@ mod tests {
         assert_eq!((again.written, again.skipped_foreign.len()), (1, 0), "{again:?}");
         assert_eq!(std::fs::read(&target).unwrap(), cursor_preset("dot").unwrap());
 
-        // Anything else is still left alone.
+        // While the cursor is on, another program's cursor is replaced too.
         std::fs::write(&target, b"someone else's cursor").unwrap();
         let foreign = apply(&cfg, &e.mods, &e.install, &mut ledger);
-        assert_eq!(foreign.skipped_foreign, vec![CURSOR_FILES[0].to_owned()]);
+        assert_eq!((foreign.written, foreign.skipped_foreign.len()), (1, 0), "{foreign:?}");
+        assert_eq!(std::fs::read(&target).unwrap(), cursor_preset("dot").unwrap());
 
         // Restoring a file that is already Roblox's counts as restored, not foreign.
         std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
@@ -1435,7 +1570,12 @@ mod tests {
         std::fs::write(sibling.join(rel_path(rel)), png(64, 64, [1, 1, 1, 255])).unwrap();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -1457,7 +1597,12 @@ mod tests {
         let e = env();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
@@ -1477,24 +1622,161 @@ mod tests {
         let e = env();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {
-            cursor: Some(CursorMod { source: Source::Preset { id: "dot".into() }, scale: 100, color: None }),
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
             ..Default::default()
         };
         let mut ledger = ModLedger::default();
-        assert_eq!(apply_build(&cfg, &e.mods, &e.install, "mac-0.1", &mut ledger).written, 2);
+        let build = |b: &str, cfg: &ModsConfig, ledger: &mut ModLedger| {
+            apply_build(cfg, &e.mods, &e.install, b, ledger, &NoOriginals)
+        };
+        assert_eq!(build("mac-0.1", &cfg, &mut ledger).written, 2);
 
         let updated = png(64, 64, [9, 9, 9, 255]);
         for rel in CURSOR_FILES {
             std::fs::write(e.install.join(rel_path(rel)), &updated).unwrap();
         }
-        let same = apply_build(&cfg, &e.mods, &e.install, "mac-0.1", &mut ledger);
-        assert_eq!(same.skipped_foreign.len(), 2, "same build: something else changed them");
-
-        let next = apply_build(&cfg, &e.mods, &e.install, "mac-0.2", &mut ledger);
+        let next = build("mac-0.2", &cfg, &mut ledger);
         assert_eq!(next.written, 2, "a new build's files are taken over");
-        let off = apply_build(&ModsConfig::default(), &e.mods, &e.install, "mac-0.2", &mut ledger);
+        let off = build("mac-0.2", &ModsConfig::default(), &mut ledger);
         assert_eq!(off.restored, 2);
         assert_eq!(read(&e, CURSOR_FILES[0]), updated, "the new build's own cursor is put back");
+    }
+
+    #[test]
+    fn the_cursor_is_also_the_shift_lock_cursor_unless_turned_off() {
+        let e = env();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
+        let mut cfg = ModsConfig {
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: true,
+            }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!(r.written, 3, "{r:?}");
+        assert_eq!(read(&e, SHIFT_LOCK_FILE), cursor_preset("dot").unwrap());
+
+        cfg.cursor.as_mut().unwrap().shift_lock = false;
+        let r = apply(&cfg, &e.mods, &e.install, &mut ledger);
+        assert_eq!((r.restored, r.unchanged), (1, 2), "{r:?}");
+        assert_eq!(read(&e, SHIFT_LOCK_FILE), png(32, 32, [255, 255, 255, 255]), "Roblox's crosshair is back");
+
+        // Settings from before the switch keep Shift Lock in step with the cursor.
+        let old: CursorMod = serde_json::from_str(r#"{"source":{"kind":"preset","id":"dot"},"scale":100}"#).unwrap();
+        assert!(old.shift_lock);
+    }
+
+    /// Knows Roblox's own copy of some files, as Roblox.app's signature does.
+    struct Known(BTreeMap<String, Vec<u8>>);
+
+    impl Originals for Known {
+        fn files_in(&self, area: &str) -> Vec<String> {
+            self.0.keys().filter(|k| *k == area || k.starts_with(&format!(r"{area}\"))).cloned().collect()
+        }
+        fn is_roblox(&self, rel: &str, bytes: &[u8]) -> Option<bool> {
+            self.0.get(rel).map(|own| own == bytes)
+        }
+        fn fetch(&self, rel: &str) -> Result<Vec<u8>, String> {
+            self.0.get(rel).cloned().ok_or_else(|| "not in the download".into())
+        }
+    }
+
+    #[test]
+    fn leftovers_of_other_tools_are_put_back_before_applying() {
+        let e = env();
+        let own = |rel: &str| (rel.to_owned(), read(&e, rel));
+        let background = wheel_rel("Large", "CircleBackground", "");
+        let known = Known(
+            [own(CURSOR_FILES[0]), own(CURSOR_FILES[1]), own(SHIFT_LOCK_FILE), own(&background), own(DEATH_SOUNDS[0])]
+                .into_iter()
+                .collect(),
+        );
+        // Another tool's cursor and wheel were there before Vesper.
+        let leftover = png(64, 64, [0, 255, 0, 255]);
+        std::fs::write(e.install.join(rel_path(CURSOR_FILES[1])), &leftover).unwrap();
+        std::fs::write(e.install.join(rel_path(&background)), &leftover).unwrap();
+
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        let r = apply_build(&cfg, &e.mods, &e.install, "mac-1", &mut ledger, &known);
+        assert_eq!(r.cleaned, vec![CURSOR_FILES[1].to_owned(), background.clone()], "{r:?}");
+        assert_eq!(r.written, 2);
+        assert_eq!(read(&e, &background), known.0[&background], "the wheel is Roblox's own again");
+
+        // Turning the cursor off brings back Roblox's cursor, not the other tool's.
+        let off = apply_build(&ModsConfig::default(), &e.mods, &e.install, "mac-1", &mut ledger, &known);
+        assert_eq!(off.restored, 2, "{off:?}");
+        assert_eq!(read(&e, CURSOR_FILES[1]), known.0[CURSOR_FILES[1]]);
+        assert!(off.cleaned.is_empty());
+    }
+
+    #[test]
+    fn backups_of_leftovers_are_replaced_with_robloxs_own_files() {
+        let e = env();
+        let rel = CURSOR_FILES[0];
+        let roblox_own = read(&e, rel);
+        // An older Vesper backed up another tool's cursor as if it were Roblox's.
+        std::fs::write(e.install.join(rel_path(rel)), b"another tool's cursor").unwrap();
+        prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
+        let cfg = ModsConfig {
+            cursor: Some(CursorMod {
+                source: Source::Preset { id: "dot".into() },
+                scale: 100,
+                color: None,
+                shift_lock: false,
+            }),
+            ..Default::default()
+        };
+        let mut ledger = ModLedger::default();
+        apply_build(&cfg, &e.mods, &e.install, "mac-1", &mut ledger, &NoOriginals);
+
+        let known = Known([(rel.to_owned(), roblox_own.clone())].into_iter().collect());
+        let off = apply_build(&ModsConfig::default(), &e.mods, &e.install, "mac-1", &mut ledger, &known);
+        assert_eq!(off.restored, 2, "{off:?}");
+        assert_eq!(read(&e, rel), roblox_own);
+    }
+
+    #[test]
+    fn a_failed_download_is_reported_once() {
+        let e = env();
+        std::fs::write(e.install.join(rel_path(DEATH_SOUNDS[0])), b"OggS-leftover").unwrap();
+        std::fs::write(e.install.join(rel_path(DEATH_SOUNDS[1])), b"OggS-leftover").unwrap();
+        struct Offline;
+        impl Originals for Offline {
+            fn files_in(&self, area: &str) -> Vec<String> {
+                DEATH_SOUNDS.iter().filter(|&&s| s == area).map(|s| s.to_string()).collect()
+            }
+            fn is_roblox(&self, _: &str, bytes: &[u8]) -> Option<bool> {
+                Some(bytes == b"OggS-original")
+            }
+            fn fetch(&self, _: &str) -> Result<Vec<u8>, String> {
+                Err("offline".into())
+            }
+        }
+        let mut ledger = ModLedger::default();
+        let cfg = ModsConfig { custom_files: true, ..Default::default() };
+        let r = apply_build(&cfg, &e.mods, &e.install, "mac-1", &mut ledger, &Offline);
+        assert_eq!(r.errors.len(), 1, "{r:?}");
+        assert!(r.errors[0].contains("2 file(s)"), "{r:?}");
+        assert_eq!(read(&e, DEATH_SOUNDS[0]), b"OggS-leftover", "left as it was");
     }
 
     #[test]

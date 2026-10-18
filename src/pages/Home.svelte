@@ -110,7 +110,7 @@
 
   async function launch() {
     if (parseError) return;
-    // Roblox runs once at a time: close it and start again (back into the same server when nothing else was asked for).
+    // Roblox runs once at a time: force-quit it and start again (back into the same server when nothing else was asked for).
     if (app.robloxRunning) await app.attempt(() => api.robloxRestart(target.trim() || null, !target.trim()));
     else await app.attempt(() => api.robloxLaunch(target));
   }
@@ -170,7 +170,7 @@
       </div>
     {:else if app.robloxRunning}
       {#if app.nowPlaying}
-        <NowPlaying now={app.nowPlaying} />
+        <div class="now-playing"><NowPlaying now={app.nowPlaying} rejoin={false} /></div>
       {/if}
       <p class="state ok">
         <CircleCheck size={15} aria-hidden="true" /> Roblox is running. Flag, customisation and frame-rate changes apply the
@@ -418,6 +418,9 @@
   }
   .hint.bad {
     color: var(--bad);
+  }
+  .now-playing {
+    margin-top: var(--space-4);
   }
   .failure {
     margin-top: var(--space-5);

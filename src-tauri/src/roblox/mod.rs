@@ -7,6 +7,7 @@ pub mod detect;
 pub mod gbs;
 pub mod launch;
 pub mod logs;
+pub mod originals;
 pub mod process;
 pub mod version;
 pub mod watch;

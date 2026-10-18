@@ -38,8 +38,8 @@ can't measure something.
 - **Launch** the Roblox app, or join a game from a place ID, game link,
   private-server link or `roblox://` link. Vesper follows Roblox through its
   own self-updates and tells you, in plain language, if Roblox closes or never
-  opens. Already playing? *Restart and rejoin* puts you back in the same
-  server. While Roblox runs, Vesper can stay, minimize, hide in the tray or
+  opens. Already playing? *Restart and rejoin* force-quits Roblox and puts
+  you back in the same server. While Roblox runs, Vesper can stay, minimize, hide in the tray or
   leave the taskbar and tray completely.
 - **Now playing and Recent games**: the game and server you're in (with the
   server's city, if you turn that on), and a list of earlier games and servers
@@ -57,11 +57,13 @@ can't measure something.
   files, with ignored flags pointed out), reset and set a default.
 - **Frame-rate limit** using Roblox's own setting: 30, 60, 75, 120, 144, 165,
   240, 360, 480, unlimited, custom, or your display's refresh rate.
-- **Customize** Roblox's cursor and emote wheel (built-in styles or your own
-  image, generated at every size Roblox uses, with a highlight colour), its
-  font and death sound, its default sky (built-in skies, a 360° picture or six
-  pictures), or any other file. Originals are backed up and put back. Games
-  that bring their own fonts or sky keep them.
+- **Customize** Roblox's cursor (Shift Lock too, if you like) and emote wheel
+  (built-in styles or your own image, generated at every size Roblox uses,
+  with a highlight colour), its font and death sound, its default sky
+  (built-in skies, a 360° picture or six pictures), or any other file.
+  Originals are backed up and put back, and a folder button shows the files in
+  Roblox's folder. On a Mac, other tools' leftovers are put back to Roblox's
+  own first. Games that bring their own fonts or sky keep them.
 - **Shaders** (Windows): colour grading laid over your game while you play,
   with seven looks and sliders. Nothing is loaded into Roblox: Vesper grades a
   capture of Roblox's window, as screen recorders do.
@@ -191,6 +193,9 @@ If Discord is closed, Vesper waits quietly and connects when Discord opens.
 - Vesper never reads Roblox cookies, auth tickets, passwords or tokens.
 - It contacts `clientsettingscdn.roblox.com` (Roblox's public version and flag
   values) and `xan.gripe` (update checks). Both requests are anonymous.
+- On a Mac, when a customised Roblox file isn't Roblox's own, Vesper reads
+  Roblox's own copy of that file from Roblox's public download
+  (`setup.rbxcdn.com`), also anonymously.
 - Discord Rich Presence talks to the Discord app on your computer, only when enabled.
 - Logs and diagnostics remove your Windows or macOS user name and anything that
   looks like a secret before they're written.

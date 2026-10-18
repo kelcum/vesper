@@ -115,7 +115,7 @@ const verification = {
 const dusk = (layer: string) => `/src-tauri/resources/mods/wheels/dusk/${layer}.png`;
 const modsView = {
   config: {
-    cursor: { source: { kind: 'preset', id: 'ring' }, scale: 115, color: '#a596ff' },
+    cursor: { source: { kind: 'preset', id: 'ring' }, scale: 115, color: '#a596ff', shiftLock: true },
     emoteWheel: { source: { kind: 'preset', id: 'dusk' }, accent: '#a596ff', look: { dim: 30, dividers: true } },
     font: { name: "Fishstrap's font" },
     deathSound: null,

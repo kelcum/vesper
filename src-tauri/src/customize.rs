@@ -227,7 +227,8 @@ fn stored_source(state: &AppState, kind: &str) -> Option<PathBuf> {
 
 /// `preset` picks a built-in style, `path` a new image. With neither and
 /// `reuse`, the current style or image is rendered again (e.g. at a new size).
-/// `color` tints a built-in style.
+/// `color` tints a built-in style. `shift_lock` says whether it also replaces
+/// the Shift Lock crosshair; left out, that stays as it was (on at first).
 #[tauri::command]
 pub async fn mods_set_cursor(
     app: AppHandle,
@@ -236,12 +237,14 @@ pub async fn mods_set_cursor(
     scale: Option<u8>,
     color: Option<String>,
     reuse: Option<bool>,
+    shift_lock: Option<bool>,
 ) -> Result<ModsView> {
     blocking(app, move |app| {
         let state = app.state::<AppState>();
         let scale = scale.unwrap_or(100).clamp(mods::CURSOR_SCALE.0, mods::CURSOR_SCALE.1);
         let rgb = colour(color.as_deref())?;
         let previous = lock(&state.mods).cursor.clone();
+        let shift_lock = shift_lock.or(previous.as_ref().map(|c| c.shift_lock)).unwrap_or(true);
         let (source, file) = match (&preset, &path) {
             (Some(id), _) => (Source::Preset { id: id.clone() }, None),
             (None, Some(p)) => (Source::File { name: file_name(p) }, Some(store_source(&state, "cursor", p)?)),
@@ -257,7 +260,7 @@ pub async fn mods_set_cursor(
         }
         let (rgb, color) = if matches!(source, Source::Preset { .. }) { (rgb, color) } else { (None, None) };
         mods::prepare_cursor(&state.mod_paths, &source, file.as_deref(), scale, rgb).map_err(problem)?;
-        lock(&state.mods).cursor = Some(CursorMod { source, scale, color });
+        lock(&state.mods).cursor = Some(CursorMod { source, scale, color, shift_lock });
         let applied = commit(app, &state)?;
         Ok(view(&state, applied))
     })
@@ -477,6 +480,33 @@ pub fn mods_open_custom_folder(app: AppHandle, state: State<'_, AppState>) -> Re
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| Problem::internal("Couldn't open the folder.", e))
+}
+
+/// Shows a customisation's files in Roblox's folder, with the main one selected.
+#[tauri::command]
+pub fn mods_reveal(app: AppHandle, state: State<'_, AppState>, kind: String) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let install = state.preferred_install().ok_or_else(|| {
+        Problem::new("roblox.not_installed", "Roblox isn't installed").what("There are no Roblox files to show.")
+    })?;
+    let rel = match kind.as_str() {
+        "cursor" => mods::CURSOR_FILES[0].to_owned(),
+        "emoteWheel" => format!(r"{}\Large\SegmentedCircle.png", mods::WHEEL_DIR),
+        "font" => mods::FONT_FILE.to_owned(),
+        "deathSound" => mods::DEATH_SOUNDS[1].to_owned(),
+        "sky" => crate::sky::face_rel("ft"),
+        _ => return Err(Problem::invalid("Unknown customisation.", "This is a bug in Vesper.")),
+    };
+    let root = install.content_root();
+    let mut path = root.join(mods::rel_path(&rel));
+    // A file this Roblox doesn't have (the font before one is chosen): show the folder it goes in.
+    while !path.exists() && path != root && path.pop() {}
+    let opened = if path.is_file() {
+        app.opener().reveal_item_in_dir(&path)
+    } else {
+        app.opener().open_path(path.to_string_lossy(), None::<&str>)
+    };
+    opened.map_err(|e| Problem::internal("Couldn't open the folder.", e))
 }
 
 fn file_name(p: &Path) -> String {

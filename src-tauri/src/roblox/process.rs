@@ -70,54 +70,30 @@ pub fn roblox_pids() -> Vec<u32> {
     snapshot().map(|all| named(&all, PLAYER_PROCESS).map(|p| p.pid).collect()).unwrap_or_default()
 }
 
-/// How closing Roblox went.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Closed {
-    /// Roblox wasn't running.
-    NotRunning,
-    /// Roblox closed its windows when asked.
-    Gracefully,
-    /// Roblox didn't respond and was ended.
-    Forced,
-}
-
-/// Closes every Roblox player: first by asking its windows to close (as
-/// clicking the X does), and only if it hasn't exited after `grace`, by
-/// ending the process. A handle is opened only for that last step and
-/// closed straight away.
-pub fn close_players(grace: std::time::Duration) -> io::Result<Closed> {
+/// Force-quits every Roblox player, as Force Quit (macOS) or End task
+/// (Windows) does, and waits for them to go. Roblox gets no chance to ask
+/// "Leave game?" or hang on the way out. A handle is opened only to end each
+/// process and closed straight away.
+pub fn force_quit_players() -> io::Result<()> {
     use std::time::{Duration, Instant};
     let pids = roblox_pids();
-    if pids.is_empty() {
-        return Ok(Closed::NotRunning);
-    }
-    let still = |pids: &[u32]| {
-        let now = roblox_pids();
-        pids.iter().any(|p| now.contains(p))
-    };
-    let wait = |pids: &[u32], limit: Duration| {
-        let t = Instant::now();
-        while still(pids) && t.elapsed() < limit {
-            std::thread::sleep(Duration::from_millis(200));
-        }
-        !still(pids)
-    };
-    imp::post_close(&pids);
-    if wait(&pids, grace) {
-        return Ok(Closed::Gracefully);
-    }
-    // Only the players that were asked to close; try each even if one can't be ended.
-    let now = roblox_pids();
+    // Only the players that were running; try each even if one can't be ended.
     let mut failed = None;
-    for pid in pids.iter().filter(|p| now.contains(p)) {
+    for pid in &pids {
         if let Err(e) = imp::terminate(*pid) {
             failed.get_or_insert(e);
         }
     }
-    if wait(&pids, Duration::from_secs(8)) {
-        Ok(Closed::Forced)
-    } else {
-        Err(failed.unwrap_or_else(|| io::Error::other("Roblox is still running after being asked to close")))
+    let t = Instant::now();
+    loop {
+        let now = roblox_pids();
+        if !pids.iter().any(|p| now.contains(p)) {
+            return Ok(());
+        }
+        if t.elapsed() > Duration::from_secs(8) {
+            return Err(failed.unwrap_or_else(|| io::Error::other("Roblox is still running after being ended")));
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -126,25 +102,7 @@ mod imp {
     use super::ProcessSample;
     use std::io;
 
-    /// Posts WM_CLOSE to every top-level window owned by `pids`.
-    pub fn post_close(pids: &[u32]) {
-        use windows::core::BOOL;
-        use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-        use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE};
-        unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
-            let pids = unsafe { &*(data.0 as *const Vec<u32>) };
-            let mut pid = 0u32;
-            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
-            if pids.contains(&pid) {
-                let _ = unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) };
-            }
-            BOOL(1)
-        }
-        let list: Vec<u32> = pids.to_vec();
-        let _ = unsafe { EnumWindows(Some(each), LPARAM(&list as *const Vec<u32> as isize)) };
-    }
-
-    /// Ends a process that didn't close when asked.
+    /// Ends a Roblox process.
     pub fn terminate(pid: u32) -> io::Result<()> {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
@@ -158,6 +116,7 @@ mod imp {
             r.map_err(|e| io::Error::other(e.message()))
         }
     }
+
     use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
 
     const STATUS_INFO_LENGTH_MISMATCH: i32 = 0xC000_0004_u32 as i32;
@@ -292,15 +251,7 @@ mod imp {
         }
     });
 
-    /// Asks Roblox to quit, as Cmd+Q does.
-    pub fn post_close(pids: &[u32]) {
-        for &pid in pids {
-            // SAFETY: sending a signal to a process id.
-            unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
-        }
-    }
-
-    /// Ends a process that didn't quit when asked.
+    /// Ends a Roblox process.
     pub fn terminate(pid: u32) -> io::Result<()> {
         // SAFETY: sending a signal to a process id.
         if unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) } == 0 {
@@ -381,7 +332,6 @@ mod imp {
 
 #[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
-    pub fn post_close(_pids: &[u32]) {}
     pub fn terminate(_pid: u32) -> std::io::Result<()> {
         Ok(())
     }

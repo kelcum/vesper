@@ -106,6 +106,8 @@ pub struct AppState {
     pub user_info: Mutex<Option<crate::roblox::web::UserInfo>>,
     /// Game names and icons by universe id.
     pub games: Mutex<std::collections::HashMap<u64, crate::roblox::web::GameInfo>>,
+    /// Universe ids by place id, looked up when Roblox's log doesn't say.
+    pub universes: Mutex<std::collections::HashMap<u64, u64>>,
     /// Server cities by server address.
     pub locations: Mutex<std::collections::HashMap<String, crate::roblox::web::Location>>,
     pub history: Mutex<crate::history::History>,
@@ -173,6 +175,7 @@ impl AppState {
             roblox_user: Mutex::new(None),
             user_info: Mutex::new(None),
             games: Mutex::new(Default::default()),
+            universes: Mutex::new(Default::default()),
             locations: Mutex::new(Default::default()),
             history: Mutex::new(crate::history::History::load(&paths.history_file())),
             server_cache: Default::default(),
@@ -227,24 +230,30 @@ impl AppState {
             Ok(false) => {}
             Err(e) => log::warn!("Couldn't rebuild the picture emote wheel: {e}"),
         }
+        let content = detect::content_root(dir);
+        // macOS: Roblox.app's signature tells Roblox's own files from leftovers.
+        #[cfg(target_os = "macos")]
+        let roblox = crate::roblox::originals::MacOriginals::read(&content, self.http.clone());
+        #[cfg(target_os = "macos")]
+        let roblox: &dyn crate::mods::Originals = match &roblox {
+            Some(r) => r,
+            None => &crate::mods::NoOriginals,
+        };
+        #[cfg(not(target_os = "macos"))]
+        let roblox = &crate::mods::NoOriginals;
         let report = {
             let mut ledger = lock(&self.mod_ledger);
-            crate::mods::apply_build(
-                &cfg,
-                &self.mod_paths,
-                &detect::content_root(dir),
-                &detect::build_id(dir),
-                &mut ledger,
-            )
+            crate::mods::apply_build(&cfg, &self.mod_paths, &content, &detect::build_id(dir), &mut ledger, roblox)
         };
         if let Err(e) = lock(&self.mod_ledger).save(&self.mod_paths.ledger) {
             log::warn!("Couldn't save the mods ledger: {e}");
         }
         log::info!(
-            "Mods: {} written, {} unchanged, {} restored, {} missing, {} left alone (changed by another program), {} errors",
+            "Mods: {} written, {} unchanged, {} restored, {} put back to Roblox's own, {} missing, {} left alone (changed by another program), {} errors",
             report.written,
             report.unchanged,
             report.restored,
+            report.cleaned.len(),
             report.missing.len(),
             report.skipped_foreign.len(),
             report.errors.len()

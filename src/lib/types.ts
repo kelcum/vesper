@@ -360,7 +360,7 @@ export interface WheelLook {
 }
 export type ModSource = { kind: 'preset'; id: string } | { kind: 'file'; name: string };
 export interface ModsConfig {
-  cursor: { source: ModSource; scale: number; color: string | null } | null;
+  cursor: { source: ModSource; scale: number; color: string | null; shiftLock: boolean } | null;
   emoteWheel: { source: ModSource | null; accent: string | null; look: WheelLook } | null;
   font: { name: string } | null;
   deathSound: { name: string } | null;
@@ -371,6 +371,8 @@ export interface ModReport {
   written: number;
   unchanged: number;
   restored: number;
+  /** Files another program had changed, put back to Roblox's own. */
+  cleaned: string[];
   missing: string[];
   skippedForeign: string[];
   errors: string[];
