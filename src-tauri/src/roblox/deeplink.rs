@@ -14,7 +14,9 @@ pub enum LaunchTarget {
         link_code: Option<String>,
         launch_data: Option<String>,
     },
-    ShareLink { url: String },
+    ShareLink {
+        url: String,
+    },
 }
 
 const HELP: &str = "Paste a Roblox game link, a place ID, or a roblox:// link.";

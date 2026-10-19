@@ -52,13 +52,8 @@ fn le64(b: &[u8], i: usize) -> Option<u64> {
 
 #[derive(Debug, PartialEq)]
 enum Directory {
-    At {
-        offset: u64,
-        size: u64,
-    },
-    Zip64 {
-        record: u64,
-    },
+    At { offset: u64, size: u64 },
+    Zip64 { record: u64 },
 }
 
 fn find_directory(tail: &[u8]) -> Result<Directory, String> {

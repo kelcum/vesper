@@ -78,12 +78,8 @@ fn photo_overlay(dividers: bool) -> &'static [u8] {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Source {
-    Preset {
-        id: String,
-    },
-    File {
-        name: String,
-    },
+    Preset { id: String },
+    File { name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

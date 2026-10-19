@@ -42,12 +42,10 @@ export async function applyAppearance(a: Appearance) {
     } else {
       await win.clearEffects();
     }
-  } catch {
-  }
+  } catch {}
   try {
     await getCurrentWebview().setZoom(a.scale / 100);
-  } catch {
-  }
+  } catch {}
 
   if (backgroundKey !== a.background) {
     backgroundKey = a.background;

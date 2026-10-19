@@ -56,10 +56,7 @@ const MAX_PAYLOAD: u32 = 64 * 1024;
 #[derive(Debug)]
 pub enum IpcError {
     NotRunning,
-    Closed {
-        code: i64,
-        message: String,
-    },
+    Closed { code: i64, message: String },
     Io(io::Error),
     Protocol(String),
 }
