@@ -1,13 +1,3 @@
-// Writes the updater manifest Vesper reads from xan.gripe/vesper/updates/.
-//
-//   node scripts/release/manifest.mjs <version> <installer.exe> <out.json> [download-base-url]
-//     [--mac <Vesper.app.tar.gz>]
-//
-// Each update file's .sig (made by `tauri build` with the update key) must
-// sit next to it. Vesper refuses any update whose signature doesn't match the
-// public key compiled into the app. The macOS archive is a universal build,
-// so it serves both Apple silicon and Intel Macs.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { sectionFor } from './notes.mjs';

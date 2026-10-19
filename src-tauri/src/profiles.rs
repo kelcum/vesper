@@ -1,9 +1,3 @@
-//! Profiles: named bundles of Fast Flags, a frame-rate limit and process options.
-//!
-//! Built-in profiles only use allowlisted flags whose behaviour the catalog
-//! marks as established. Their descriptions say what they change, never what
-//! they gain: Vesper doesn't promise frame rates.
-
 use crate::flags::catalog::{Behavior, Catalog};
 use crate::flags::model::{json_to_flag_string, FlagSet};
 use crate::flags::validate::{has_errors, normalize, validate, Issue};
@@ -53,7 +47,6 @@ pub struct Profile {
     pub description: String,
     pub builtin: Option<BuiltinId>,
     pub flags: FlagSet,
-    /// `None` leaves Roblox's own frame-rate setting alone.
     pub fps_cap: Option<FpsCap>,
     #[serde(default)]
     pub priority: Priority,
@@ -160,14 +153,12 @@ impl Default for ProfileStore {
     }
 }
 
-/// Changes to apply to a profile. `None` fields are left as they are.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfilePatch {
     pub name: Option<String>,
     pub description: Option<String>,
     pub flags: Option<FlagSet>,
-    /// `Some(None)` clears the frame-rate limit.
     #[serde(default, with = "double_option")]
     pub fps_cap: Option<Option<FpsCap>>,
     pub priority: Option<Priority>,
@@ -201,7 +192,6 @@ pub struct ProfileExport {
 #[serde(rename_all = "camelCase")]
 pub struct ImportResult {
     pub profile: Profile,
-    /// Validation notes for the imported flags (for example, flags Roblox ignores).
     pub issues: Vec<Issue>,
 }
 
@@ -286,7 +276,6 @@ impl ProfileStore {
         write_atomic(path, &serde_json::to_vec_pretty(self).map_err(io::Error::other)?)
     }
 
-    /// Restores missing built-ins and fixes dangling active/default ids.
     pub fn repair(&mut self) {
         for b in BuiltinId::ALL {
             if !self.profiles.iter().any(|p| p.builtin == Some(b)) {
@@ -349,7 +338,6 @@ impl ProfileStore {
         Ok(p)
     }
 
-    /// Creates a new profile, copying `from` if given.
     pub fn create(&mut self, name: &str, from: Option<&str>) -> Result<Profile, ProfileError> {
         let name = clean_name(name)?;
         let base = match from {
@@ -418,7 +406,6 @@ impl ProfileStore {
         Ok(())
     }
 
-    /// Restores a built-in profile to its shipped settings.
     pub fn reset(&mut self, id: &str) -> Result<Profile, ProfileError> {
         let b = self.get(id).ok_or(ProfileError::NotFound)?.builtin.ok_or_else(|| {
             ProfileError::Invalid("Only built-in profiles can be reset. Delete or edit this one instead.".into())
@@ -445,7 +432,6 @@ impl ProfileStore {
         serde_json::to_string_pretty(&e).map_err(|e| ProfileError::Invalid(e.to_string()))
     }
 
-    /// Imports a Vesper profile export, or a plain ClientAppSettings.json-style object.
     pub fn import(&mut self, json: &str, fallback_name: &str, catalog: &Catalog) -> Result<ImportResult, ProfileError> {
         if json.len() > 512 * 1024 {
             return Err(ProfileError::InvalidImport("That file is too large to be a profile.".into()));
@@ -492,7 +478,6 @@ impl ProfileStore {
     }
 }
 
-/// True if every flag in every built-in profile is allowlisted with established behaviour.
 pub fn builtins_use_established_flags(catalog: &Catalog) -> Result<(), String> {
     for b in BuiltinId::ALL {
         for name in builtin(b).flags.keys() {

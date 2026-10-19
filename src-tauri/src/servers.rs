@@ -1,15 +1,3 @@
-//! Choosing which server to join: the lowest-ping one, or one in a region
-//! the player prefers.
-//!
-//! 1. RoValra's public database says which cities a game has servers in.
-//! 2. Vesper measures or estimates the ping to each city (see `net.rs`).
-//! 3. Roblox's own list of open, not-full servers is compared with the
-//!    servers RoValra knows in the best city, so only a server that is open
-//!    right now is joined.
-//!
-//! When nothing suitable is found the launch carries on with Roblox's usual
-//! matchmaking and says why.
-
 use crate::net::{self, Model, Sample};
 use crate::roblox::web::{self, Datacenter, KnownServer};
 use serde::{Deserialize, Serialize};
@@ -18,19 +6,14 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// Pings are measured again after this long.
 const PING_TTL: Duration = Duration::from_secs(10 * 60);
-/// Cities more than this much slower than the best one aren't worth trying.
 const NEARBY_MS: u32 = 30;
-/// Pages of 100 servers read from Roblox's live list.
 const LIVE_PAGES: usize = 3;
-/// Cities tried before giving up.
 const MAX_CITIES: usize = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerPick {
-    /// Roblox's usual matchmaking.
     #[default]
     Off,
     LowestPing,
@@ -61,12 +44,10 @@ pub fn region_label(id: &str) -> String {
     REGIONS.iter().find(|r| r.id == id).map_or_else(|| id.to_owned(), |r| r.label.to_owned())
 }
 
-/// `city:DE:Frankfurt am Main` → (`DE`, `Frankfurt am Main`)
 fn city_key(id: &str) -> Option<(&str, &str)> {
     id.strip_prefix("city:")?.split_once(':')
 }
 
-/// Which region a datacenter belongs to.
 pub fn region_of(dc: &Datacenter) -> &'static str {
     match dc.country_code.as_str() {
         "US" | "CA" => match dc.region.as_str() {
@@ -91,7 +72,6 @@ fn in_choice(dc: &Datacenter, choice: &str) -> bool {
     }
 }
 
-/// One city's place in a scan.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CityPing {
@@ -100,11 +80,8 @@ pub struct CityPing {
     pub country_code: String,
     pub region: &'static str,
     pub region_label: String,
-    /// Ping in ms; `None` when it couldn't be worked out.
     pub ms: Option<u32>,
-    /// True when measured directly rather than estimated from distance.
     pub measured: bool,
-    /// Servers RoValra knows for the game; 0 when testing without a game.
     pub servers: u32,
 }
 
@@ -117,14 +94,11 @@ pub struct Pick {
     pub ms: Option<u32>,
     pub playing: u32,
     pub max_players: u32,
-    /// True when the player's region had nothing and a fallback was used.
     pub fallback: bool,
 }
 
-/// Handshake times, the model fitted to them, and when they were measured.
 type Pings = (Vec<Sample>, Option<Model>, Instant);
 
-/// Measurements and lookups, shared for the app's lifetime.
 #[derive(Default)]
 pub struct ServerCache {
     pings: Mutex<Option<Pings>>,
@@ -146,7 +120,6 @@ impl ServerCache {
                 l
             }
             Ok(_) | Err(_) => {
-                // Offline or RoValra unavailable: last known list.
                 let saved: Option<Vec<Datacenter>> =
                     std::fs::read(cache_file).ok().and_then(|b| serde_json::from_slice(&b).ok());
                 saved.ok_or("RoValra's list of Roblox server cities can't be reached right now")?
@@ -156,7 +129,6 @@ impl ServerCache {
         Ok(list)
     }
 
-    /// Measures (or reuses recent) handshake times and the fitted model.
     pub async fn pings(&self, refresh: bool) -> (Vec<Sample>, Option<Model>) {
         if !refresh {
             if let Some((s, m, at)) = self.pings.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
@@ -175,7 +147,6 @@ impl ServerCache {
     }
 }
 
-/// The datacenter behind a scanned city (names repeat across countries).
 fn find_dc<'a>(dcs: &'a [Datacenter], c: &CityPing) -> Option<&'a Datacenter> {
     dcs.iter().find(|d| d.country_code == c.country_code && d.city.eq_ignore_ascii_case(&c.city))
 }
@@ -194,13 +165,10 @@ fn city_ping(dc: &Datacenter, ping: Option<(u32, bool)>, servers: u32) -> CityPi
     }
 }
 
-/// Sorts by ping; cities without one go last.
 fn by_ping(list: &mut [CityPing]) {
     list.sort_by_key(|c| (c.ms.is_none(), c.ms.unwrap_or(u32::MAX), std::cmp::Reverse(c.servers)));
 }
 
-/// Pings every city a game has servers in, or every Roblox city when
-/// `place_id` is `None`.
 pub async fn scan(
     http: &reqwest::Client,
     cache: &ServerCache,
@@ -234,7 +202,6 @@ pub async fn scan(
     Ok(list)
 }
 
-/// Finds an open server for `place_id` following the player's choice.
 pub async fn pick(
     http: &reqwest::Client,
     cache: &ServerCache,
@@ -258,7 +225,6 @@ pub async fn pick(
     let order: Vec<&CityPing> = if mode == ServerPick::Region && !fallback {
         wanted
     } else {
-        // Lowest ping: the best city and any close to it.
         let best = cities.first().and_then(|c| c.ms);
         cities
             .iter()
@@ -280,7 +246,6 @@ pub async fn pick(
                 continue;
             }
         };
-        // Busiest server that still has room for one more.
         let best = known
             .iter()
             .filter_map(|s| live.get(s.id.as_str()))
@@ -356,7 +321,6 @@ mod tests {
         assert_eq!(order, ["C", "B", "A"]);
     }
 
-    /// Live check against RoValra and Roblox: `cargo test live_pick -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn live_pick() {

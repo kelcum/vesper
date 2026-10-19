@@ -17,7 +17,6 @@
 
 <div class="bar" data-tauri-drag-region>
   <div class="spacer" data-tauri-drag-region></div>
-  <!-- macOS shows its own close, minimize and zoom buttons at the top left. -->
   {#if !isMac}<div class="controls">
       <button class="ctl" aria-label="Minimize" title="Minimize" onclick={() => win.minimize()}>
         <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>

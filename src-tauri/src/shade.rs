@@ -1,15 +1,3 @@
-//! Shaders for Roblox without touching Roblox.
-//!
-//! Roblox's anti-cheat blocks anything that loads into the game (ReShade
-//! included), so Vesper never does. Instead it works like a screen recorder:
-//! Windows Graphics Capture (what OBS and Discord use) hands over each frame
-//! Roblox draws, a pixel shader colour-grades it on the GPU, and the result
-//! is shown in a click-through window laid exactly over Roblox's. Mouse and
-//! keyboard go straight to Roblox; the overlay never takes focus and hides
-//! whenever Roblox isn't the active window.
-//!
-//! The cost is one extra frame of latency and a little GPU time.
-
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -17,25 +5,15 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ShaderParams {
-    /// Stops of exposure, -1..1.
     pub exposure: f32,
-    /// 0.5..1.5, 1 is unchanged.
     pub contrast: f32,
-    /// 0..2, 1 is unchanged.
     pub saturation: f32,
-    /// Boosts muted colours more than vivid ones, -1..1.
     pub vibrance: f32,
-    /// Cool to warm, -1..1.
     pub temperature: f32,
-    /// Green to magenta, -1..1.
     pub tint: f32,
-    /// 0..1.
     pub sharpen: f32,
-    /// Darkened corners, 0..1.
     pub vignette: f32,
-    /// Glow around bright areas, 0..1.
     pub bloom: f32,
-    /// Film-like highlight roll-off, 0..1.
     pub tonemap: f32,
 }
 
@@ -110,13 +88,11 @@ pub fn preset(id: &str) -> Option<ShaderParams> {
 #[serde(rename_all = "camelCase", tag = "state", content = "detail")]
 pub enum ShaderStatus {
     Off,
-    /// On, waiting for a Roblox window.
     Waiting,
     Running,
     Failed(String),
 }
 
-/// Runs the overlay while it exists. Dropping it removes the overlay.
 pub struct Overlay {
     stop: Arc<AtomicBool>,
     params: Arc<Mutex<ShaderParams>>,
@@ -129,7 +105,6 @@ impl Drop for Overlay {
 }
 
 impl Overlay {
-    /// `find_target` returns the window to grade (Roblox's main window).
     pub fn start(
         params: ShaderParams,
         find_target: impl Fn() -> Option<isize> + Send + 'static,
@@ -151,7 +126,6 @@ impl Overlay {
                     Err(e) => {
                         log::warn!("Shaders stopped: {e}");
                         on_status(ShaderStatus::Failed(e));
-                        // Don't spin on a persistent failure.
                         for _ in 0..50 {
                             if flag.load(Ordering::Relaxed) {
                                 break;
@@ -174,8 +148,6 @@ impl Overlay {
     }
 }
 
-/// Grades `hwnd` for `seconds`, then returns.
-/// Used by the self-test.
 pub fn run_for(hwnd: isize, params: ShaderParams, seconds: f32) -> Result<(), String> {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
@@ -186,7 +158,6 @@ pub fn run_for(hwnd: isize, params: ShaderParams, seconds: f32) -> Result<(), St
     imp::run(hwnd, &Arc::new(Mutex::new(params.clamped())), &stop, Arc::new(|_| {}))
 }
 
-/// The main window of a running Roblox player, if any.
 pub fn roblox_window() -> Option<isize> {
     let pids = crate::roblox::process::roblox_pids();
     if pids.is_empty() {
@@ -195,11 +166,7 @@ pub fn roblox_window() -> Option<isize> {
     imp::main_window_of(&pids)
 }
 
-/// The colour grade, in HLSL. Vesper ships it compiled (`grade.vs.cso`,
-/// `grade.ps.cso`) so it never loads Microsoft's shader compiler while it runs;
-/// `cargo run --example compile_shaders` rebuilds those after a change here.
 pub const SHADER_SOURCE: &str = include_str!("shade/grade.hlsl");
-/// SHA-256 of `SHADER_SOURCE` when the compiled files were made.
 pub const COMPILED_FROM: &str = include_str!("shade/grade.sha256");
 #[cfg(windows)]
 const VERTEX_SHADER: &[u8] = include_bytes!("shade/grade.vs.cso");
@@ -280,14 +247,12 @@ mod imp {
         s.best.map(|(_, h)| h)
     }
 
-    /// Where Roblox's client area is on screen, and within the captured frame.
     #[derive(Clone, Copy, Default, PartialEq)]
     struct Placement {
         x: i32,
         y: i32,
         w: i32,
         h: i32,
-        /// Client origin relative to the captured window bounds.
         off_x: i32,
         off_y: i32,
     }
@@ -329,11 +294,9 @@ mod imp {
         copy: Option<(ID3D11Texture2D, ID3D11ShaderResourceView, u32, u32)>,
         size: (u32, u32),
         frames: u64,
-        /// The same device, as Windows Graphics Capture wants it.
         capture_device: Option<IDirect3DDevice>,
     }
 
-    // The device is free-threaded; the context is only used under the mutex.
     unsafe impl Send for Renderer {}
 
     impl Renderer {
@@ -449,7 +412,6 @@ mod imp {
 
     unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
         match msg {
-            // Never take clicks or focus.
             WM_NCHITTEST => LRESULT(HTTRANSPARENT as isize),
             WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
             _ => unsafe { DefWindowProcW(hwnd, msg, w, l) },
@@ -467,10 +429,7 @@ mod imp {
                 hCursor: HCURSOR::default(),
                 ..Default::default()
             };
-            // Registering twice fails harmlessly.
             RegisterClassW(&wc);
-            // Not topmost: it sits just above Roblox in the window order (see `keep_above`),
-            // so other windows can cover both and it stays on when Roblox loses focus.
             let hwnd = CreateWindowExW(
                 WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP,
                 class,
@@ -579,24 +538,18 @@ mod imp {
         }
     }
 
-    /// Whether `overlay` is directly above `target` in the window order.
     fn just_above(overlay: HWND, target: HWND) -> bool {
         unsafe { GetWindow(target, GW_HWNDPREV) }.is_ok_and(|w| w == overlay)
     }
 
-    /// Shows `overlay` over `target`, directly above it in the window order: when Roblox
-    /// comes to the front the overlay follows it, and windows above Roblox stay above both.
     fn keep_above(overlay: HWND, target: HWND, pl: Placement) {
         unsafe {
             let topmost = |w: HWND| (GetWindowLongPtrW(w, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0) != 0;
-            // Same band as Roblox: always on top only if Roblox was set to be.
             let pinned = topmost(target);
             if topmost(overlay) != pinned {
                 let band = if pinned { HWND_TOPMOST } else { HWND_NOTOPMOST };
                 let _ = SetWindowPos(overlay, Some(band), 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
             }
-            // Inserting "after" the window above Roblox puts the overlay between the two.
-            // When that window is in a higher band, Roblox is the top of its band: go to the top.
             let above = GetWindow(target, GW_HWNDPREV)
                 .ok()
                 .filter(|w| !w.is_invalid() && *w != overlay && topmost(*w) == pinned);
@@ -605,7 +558,6 @@ mod imp {
         }
     }
 
-    /// Grades `target` until it closes or `stop` is set.
     pub fn run(
         target: isize,
         params: &Arc<Mutex<ShaderParams>>,
@@ -630,7 +582,6 @@ mod imp {
             let session: GraphicsCaptureSession =
                 pool.CreateCaptureSession(&item).map_err(|e| err("capture session", e))?;
             let _ = session.SetIsCursorCaptureEnabled(false);
-            // No yellow frame around Roblox (Windows 11; older versions keep it).
             let _ = session.SetIsBorderRequired(false);
 
             let mut renderer = renderer;
@@ -693,7 +644,6 @@ mod imp {
                 let pl = placement(target).unwrap_or_default();
                 *place.lock().unwrap_or_else(|e| e.into_inner()) = pl;
                 let drawn = renderer.lock().unwrap_or_else(|e| e.into_inner()).frames > 0;
-                // Stays on whichever window has focus; only a minimised or hidden Roblox hides it.
                 let visible = drawn
                     && unsafe { IsWindowVisible(target) }.as_bool()
                     && !unsafe { IsIconic(target) }.as_bool()
@@ -777,7 +727,6 @@ mod tests {
         );
     }
 
-    /// The shipped shaders load on a software (WARP) device, as they will on any graphics card.
     #[cfg(windows)]
     #[test]
     fn compiled_shaders_load() {
@@ -809,7 +758,6 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn constants_match_the_shader_layout() {
-        // float4 + float2 + 2 floats + 4 floats + 4 floats = 64 bytes.
         assert_eq!(std::mem::size_of::<Constants>(), 64);
     }
 }

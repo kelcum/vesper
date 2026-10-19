@@ -1,9 +1,3 @@
-//! Live performance sampling.
-//!
-//! The monitor only runs while something on screen needs it (the
-//! Performance page or the dashboard summary) and stops when the window is
-//! hidden, so Vesper costs nothing while you play with it in the tray.
-
 use super::fps::{FpsStatus, FpsTracer, FrameStats};
 use super::gpu::GpuCounters;
 use super::system::{memory, CpuMeter};
@@ -109,7 +103,6 @@ impl Monitor {
         }
         self.last_cpu = players.iter().map(|p| (p.pid, (p.cpu_time, now))).collect();
 
-        // The main client is the one using the most memory (crash handlers are tiny).
         let roblox = players.iter().max_by_key(|p| p.working_set).map(|main| RobloxSample {
             pid: main.pid,
             processes: players.len(),
@@ -142,7 +135,6 @@ impl Monitor {
     }
 }
 
-/// A running monitor thread. Dropping it stops sampling.
 pub struct MonitorHandle {
     stop: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -159,7 +151,6 @@ impl MonitorHandle {
                 while !flag.load(Ordering::Relaxed) {
                     let started = Instant::now();
                     emit(m.sample());
-                    // Sleep in short slices so stopping is prompt.
                     while started.elapsed() < interval && !flag.load(Ordering::Relaxed) {
                         std::thread::sleep(Duration::from_millis(50));
                     }
@@ -200,7 +191,6 @@ mod tests {
         let samples = Arc::new(Mutex::new(0));
         let counter = samples.clone();
         let h = MonitorHandle::spawn(Duration::from_millis(100), false, move |_| *counter.lock().unwrap() += 1);
-        // Wait for samples rather than assuming a rate: a loaded machine samples slower.
         let deadline = Instant::now() + Duration::from_secs(10);
         while *samples.lock().unwrap() < 2 {
             assert!(Instant::now() < deadline, "no samples");

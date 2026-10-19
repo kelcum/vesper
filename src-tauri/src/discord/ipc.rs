@@ -1,12 +1,3 @@
-//! Discord's local IPC protocol.
-//!
-//! The Discord desktop app listens on `\\.\pipe\discord-ipc-0` … `-9` on
-//! Windows, and on Unix sockets `discord-ipc-0` … `-9` in the temporary folder
-//! on macOS.
-//! Each message is an 8-byte header (opcode, payload length; little endian)
-//! followed by a JSON payload. A session starts with a handshake carrying the
-//! application's client ID; Discord answers with a READY dispatch.
-
 use serde_json::{json, Value};
 use std::io::{self, Read, Write};
 
@@ -31,14 +22,11 @@ pub const OP_CLOSE: u32 = 2;
 pub const OP_PING: u32 = 3;
 pub const OP_PONG: u32 = 4;
 
-/// Where Discord's sockets are, without the trailing number.
 #[cfg(windows)]
 pub fn default_pipe_base() -> String {
     r"\\.\pipe\discord-ipc-".to_owned()
 }
 
-/// Discord puts its socket in the first of these that is set, like other
-/// Rich Presence clients look for it.
 #[cfg(unix)]
 pub fn default_pipe_base() -> String {
     let dir = ["XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"]
@@ -50,16 +38,13 @@ pub fn default_pipe_base() -> String {
     format!("{}/discord-ipc-", dir.to_string_lossy().trim_end_matches('/'))
 }
 
-/// The per-user temporary folder macOS gives every app, for when TMPDIR isn't set.
 #[cfg(unix)]
 fn user_temp_dir() -> Option<std::path::PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let mut buf = [0 as libc::c_char; 1024];
-        // SAFETY: confstr writes at most `buf.len()` bytes, including the terminator.
         let n = unsafe { libc::confstr(libc::_CS_DARWIN_USER_TEMP_DIR, buf.as_mut_ptr(), buf.len()) };
         if n > 0 && n <= buf.len() {
-            // SAFETY: confstr terminated the string.
             let s = unsafe { std::ffi::CStr::from_ptr(buf.as_ptr()) };
             return Some(s.to_string_lossy().into_owned().into());
         }
@@ -70,9 +55,7 @@ const MAX_PAYLOAD: u32 = 64 * 1024;
 
 #[derive(Debug)]
 pub enum IpcError {
-    /// No Discord pipe exists: Discord is closed, still starting, or not installed.
     NotRunning,
-    /// Discord closed the connection, with its reason (e.g. invalid client ID).
     Closed {
         code: i64,
         message: String,
@@ -123,12 +106,10 @@ pub fn read_frame(r: &mut impl Read) -> Result<(u32, Value), IpcError> {
 
 pub struct Connection {
     pipe: Pipe,
-    /// Display name of the signed-in Discord user, from READY. Kept in memory only.
     pub user: Option<String>,
 }
 
 impl Connection {
-    /// Connects to the first available Discord pipe and performs the handshake.
     pub fn connect(pipe_base: &str, client_id: &str) -> Result<Self, IpcError> {
         let pipe = (0..10).find_map(|i| open_pipe(&format!("{pipe_base}{i}")).ok()).ok_or(IpcError::NotRunning)?;
         let mut c = Connection { pipe, user: None };
@@ -154,7 +135,6 @@ impl Connection {
         Ok(())
     }
 
-    /// Reads the next frame, answering pings along the way.
     fn recv(&mut self) -> Result<(u32, Value), IpcError> {
         loop {
             let (op, v) = read_frame(&mut self.pipe)?;
@@ -166,7 +146,6 @@ impl Connection {
         }
     }
 
-    /// Sets (or with `None`, clears) the activity and waits for Discord's answer.
     pub fn set_activity(&mut self, activity: Option<&Value>) -> Result<(), IpcError> {
         let nonce = uuid::Uuid::new_v4().to_string();
         let payload = json!({
@@ -178,7 +157,7 @@ impl Connection {
         loop {
             let (_, v) = self.recv()?;
             if v.get("nonce").and_then(Value::as_str) != Some(nonce.as_str()) {
-                continue; // an unrelated dispatch
+                continue;
             }
             if v.get("evt").and_then(Value::as_str) == Some("ERROR") {
                 let msg = v.pointer("/data/message").and_then(Value::as_str).unwrap_or("unknown error");
@@ -223,13 +202,11 @@ pub(crate) mod tests {
         assert!(read_frame(&mut bad.as_slice()).is_err());
     }
 
-    /// A socket base no Discord listens on, unique to one test.
     pub(crate) fn test_base(tag: &str) -> String {
         let id = uuid::Uuid::new_v4().simple().to_string();
         if cfg!(windows) {
             format!(r"\\.\pipe\vesper-{tag}-{id}-")
         } else {
-            // Unix socket paths are short (104 bytes on macOS).
             std::env::temp_dir().join(format!("vp-{tag}-{}-", &id[..12])).to_string_lossy().into_owned()
         }
     }
@@ -247,7 +224,6 @@ pub(crate) mod tests {
         assert!(!base.contains("//discord"), "{base}");
     }
 
-    /// A minimal fake Discord on a real pipe (Windows) or socket (Unix), for integration tests.
     pub(crate) mod fake {
         use super::super::*;
 
@@ -277,7 +253,6 @@ pub(crate) mod tests {
                     Self(name)
                 }
 
-                /// Creates the next pipe instance; clients can connect from now on.
                 pub fn prepare(&mut self) -> Pending {
                     unsafe {
                         CreateNamedPipeW(
@@ -305,7 +280,6 @@ pub(crate) mod tests {
             use super::super::super::Pipe;
             use std::os::unix::net::UnixListener;
 
-            /// Unix listeners accept without preparing anything per client.
             pub struct Pending;
 
             pub struct Server(UnixListener, String);
@@ -332,7 +306,6 @@ pub(crate) mod tests {
             }
         }
 
-        /// Serves `connections` clients on `{base}0`. Every received frame is sent on `log`.
         pub fn serve(
             base: &str,
             behaviour: Behaviour,

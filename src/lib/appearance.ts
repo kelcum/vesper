@@ -1,6 +1,3 @@
-// Applies appearance settings: theme, window material (Mica on Windows, the
-// under-window material on macOS), motion, density, UI scale, background.
-
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { Effect, EffectState, getCurrentWindow } from '@tauri-apps/api/window';
 import { api } from './api';
@@ -46,12 +43,10 @@ export async function applyAppearance(a: Appearance) {
       await win.clearEffects();
     }
   } catch {
-    // Mica needs Windows 11; the CSS fallback covers older systems.
   }
   try {
     await getCurrentWebview().setZoom(a.scale / 100);
   } catch {
-    /* zoom is a nicety */
   }
 
   if (backgroundKey !== a.background) {
@@ -63,7 +58,6 @@ export async function applyAppearance(a: Appearance) {
   }
 }
 
-/** Forces the background to reload (after choosing a new image with the same name). */
 export function invalidateBackground() {
   backgroundKey = undefined;
 }

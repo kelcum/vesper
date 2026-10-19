@@ -1,6 +1,3 @@
-// Typed wrappers for Vesper's backend commands.
-// Every failure is thrown as a ProblemError carrying a user-facing Problem.
-
 import { invoke } from '@tauri-apps/api/core';
 import type {
   BackupInfo,

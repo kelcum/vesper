@@ -1,10 +1,3 @@
-//! Vesper's settings.
-//!
-//! Stored as `settings.json` in the config folder. Missing fields take their
-//! defaults, so older files keep working after updates. A file that can't be
-//! parsed is moved aside (never deleted) and defaults are used, with a notice
-//! shown to the user.
-
 use crate::paths::write_atomic;
 pub use crate::servers::ServerPick;
 use chrono::{DateTime, Utc};
@@ -18,7 +11,6 @@ pub const UI_SCALES: &[u16] = &[90, 100, 110, 125, 150];
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum CloseBehavior {
-    /// Keep running in the system tray.
     #[default]
     Tray,
     Quit,
@@ -31,18 +23,14 @@ pub enum AfterLaunch {
     #[default]
     Minimize,
     Tray,
-    /// Out of sight entirely: no taskbar button and no tray icon until Roblox closes.
     Hidden,
 }
 
-/// What Vesper does once Roblox closes, if it had hidden or minimized itself for the launch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum WhenRobloxCloses {
-    /// Come back on screen.
     #[default]
     Show,
-    /// Stay minimized or in the tray.
     Stay,
     Quit,
 }
@@ -59,10 +47,8 @@ pub enum Theme {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum Transparency {
-    /// Windows Mica material behind translucent panels.
     #[default]
     Full,
-    /// Solid window, lightly translucent panels.
     Reduced,
     Off,
 }
@@ -70,7 +56,6 @@ pub enum Transparency {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum Motion {
-    /// Follow Windows' "Animation effects" setting.
     #[default]
     System,
     Full,
@@ -89,12 +74,9 @@ pub enum Density {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum FlagMode {
-    /// Write the active profile's flags each time Vesper launches Roblox.
     #[default]
     ApplyOnLaunch,
-    /// Also re-apply them when Roblox installs an update while Vesper runs.
     KeepApplied,
-    /// Never touch ClientAppSettings.json.
     Off,
 }
 
@@ -116,7 +98,6 @@ pub struct General {
     pub launch_roblox_on_start: bool,
     pub after_launch: AfterLaunch,
     pub when_roblox_closes: WhenRobloxCloses,
-    /// Shown once, the first time the window is closed to the tray.
     pub tray_hint_shown: bool,
 }
 
@@ -142,13 +123,9 @@ pub struct Appearance {
     pub transparency: Transparency,
     pub motion: Motion,
     pub density: Density,
-    /// UI scale in percent (see [`UI_SCALES`]).
     pub scale: u16,
-    /// File name of a custom window background in the config folder.
     pub background: Option<String>,
-    /// How much the background is darkened behind panels, 0-90 %.
     pub background_dim: u8,
-    /// Background blur in pixels, 0-40.
     pub background_blur: u8,
 }
 
@@ -170,10 +147,8 @@ impl Default for Appearance {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Performance {
-    /// Sample system and Roblox metrics while the Performance page or dashboard is visible.
     pub monitoring: bool,
     pub sample_ms: u32,
-    /// Try to measure FPS from Direct3D present events (needs extra Windows permissions).
     pub fps_counter: bool,
 }
 
@@ -186,14 +161,10 @@ impl Default for Performance {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RobloxSettings {
-    /// A folder chosen by the user, overriding automatic detection.
     pub install_dir: Option<PathBuf>,
     pub flag_mode: FlagMode,
-    /// Apply the profile's frame-rate limit to Roblox's own setting.
     pub apply_fps_cap: bool,
-    /// Read Roblox's log after launch to confirm which flags it accepted.
     pub verify_after_launch: bool,
-    /// Compare the installed version with Roblox's latest release.
     pub check_roblox_updates: bool,
 }
 
@@ -213,19 +184,12 @@ impl Default for RobloxSettings {
 #[serde(rename_all = "camelCase", default)]
 pub struct DiscordSettings {
     pub rich_presence: bool,
-    /// Mention the active profile ("Competitive profile").
     pub show_profile: bool,
-    /// Say whether Roblox is running.
     pub show_roblox_status: bool,
-    /// Show the game being played, with its icon. On for new installs; settings
-    /// from before it existed keep the presence they agreed to (no game).
     #[serde(default)]
     pub show_game: bool,
-    /// Show how long the current game has been played.
     pub show_play_time: bool,
-    /// A "Join server" button that opens Roblox in the same public server.
     pub join_button: bool,
-    /// A "Roblox profile" button linking to the player's profile.
     pub profile_button: bool,
 }
 
@@ -243,12 +207,10 @@ impl Default for DiscordSettings {
     }
 }
 
-/// Which server a launch from Vesper joins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ServerSettings {
     pub pick: ServerPick,
-    /// A region id (`us-east`) or a city (`city:DE:Frankfurt am Main`).
     pub region: String,
 }
 
@@ -258,12 +220,10 @@ impl Default for ServerSettings {
     }
 }
 
-/// Colour grading laid over Roblox's window (see `shade.rs`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ShaderSettings {
     pub enabled: bool,
-    /// The look the sliders started from; `None` once they were moved.
     pub preset: Option<String>,
     pub params: crate::shade::ShaderParams,
 }
@@ -281,15 +241,12 @@ impl Default for ShaderSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct GamesSettings {
-    /// Keep a list of recently played games and servers on this PC.
     pub history: bool,
-    /// Look up which city a game's server is in (asks RoValra about the server's address).
     pub locate_servers: bool,
 }
 
 impl Default for GamesSettings {
     fn default() -> Self {
-        // Lookups ask RoValra, a third party, so they wait for the player's go-ahead.
         Self { history: true, locate_servers: false }
     }
 }
@@ -345,7 +302,6 @@ pub struct Settings {
     pub updates: UpdateSettings,
     pub advanced: Advanced,
     pub last_launch: Option<LastLaunch>,
-    /// Roblox's FramerateCap before Vesper first changed it, for restoring on reset/uninstall.
     pub original_fps_cap: Option<i32>,
 }
 
@@ -373,12 +329,10 @@ impl Default for Settings {
 #[derive(Debug)]
 pub struct Loaded {
     pub settings: Settings,
-    /// Set when the previous file was unreadable and was moved here.
     pub recovered_from: Option<PathBuf>,
 }
 
 impl Settings {
-    /// Corrects out-of-range values instead of rejecting the whole file.
     pub fn sanitize(&mut self) {
         if !UI_SCALES.contains(&self.appearance.scale) {
             self.appearance.scale = 100;
@@ -387,7 +341,6 @@ impl Settings {
         self.appearance.background_dim = self.appearance.background_dim.min(90);
         self.appearance.background_blur = self.appearance.background_blur.min(40);
         if let Some(b) = &self.appearance.background {
-            // Only a bare file name inside the config folder is allowed.
             if b.contains(['/', '\\']) || b.contains("..") || !b.starts_with("background.") {
                 self.appearance.background = None;
             }

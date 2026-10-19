@@ -1,12 +1,3 @@
-//! Roblox's public client settings service.
-//!
-//! Two read-only requests, both anonymous (no cookies, no account):
-//! * the latest player version for this system, to tell whether Roblox is up to date;
-//! * the flag values Roblox currently ships to this kind of computer, shown
-//!   next to each flag as "Roblox's value". Flags Roblox doesn't publish keep
-//!   their engine default, which Roblox doesn't disclose — the UI says so
-//!   rather than guessing.
-
 use crate::flags::model::FlagSet;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,7 +17,6 @@ pub const SETTINGS_URL: &str = "https://clientsettingscdn.roblox.com/v2/settings
 #[serde(rename_all = "camelCase")]
 pub struct LatestVersion {
     pub version: String,
-    /// Folder name of the latest build, e.g. `version-02c37bc51a384b8f`.
     pub version_hash: String,
     pub fetched_at: DateTime<Utc>,
 }
@@ -61,7 +51,6 @@ pub fn parse_version(json: &str) -> Result<LatestVersion, String> {
     Ok(LatestVersion { version: raw.version, version_hash: raw.client_version_upload, fetched_at: Utc::now() })
 }
 
-/// Extracts `names` from the settings response.
 pub fn parse_published(json: &str, names: &[&str]) -> Result<PublishedValues, String> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]

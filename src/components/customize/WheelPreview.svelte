@@ -1,7 +1,4 @@
 <script lang="ts">
-  // The emote wheel as Roblox draws it, built from the exact files Vesper writes
-  // (Roblox's "Large" size at 1x: a 400 px wheel). Point at a slot to see its
-  // highlight, as you would in game.
   interface Props {
     background: string | null;
     ring: string | null;
@@ -46,7 +43,6 @@
   aria-label="Preview of the emote wheel, slot {slot + 1} highlighted"
 >
   {#if background}<img class="layer" src={background} alt="" />{/if}
-  <!-- Roblox points the highlight at the slot under the mouse; it starts pointing right. -->
   <div class="spin" style:transform="rotate({slot * 45 - 90}deg)">
     {#if gradient}
       <img

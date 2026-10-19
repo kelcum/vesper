@@ -1,10 +1,3 @@
-//! Removes personal and secret data from text before it is logged,
-//! shown in diagnostics, or copied to the clipboard.
-//!
-//! Vesper never reads Roblox cookies or tokens. This exists as a safety net
-//! for text that passes through from elsewhere (paths, launch arguments,
-//! error messages from the system or the network).
-
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -19,28 +12,20 @@ static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
         replacement,
     };
     vec![
-        // Roblox security cookie (value includes the well-known warning prefix).
         rule(r"_\|WARNING:-DO-NOT-SHARE-THIS[^|]*\|_[A-Za-z0-9]+", "[redacted roblox cookie]"),
         rule(r"(?i)\.ROBLOSECURITY\s*[=:]\s*[^;\s]+", ".ROBLOSECURITY=[redacted]"),
-        // roblox-player: launch URIs carry an authentication ticket in `gameinfo:`.
         rule(r"(?i)gameinfo:[^+\s&]+", "gameinfo:[redacted]"),
-        // Discord user tokens.
         rule(r"\b[MNO][A-Za-z\d_-]{23,27}\.[A-Za-z\d_-]{6}\.[A-Za-z\d_-]{27,}\b", "[redacted discord token]"),
         rule(r"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [redacted]"),
-        // key=value / key: value pairs whose key looks secret.
         rule(
             r#"(?i)\b(password|passwd|secret|token|api[_-]?key|cookie|authorization|auth[_-]?ticket)\b(\s*[=:]\s*)("[^"]*"|[^\s,;&]+)"#,
             "$1$2[redacted]",
         ),
-        // Windows user profile paths reveal the account name.
-        // Usernames may contain spaces, so consume everything up to the next separator.
         rule(r#"(?i)\b[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>|]+"#, "%USERPROFILE%"),
-        // So do macOS home folders (short user names have no spaces).
         rule(r#"/(?:Users|home)/[^/\s"'<>|:]+"#, "~"),
     ]
 });
 
-/// Returns `text` with secrets and personal paths replaced.
 pub fn redact(text: &str) -> String {
     let mut out = text.to_owned();
     for rule in RULES.iter() {
@@ -51,7 +36,6 @@ pub fn redact(text: &str) -> String {
     out
 }
 
-/// Replaces the user profile prefix of a path for display.
 pub fn display_path(path: &std::path::Path) -> String {
     redact(&path.display().to_string())
 }

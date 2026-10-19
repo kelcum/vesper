@@ -1,9 +1,6 @@
-// Progressive enhancement only: without this script the page shows everything,
-// statically, and the tour shows its first screenshot.
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Reveal sections as they scroll in.
   const items = document.querySelectorAll('.reveal');
   if (reduce || !('IntersectionObserver' in window)) {
     items.forEach((el) => el.classList.add('in'));
@@ -22,7 +19,6 @@
     items.forEach((el) => io.observe(el));
   }
 
-  // The hero window leans back and settles flat as you scroll to it.
   const frame = document.querySelector('.hero-shot .frame');
   if (frame && !reduce) {
     let queued = false;
@@ -40,7 +36,6 @@
     tilt();
   }
 
-  // Tour: tabs switch the screenshot and caption; arrow keys move between tabs.
   const tabs = [...document.querySelectorAll('.tour-tabs [role="tab"]')];
   const caption = document.querySelector('.tour-caption');
   const select = (tab, focus) => {

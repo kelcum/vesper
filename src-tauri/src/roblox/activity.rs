@@ -1,20 +1,3 @@
-//! Following Roblox's log to know which game and server the player is in.
-//!
-//! While Roblox runs, Vesper reads new lines of the client's own log once a
-//! second. It only extracts a handful of facts:
-//!
-//! ```text
-//! [FLog::Output] ! Joining game '<server id>' place <place id> at <internal ip>
-//! [FLog::GameJoinLoadTime] Report game_join_loadtime: placeid:<id>, ... universeid:<id>, ... userid:<id>,
-//! [FLog::Network] UDMUX Address = <server ip>, Port = ...
-//! [FLog::GameJoinUtil] GameJoinUtil::joinGamePostPrivateServer
-//! [FLog::GameJoinUtil] GameJoinUtil::initiateTeleportToReservedServer
-//! [FLog::SingleSurfaceApp] leaveUGCGameInternal
-//! ```
-//!
-//! Nothing else is kept. Join tickets and account names that the log also
-//! contains are never read into a value, stored or shown.
-
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -46,9 +29,7 @@ const LEAVE_MARKER: &str = "[FLog::SingleSurfaceApp] leaveUGCGameInternal";
 pub enum ServerKind {
     #[default]
     Public,
-    /// A private (VIP) server: joining needs the owner's invite link.
     Private,
-    /// A server a game reserved for a match or party; nobody can join by link.
     Reserved,
 }
 
@@ -57,16 +38,13 @@ pub enum ServerKind {
 pub struct Activity {
     pub place_id: u64,
     pub universe_id: Option<u64>,
-    /// The server's id (Roblox calls it the game instance or job id).
     pub job_id: String,
     pub kind: ServerKind,
-    /// The server's public address, used to look up where it is.
     pub server_ip: Option<String>,
     pub joined_at: DateTime<Utc>,
 }
 
 impl Activity {
-    /// A link that opens Roblox in this exact server, when others can join it.
     pub fn join_url(&self) -> Option<String> {
         (self.kind == ServerKind::Public).then(|| {
             format!("https://www.roblox.com/games/start?placeId={}&gameInstanceId={}", self.place_id, self.job_id)
@@ -80,21 +58,15 @@ impl Activity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Change {
-    /// Entered a game or another server.
     Joined,
-    /// Learned more about the current one (universe, address).
     Updated,
     Left,
 }
 
-/// Turns log lines into the current game.
 #[derive(Debug, Default)]
 pub struct Tracker {
     pub current: Option<Activity>,
-    /// The signed-in player's user id, from the join report.
     pub user_id: Option<u64>,
-    /// When the line behind the latest change was written; `None` for changes
-    /// that come from Roblox closing rather than from a line.
     pub at: Option<DateTime<Utc>>,
     next_kind: ServerKind,
 }
@@ -113,7 +85,6 @@ impl Tracker {
         change
     }
 
-    /// Roblox closed or started a new log: the current game ended now.
     fn end(&mut self) -> bool {
         self.at = None;
         self.current.take().is_some()
@@ -133,7 +104,6 @@ impl Tracker {
             let place_id: u64 = c[2].parse().ok()?;
             let kind = std::mem::take(&mut self.next_kind);
             if let Some(cur) = &mut self.current {
-                // Reconnecting to the same server keeps the session going.
                 if cur.job_id == job_id && cur.place_id == place_id {
                     return None;
                 }
@@ -177,7 +147,6 @@ impl Tracker {
     }
 }
 
-/// Reads a growing log file line by line.
 struct Tail {
     path: PathBuf,
     offset: u64,
@@ -211,7 +180,6 @@ impl Tail {
     }
 }
 
-/// Follows the newest player log while Roblox runs. Dropping it stops the thread.
 pub struct ActivityWatcher {
     stop: Arc<AtomicBool>,
 }
@@ -223,8 +191,6 @@ impl Drop for ActivityWatcher {
 }
 
 impl ActivityWatcher {
-    /// `since` is when Roblox started; older logs are ignored. `on_change`
-    /// receives the tracker after every change.
     pub fn start(
         logs_dir: PathBuf,
         since: SystemTime,
@@ -237,7 +203,6 @@ impl ActivityWatcher {
             let mut tail: Option<Tail> = None;
             let mut checked = SystemTime::UNIX_EPOCH;
             while !flag.load(Ordering::Relaxed) {
-                // Roblox starts a new log when it restarts itself; look for one now and then.
                 if tail.is_none() || checked.elapsed().map_or(true, |e| e > Duration::from_secs(5)) {
                     checked = SystemTime::now();
                     if let Some(newest) = super::logs::newest_player_log_since(&logs_dir, since) {
@@ -266,7 +231,6 @@ impl ActivityWatcher {
     }
 }
 
-/// Replays a whole log, for tests and for picking up a game already in progress.
 pub fn replay(path: &Path) -> Tracker {
     let mut t = Tracker::default();
     if let Ok(text) = std::fs::read(path) {
@@ -281,7 +245,6 @@ pub fn replay(path: &Path) -> Tracker {
 mod tests {
     use super::*;
 
-    // Lines in the format of a real Roblox 0.743 player log; ids are made up.
     const LOG: &str = "\
 2026-10-17T04:51:21.968Z,5.968251,753c,6 [FLog::Output] ! Joining game '0d6a1c3e-4b7f-4e21-9a55-3f0c2d8e1b11' place 6884319169 at 10.0.0.11
 2026-10-17T04:51:21.968Z,5.968251,753c,6 [FLog::GameJoinLoadTime] Report game_join_loadtime: placeid:6884319169, join_time:0.64, universeid:2626227051, referral_page:, sid:11111111, clienttime:1792212682.32,

@@ -1,6 +1,3 @@
-//! What the player is doing in Roblox right now, and what follows from it:
-//! the "Now playing" card, Discord's game status and the Recent games list.
-
 use crate::discord::presence::GamePresence;
 use crate::history::Visit;
 use crate::roblox::activity::{Activity, ActivityWatcher, Change, ServerKind, Tracker};
@@ -19,9 +16,7 @@ pub struct NowPlaying {
     pub kind: ServerKind,
     pub joined_at: chrono::DateTime<chrono::Utc>,
     pub game: Option<GameInfo>,
-    /// "London, GB", when server lookups are on and the server was found.
     pub location: Option<String>,
-    /// Opens Roblox in this server; only for public servers.
     pub join_url: Option<String>,
     pub page_url: String,
 }
@@ -43,7 +38,6 @@ pub fn now_playing(state: &AppState) -> Option<NowPlaying> {
     })
 }
 
-/// The signed-in player, from Roblox's log, for the profile link.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Player {
@@ -61,7 +55,6 @@ pub fn player(state: &AppState) -> Option<Player> {
     })
 }
 
-/// The game part of the Discord status, following the player's choices.
 pub fn game_presence(state: &AppState) -> Option<GamePresence> {
     let s = lock(&state.settings).discord.clone();
     if !s.show_game {
@@ -97,7 +90,6 @@ fn history_on(state: &AppState) -> bool {
     lock(&state.settings).games.history
 }
 
-/// Copies what is known about the current server into its history entry.
 fn fill_history(app: &AppHandle, a: &Activity) {
     let state = app.state::<AppState>();
     if !history_on(&state) {
@@ -124,8 +116,6 @@ fn fill_history(app: &AppHandle, a: &Activity) {
 
 fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     let state = app.state::<AppState>();
-    // The log may be read back from the start (Vesper opened mid-game), so
-    // visits end when the log says, not when Vesper got to the line.
     let at = tracker.at.unwrap_or_else(chrono::Utc::now);
     let previous = lock(&state.activity).clone();
     *lock(&state.activity) = tracker.current.clone().map(|a| with_universe(&state, a));
@@ -166,8 +156,6 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     state.sync_shaders(app);
 }
 
-/// Fills in the universe id from an earlier lookup when Roblox's log didn't
-/// give it (the macOS client doesn't always write that line).
 fn with_universe(state: &AppState, mut a: Activity) -> Activity {
     if a.universe_id.is_none() {
         a.universe_id = lock(&state.universes).get(&a.place_id).copied();
@@ -175,7 +163,6 @@ fn with_universe(state: &AppState, mut a: Activity) -> Activity {
     a
 }
 
-/// Looks up the game's name and icon, and the server's city, then updates everyone.
 fn enrich(app: AppHandle, mut a: Activity) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
@@ -225,13 +212,11 @@ fn enrich(app: AppHandle, mut a: Activity) {
         }
         let current = lock(&state.activity).clone().filter(|c| c.job_id == a.job_id);
         match current {
-            // Still in that server: everything shows it.
             Some(c) => {
                 fill_history(&app, &c);
                 emit(&app);
                 state.refresh_presence();
             }
-            // Moved on (or the log was read back from the start): the visit still gets its name.
             None => fill_history(&app, &a),
         }
     });
@@ -254,7 +239,6 @@ fn fetch_user(app: AppHandle) {
     });
 }
 
-/// Starts following Roblox's log (Roblox just started, or was already running).
 pub fn start(app: &AppHandle) {
     let state = app.state::<AppState>();
     let since = crate::roblox::process::snapshot()
@@ -272,7 +256,6 @@ pub fn start(app: &AppHandle) {
     }
 }
 
-/// Roblox closed: stop following and close the open history entry.
 pub fn stop(app: &AppHandle) {
     let state = app.state::<AppState>();
     lock(&state.activity_watch).take();

@@ -1,5 +1,3 @@
-//! Fast Flags: catalog, validation, verification records, and applying them to Roblox.
-
 pub mod apply;
 pub mod catalog;
 pub mod model;

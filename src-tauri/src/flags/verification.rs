@@ -1,5 +1,3 @@
-//! Remembers what Roblox said about each flag the last time it was launched.
-
 use crate::paths::write_atomic;
 use crate::roblox::logs::Verdict;
 use chrono::{DateTime, Utc};
@@ -24,7 +22,6 @@ pub struct LaunchReport {
     pub accepted: Vec<String>,
     pub denied: Vec<String>,
     pub not_read: Vec<String>,
-    /// False when Roblox was still starting and the log was incomplete.
     pub complete: bool,
 }
 
@@ -68,8 +65,6 @@ impl VerificationStore {
         write_atomic(path, &serde_json::to_vec_pretty(self).map_err(io::Error::other)?)
     }
 
-    /// Records a launch. "Not read" results never overwrite a real verdict,
-    /// because they say nothing about whether Roblox accepts the flag.
     pub fn record(&mut self, report: LaunchReport, verdicts: &BTreeMap<String, Verdict>) {
         for (name, v) in verdicts {
             if *v == Verdict::NotRead && self.flags.contains_key(name) {

@@ -1,29 +1,3 @@
-//! Roblox customisations: cursor, emote wheel, font, death sound and custom files.
-//!
-//! These replace files in Roblox's `content` folder, the same mechanism other
-//! launchers have used for years. They change how Roblox looks and sounds on
-//! your PC only; nothing is injected and no game code is touched.
-//!
-//! Safety rules:
-//! * Before a Roblox file is replaced, the original is copied to
-//!   `cache\originals\<build>\…` and restored when the mod is turned off.
-//! * Texture and sound mods only replace files that exist in the current
-//!   Roblox build. If Roblox removes or renames one, the mod is skipped and
-//!   reported instead of leaving stray files behind.
-//! * A ledger records the hash of every file written. While a mod is on, its
-//!   files are Vesper's: if something else changed one, it's written again.
-//!   When a mod is turned off, a file someone else changed since is left alone,
-//!   unless Roblox's own copy is known (below).
-//! * On macOS, Roblox.app's code signature says which files are Roblox's own
-//!   (see [`Originals`]). Before applying, every file where Vesper customises
-//!   ([`AREAS`]) that is neither Roblox's own nor Vesper's current file, such
-//!   as another tool's or an older customisation's leftovers, is put back to
-//!   Roblox's own, and so is any backup that wasn't Roblox's own.
-//!
-//! Paths below are written Windows-style (`content\fonts\…`) and turned into
-//! real paths with [`rel_path`]. On macOS they are relative to
-//! `Roblox.app/Contents/Resources`, where Roblox keeps its `content` folder.
-
 use crate::paths::write_atomic;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
@@ -38,14 +12,12 @@ pub const CURSOR_FILES: [&str; 2] = [
     r"content\textures\Cursors\KeyboardMouse\ArrowFarCursor.png",
 ];
 pub const CURSOR_SIZE: u32 = 64;
-/// The crosshair Roblox shows while Shift Lock is on. The chosen cursor goes here too, unless turned off.
 pub const SHIFT_LOCK_FILE: &str = r"content\textures\MouseLockedCursor.png";
 pub const DEATH_SOUNDS: [&str; 2] = [r"content\sounds\ouch.ogg", r"content\sounds\oof.ogg"];
 pub const FONT_FILE: &str = r"content\fonts\CustomFont.ttf";
 pub const FONT_FAMILIES: &str = r"content\fonts\families";
 pub const FONT_ASSET: &str = "rbxasset://fonts/CustomFont.ttf";
 pub const WHEEL_DIR: &str = r"content\textures\ui\Emotes";
-/// Where the customisations live, as folders and single files.
 pub const AREAS: [&str; 7] = [
     r"content\textures\Cursors\KeyboardMouse",
     SHIFT_LOCK_FILE,
@@ -55,7 +27,6 @@ pub const AREAS: [&str; 7] = [
     DEATH_SOUNDS[1],
     crate::sky::SKY_DIR,
 ];
-/// Emote wheel size classes and the diameter of their @1x circle.
 pub const WHEEL_SIZES: [(&str, u32); 3] = [("Small", 300), ("Large", 400), ("TenFoot", 640)];
 pub const SCALES: [(&str, u32); 3] = [("", 1), ("@2x", 2), ("@3x", 3)];
 pub const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
@@ -64,7 +35,6 @@ pub const MAX_SOUND_BYTES: u64 = 10 * 1024 * 1024;
 
 pub const CURSOR_PRESETS: &[(&str, &str)] =
     &[("dot", "Vesper dot"), ("crosshair", "Crosshair"), ("ring", "Ring"), ("plus", "Plus"), ("arrow", "Arrow")];
-/// Cursor size range, in percent of the 64×64 canvas a style is drawn for.
 pub const CURSOR_SCALE: (u8, u8) = (30, 150);
 pub const WHEEL_PRESETS: &[(&str, &str)] = &[("dusk", "Dusk"), ("glass", "Glass"), ("minimal", "Minimal")];
 
@@ -79,7 +49,6 @@ fn cursor_preset(id: &str) -> Option<&'static [u8]> {
     }
 }
 
-/// (CircleBackground, SegmentedCircle) masters at 1920×1920.
 fn wheel_preset(id: &str) -> Option<(&'static [u8], &'static [u8])> {
     match id {
         "dusk" => Some((
@@ -98,7 +67,6 @@ fn wheel_preset(id: &str) -> Option<(&'static [u8], &'static [u8])> {
     }
 }
 
-/// Dividers, edge and see-through centre drawn over a picture wheel (1920×1920).
 fn photo_overlay(dividers: bool) -> &'static [u8] {
     if dividers {
         include_bytes!("../resources/mods/wheels/photo/SegmentedCircle.png")
@@ -107,15 +75,12 @@ fn photo_overlay(dividers: bool) -> &'static [u8] {
     }
 }
 
-// ------------------------------------------------------------------ configuration
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Source {
     Preset {
         id: String,
     },
-    /// A file the user picked; `name` is its original file name, for display.
     File {
         name: String,
     },
@@ -125,13 +90,10 @@ pub enum Source {
 #[serde(rename_all = "camelCase")]
 pub struct CursorMod {
     pub source: Source,
-    /// Size in percent: of the 64×64 canvas for an image, of the drawn size for a style.
     #[serde(default = "full_size")]
     pub scale: u8,
-    /// Tint for a built-in style as `#rrggbb`; `None` keeps its own colours.
     #[serde(default)]
     pub color: Option<String>,
-    /// Also shown while Shift Lock is on, in place of Roblox's crosshair.
     #[serde(default = "yes")]
     pub shift_lock: bool,
 }
@@ -144,13 +106,10 @@ fn yes() -> bool {
     true
 }
 
-/// How a picture wheel is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct WheelLook {
-    /// How much the picture is darkened so emotes and numbers stay readable, in percent.
     pub dim: u8,
-    /// Draw Roblox-style dividers between the eight slots.
     pub dividers: bool,
 }
 
@@ -165,11 +124,8 @@ pub const MAX_WHEEL_DIM: u8 = 80;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WheelMod {
-    /// `None` keeps Roblox's own wheel and only recolours the highlight.
     pub source: Option<Source>,
-    /// Highlight colour as `#rrggbb`; `None` keeps Roblox's white.
     pub accent: Option<String>,
-    /// Only used for a picture.
     #[serde(default)]
     pub look: WheelLook,
 }
@@ -183,10 +139,8 @@ pub struct FileMod {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum SkyLayout {
-    /// One 360° picture.
     #[default]
     Panorama,
-    /// Six pictures, one per side.
     Faces,
 }
 
@@ -206,7 +160,6 @@ pub struct ModsConfig {
     pub font: Option<FileMod>,
     pub death_sound: Option<FileMod>,
     pub sky: Option<SkyMod>,
-    /// Apply everything in the custom files folder.
     pub custom_files: bool,
 }
 
@@ -221,7 +174,6 @@ pub fn presets(list: &[(&'static str, &'static str)]) -> Vec<PresetInfo> {
     list.iter().map(|(id, label)| PresetInfo { id, label }).collect()
 }
 
-/// Where Vesper keeps prepared mod files.
 #[derive(Debug, Clone)]
 pub struct ModPaths {
     pub root: PathBuf,
@@ -253,8 +205,6 @@ impl ModsConfig {
     }
 }
 
-// ------------------------------------------------------------------ preparing files
-
 fn png_bytes(img: &RgbaImage) -> Result<Vec<u8>, String> {
     let mut out = Cursor::new(Vec::new());
     img.write_to(&mut out, ImageFormat::Png).map_err(|e| e.to_string())?;
@@ -273,9 +223,6 @@ fn load_image(path: &Path) -> Result<DynamicImage, String> {
         .map_err(|_| "That isn't a PNG, JPEG or WebP image Vesper can read.".to_string())
 }
 
-/// Fits `img` inside a box of `scale_pct` of a `size`×`size` canvas, centred
-/// (Roblox draws cursor images centred on the mouse position). Above 100 %
-/// the edges are cropped.
 pub fn fit_centered(img: &DynamicImage, size: u32, scale_pct: u8) -> RgbaImage {
     let pct = scale_pct.clamp(CURSOR_SCALE.0, CURSOR_SCALE.1) as f32;
     let box_size = ((size as f32) * pct / 100.0).round().max(1.0) as u32;
@@ -287,7 +234,6 @@ pub fn fit_centered(img: &DynamicImage, size: u32, scale_pct: u8) -> RgbaImage {
     canvas
 }
 
-/// Multiplies every pixel by `rgb`: white becomes `rgb`, dark outlines stay dark.
 pub fn tint(img: &mut RgbaImage, rgb: [u8; 3]) {
     for p in img.pixels_mut() {
         for c in 0..3 {
@@ -296,8 +242,6 @@ pub fn tint(img: &mut RgbaImage, rgb: [u8; 3]) {
     }
 }
 
-/// The picture as a round, darkened disc filling a `side`×`side` square,
-/// with an anti-aliased edge.
 pub fn photo_disc(img: &DynamicImage, side: u32, dim_pct: u8) -> RgbaImage {
     let mut disc = square(img, side);
     let keep = 1.0 - dim_pct.min(MAX_WHEEL_DIM) as f32 / 100.0;
@@ -313,19 +257,15 @@ pub fn photo_disc(img: &DynamicImage, side: u32, dim_pct: u8) -> RgbaImage {
     disc
 }
 
-/// Centre-crops to a square, then resizes to `side`.
 pub fn square(img: &DynamicImage, side: u32) -> RgbaImage {
     let s = img.width().min(img.height());
     let cropped = img.crop_imm((img.width() - s) / 2, (img.height() - s) / 2, s, s);
     cropped.resize_exact(side, side, FilterType::Lanczos3).to_rgba8()
 }
 
-/// Keeps the alpha of `original` and paints every pixel `rgb`.
 pub fn recolor(original: &[u8], rgb: [u8; 3]) -> Result<Vec<u8>, String> {
     let mut img = image::load_from_memory(original).map_err(|e| e.to_string())?.to_rgba8();
     for p in img.pixels_mut() {
-        // The originals are white with varying alpha; scale by their brightness
-        // so soft edges stay soft.
         let lum = (p[0] as u32 + p[1] as u32 + p[2] as u32) / 3;
         *p = Rgba([
             ((rgb[0] as u32 * lum) / 255) as u8,
@@ -337,13 +277,8 @@ pub fn recolor(original: &[u8], rgb: [u8; 3]) -> Result<Vec<u8>, String> {
     png_bytes(&img)
 }
 
-/// Radius of the wheel's centre disc as a share of the wheel's radius (Roblox's layout).
 pub const WHEEL_INNER: f32 = 0.465;
 
-/// Roblox's slot highlight, optionally recoloured. Its point sits at the wheel's
-/// centre and is brightest there; Roblox's solid centre disc normally hides that
-/// part. With a see-through centre (a picture wheel), `cut_radius` removes it so
-/// no white tip shows over the picture.
 pub fn highlight_gradient(
     original: &[u8],
     accent: Option<[u8; 3]>,
@@ -381,7 +316,6 @@ fn wheel_rel(size: &str, layer: &str, scale: &str) -> String {
     format!(r"{WHEEL_DIR}\{size}\{layer}{scale}.png")
 }
 
-/// Prepares the cursor files from a preset or an image. `color` tints a preset.
 pub fn prepare_cursor(
     p: &ModPaths,
     source: &Source,
@@ -414,13 +348,6 @@ pub fn prepare_cursor(
     Ok(())
 }
 
-/// Prepares emote wheel layers for every size class and scale.
-///
-/// A picture is cut into a round, darkened disc (Roblox draws a square image as
-/// a square, covering the wheel) with dividers and a see-through centre drawn
-/// over it, and goes into the ring layer: Roblox draws that layer exactly as
-/// given, while it doesn't show a picture put in the background layer. Roblox's
-/// own background stays underneath.
 pub fn prepare_wheel(p: &ModPaths, source: &Source, file: Option<&Path>, look: WheelLook) -> Result<(), String> {
     let decode = |b: &[u8]| image::load_from_memory(b).map_err(|e| e.to_string());
     enum Art {
@@ -489,11 +416,9 @@ pub fn prepare_font(p: &ModPaths, file: &Path) -> Result<(), String> {
     write_atomic(&p.prepared(FONT_FILE), &bytes).map_err(|e| e.to_string())
 }
 
-/// The name a font file gives itself ("Poppins ExtraBold"), from its `name` table.
 pub fn font_name(bytes: &[u8]) -> Option<String> {
     let u16_at = |at: usize| bytes.get(at..at + 2).map(|b| u16::from_be_bytes([b[0], b[1]]) as usize);
     let u32_at = |at: usize| bytes.get(at..at + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize);
-    // A collection lists its fonts; the first one is the one Roblox uses.
     let font = if bytes.starts_with(b"ttcf") { u32_at(12)? } else { 0 };
     let tables = u16_at(font + 4)?;
     let name = (0..tables).map(|i| font + 12 + i * 16).find(|&rec| bytes.get(rec..rec + 4) == Some(b"name"))?;
@@ -505,7 +430,6 @@ pub fn font_name(bytes: &[u8]) -> Option<String> {
         let rec = table + 6 + i * 12;
         let (platform, language, id) = (u16_at(rec)?, u16_at(rec + 4)?, u16_at(rec + 6)?);
         let (len, offset) = (u16_at(rec + 8)?, u16_at(rec + 10)?);
-        // Full name first, then the family name; Windows English, then any language.
         let rank = match (id, platform, language) {
             (4, 3, 0x409) => 0,
             (4, 3, _) => 1,
@@ -533,8 +457,6 @@ pub fn font_name(bytes: &[u8]) -> Option<String> {
     best.map(|(_, name)| name.chars().take(80).collect())
 }
 
-/// Rebuilds a picture wheel prepared by an older Vesper, which put the picture in
-/// the background layer Roblox doesn't show. Returns true if it rebuilt it.
 pub fn upgrade_picture_wheel(p: &ModPaths, cfg: &ModsConfig) -> Result<bool, String> {
     let Some(w) = &cfg.emote_wheel else { return Ok(false) };
     let Some(source @ Source::File { .. }) = &w.source else { return Ok(false) };
@@ -547,10 +469,8 @@ pub fn upgrade_picture_wheel(p: &ModPaths, cfg: &ModsConfig) -> Result<bool, Str
     Ok(true)
 }
 
-/// Launchers that keep a custom Roblox font where Vesper can bring it over from.
 pub const FONT_LAUNCHERS: [&str; 2] = ["Fishstrap", "Bloxstrap"];
 
-/// The custom font a launcher applies to Roblox, if it has one.
 pub fn launcher_font(local_appdata: &Path, launcher: &str) -> Option<PathBuf> {
     FONT_LAUNCHERS
         .contains(&launcher)
@@ -558,7 +478,6 @@ pub fn launcher_font(local_appdata: &Path, launcher: &str) -> Option<PathBuf> {
         .filter(|p| p.is_file())
 }
 
-/// Uses a font file: prepares it and records it in the configuration.
 pub fn import_font(p: &ModPaths, cfg: &mut ModsConfig, file: &Path, name: String) -> Result<(), String> {
     prepare_font(p, file)?;
     cfg.font = Some(FileMod { name });
@@ -578,12 +497,10 @@ pub fn prepare_sound(p: &ModPaths, file: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Where the preview of the prepared sky is kept.
 pub fn sky_preview(p: &ModPaths) -> PathBuf {
     p.root.join("previews").join("sky.png")
 }
 
-/// Encodes six faces the way Roblox's own sky is stored, plus a preview.
 pub fn prepare_sky(p: &ModPaths, faces: &[(&str, RgbaImage)]) -> Result<(), String> {
     if faces.len() != crate::sky::FACES.len() {
         return Err("A skybox needs all six sides.".into());
@@ -595,7 +512,6 @@ pub fn prepare_sky(p: &ModPaths, faces: &[(&str, RgbaImage)]) -> Result<(), Stri
             .collect();
         jobs.into_iter().filter_map(|j| j.join().ok()).collect()
     });
-    // Never a sky with some of Roblox's old sides left in it.
     if encoded.len() != faces.len() {
         return Err("Vesper couldn't encode every side of the sky. Try another picture.".into());
     }
@@ -608,7 +524,6 @@ pub fn prepare_sky(p: &ModPaths, faces: &[(&str, RgbaImage)]) -> Result<(), Stri
     write_atomic(&preview, &png_bytes(&strip)?).map_err(|e| format!("Couldn't save the sky preview: {e}"))
 }
 
-/// Removes a mod's prepared files.
 pub fn clear_prepared(p: &ModPaths, kind: &str) {
     let rels: Vec<String> = match kind {
         "sky" => {
@@ -629,20 +544,14 @@ pub fn clear_prepared(p: &ModPaths, kind: &str) {
     }
 }
 
-// ------------------------------------------------------------------ applying to Roblox
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppliedFile {
     pub kind: String,
     pub sha256: String,
-    /// Backup of the Roblox file this replaced, if there was one.
     pub original: Option<PathBuf>,
-    /// The file's exact path. Ledger keys are lowercased for lookup, but
-    /// writing through a lowercased path would rename the file on NTFS.
     #[serde(default)]
     pub path: Option<PathBuf>,
-    /// The Roblox build the file was written for (see `detect::build_id`).
     #[serde(default)]
     pub build: Option<String>,
 }
@@ -665,7 +574,6 @@ fn sha(b: &[u8]) -> String {
     hex::encode(Sha256::digest(b))
 }
 
-/// Ledger key for a file. Windows paths are case-insensitive, so they are compared lowercased.
 fn key(p: &Path) -> String {
     let s = p.to_string_lossy();
     if cfg!(windows) {
@@ -675,22 +583,13 @@ fn key(p: &Path) -> String {
     }
 }
 
-/// Turns a Windows-style relative path (`content\sounds\oof.ogg`) into a path for this system.
 pub fn rel_path(rel: &str) -> PathBuf {
     rel.split(['\\', '/']).filter(|c| !c.is_empty()).collect()
 }
 
-/// Tells Roblox's own files from changed ones and gets Roblox's own copy back.
-///
-/// On macOS this comes from Roblox.app's code signature and Roblox's download
-/// (see `roblox::originals`). Windows Roblox gets a fresh folder for every
-/// version, so nothing is needed there ([`NoOriginals`]).
 pub trait Originals {
-    /// Roblox's files in `area` (a folder or a single file), as relative paths.
     fn files_in(&self, area: &str) -> Vec<String>;
-    /// `Some(true)` when `bytes` is Roblox's own `rel`; `None` when that isn't known.
     fn is_roblox(&self, rel: &str, bytes: &[u8]) -> Option<bool>;
-    /// Roblox's own copy of `rel`.
     fn fetch(&self, rel: &str) -> Result<Vec<u8>, String>;
 }
 
@@ -714,11 +613,8 @@ pub struct ModReport {
     pub written: usize,
     pub unchanged: usize,
     pub restored: usize,
-    /// Files another program (or an older customisation) had changed, put back to Roblox's own.
     pub cleaned: Vec<String>,
-    /// Files this Roblox build doesn't have, so the mod was skipped.
     pub missing: Vec<String>,
-    /// Files changed by something else since Vesper wrote them; left alone.
     pub skipped_foreign: Vec<String>,
     pub errors: Vec<String>,
 }
@@ -726,7 +622,6 @@ pub struct ModReport {
 struct Desired {
     kind: &'static str,
     bytes: Vec<u8>,
-    /// May the target be created if Roblox doesn't have it?
     create: bool,
 }
 
@@ -751,7 +646,6 @@ fn desired_files(
         for rel in CURSOR_FILES {
             add_prepared(rel, "cursor", false, &mut out);
         }
-        // Shift Lock draws the same picture, centred on the screen.
         if let Some(arrow) = out.get(CURSOR_FILES[0]).filter(|_| c.shift_lock) {
             let bytes = arrow.bytes.clone();
             out.insert(SHIFT_LOCK_FILE.to_owned(), Desired { kind: "cursor", bytes, create: false });
@@ -786,7 +680,6 @@ fn desired_files(
                         continue;
                     }
                     let rel = wheel_rel(size, layer, suffix);
-                    // Start from Roblox's own shape: the backup if we already replaced it.
                     let source = original_for(install, &rel, originals);
                     if let Some(bytes) = source.and_then(|b| highlight_gradient(&b, rgb, cut).ok()) {
                         out.insert(rel, Desired { kind: "emoteWheel", bytes, create: false });
@@ -831,16 +724,10 @@ fn desired_files(
     (out, errors)
 }
 
-/// The unmodified Roblox file: the backup if Vesper replaced it, otherwise the live file.
-/// `originals` is the backup folder of this build.
 fn original_for(install: &Path, rel: &str, originals: &Path) -> Option<Vec<u8>> {
     std::fs::read(originals.join(rel_path(rel))).ok().or_else(|| std::fs::read(install.join(rel_path(rel))).ok())
 }
 
-/// Points every face of a font family manifest at CustomFont.ttf.
-///
-/// Only the asset ids change: the rest of Roblox's file (key order, layout)
-/// stays as Roblox wrote it, as Bloxstrap and Fishstrap leave it.
 pub fn rewrite_family(original: &[u8]) -> Option<Vec<u8>> {
     const KEY: &str = "\"assetId\"";
     let text = std::str::from_utf8(original).ok()?;
@@ -862,14 +749,12 @@ pub fn rewrite_family(original: &[u8]) -> Option<Vec<u8>> {
         rest = &value[end + 1..];
     }
     out.push_str(rest);
-    // The result must still be a manifest with every face on the custom font.
     let v: serde_json::Value = serde_json::from_str(out.trim_start_matches('\u{feff}')).ok()?;
     let faces = v.get("faces")?.as_array()?;
     let all = faces.iter().all(|f| f.get("assetId").and_then(|a| a.as_str()) == Some(FONT_ASSET));
     (!faces.is_empty() && all).then(|| out.into_bytes())
 }
 
-/// Index of the quote that ends a JSON string (the opening quote already consumed).
 fn closing_quote(s: &str) -> Option<usize> {
     let mut escaped = false;
     for (i, c) in s.char_indices() {
@@ -897,7 +782,6 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Brings a Windows version folder in line with `cfg`: writes enabled mods, restores disabled ones.
 pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLedger) -> ModReport {
     let Some(build) = install.file_name().map(|n| n.to_string_lossy().into_owned()) else {
         return ModReport::default();
@@ -905,10 +789,6 @@ pub fn apply(cfg: &ModsConfig, p: &ModPaths, install: &Path, ledger: &mut ModLed
     apply_build(cfg, p, install, &build, ledger, &NoOriginals)
 }
 
-/// Brings the Roblox files under `install` (the folder holding `content`) in
-/// line with `cfg`. `build` names the Roblox build, so backups of different
-/// builds stay apart (see `detect::build_id`). `roblox` knows Roblox's own
-/// files where that's possible, so leftovers are cleaned up first.
 pub fn apply_build(
     cfg: &ModsConfig,
     p: &ModPaths,
@@ -919,7 +799,6 @@ pub fn apply_build(
 ) -> ModReport {
     let mut report = ModReport::default();
     let originals = p.originals.join(build);
-    // The separator matters: "version-a" must not match "version-ab".
     let prefix = format!("{}{}", key(install), std::path::MAIN_SEPARATOR);
     put_back_roblox_files(install, &prefix, ledger, roblox, &mut report);
     let (desired, errors) = desired_files(cfg, p, install, &originals);
@@ -933,9 +812,6 @@ pub fn apply_build(
             report.missing.push(rel.clone());
             continue;
         }
-        // On macOS Roblox updates in place: a file written for an older build
-        // that no longer holds Vesper's content is the new build's original,
-        // and is backed up afresh.
         let ours = ledger.files.get(&k).filter(|o| {
             o.build.as_deref().is_none_or(|b| b == build) || current.as_ref().is_some_and(|c| sha(c) == o.sha256)
         });
@@ -944,9 +820,6 @@ pub fn apply_build(
                 report.unchanged += 1;
                 continue;
             }
-            // Vesper's older file, Roblox's own file back (a repair or a reset), or
-            // another program's change: the mod is on, so Vesper's file goes back.
-            // The backup of Roblox's file stays as it was.
             if sha(cur) != entry.sha256 && !is_original(entry, cur) {
                 log::info!("{rel} was changed by another program; writing the customisation again");
             }
@@ -986,7 +859,6 @@ pub fn apply_build(
         }
     }
 
-    // Undo files from mods that are no longer wanted in this install.
     let stale: Vec<String> = ledger
         .files
         .keys()
@@ -1004,11 +876,6 @@ pub fn apply_build(
     report
 }
 
-/// Puts Roblox's own files back in [`AREAS`] where `roblox` can tell they
-/// aren't (another tool's or an older customisation's), leaving Vesper's own
-/// current files to the rest of [`apply_build`]. Backups that aren't
-/// Roblox's own file are replaced too, so turning a mod off brings back
-/// Roblox's file rather than the leftover.
 fn put_back_roblox_files(
     install: &Path,
     prefix: &str,
@@ -1038,7 +905,6 @@ fn put_back_roblox_files(
                 if roblox.is_roblox(&rel, &current) != Some(false) {
                     continue;
                 }
-                // Vesper's current file: applying decides whether it stays.
                 if ledger.files.get(&key(&target)).is_some_and(|e| e.sha256 == sha(&current)) {
                     continue;
                 }
@@ -1058,19 +924,15 @@ fn put_back_roblox_files(
     }
 }
 
-/// Is `current` exactly the Roblox file Vesper backed up before replacing it?
 fn is_original(entry: &AppliedFile, current: &[u8]) -> bool {
     entry.original.as_deref().and_then(|b| std::fs::read(b).ok()).is_some_and(|o| sha(&o) == sha(current))
 }
 
-/// Restores one file. `Ok(false)` if it was changed by something else and left alone.
 fn restore_one(k: &str, ledger: &mut ModLedger) -> Result<bool, String> {
     let Some(entry) = ledger.files.get(k).cloned() else { return Ok(true) };
-    // Restore through the exact path; the lowercased key would rename the file.
     let target = entry.path.clone().unwrap_or_else(|| PathBuf::from(k));
     match std::fs::read(&target) {
         Ok(cur) if is_original(&entry, &cur) => {
-            // Already back to Roblox's file.
             ledger.files.remove(k);
             return Ok(true);
         }
@@ -1095,7 +957,6 @@ fn restore_one(k: &str, ledger: &mut ModLedger) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Restores every file Vesper replaced, in every Roblox folder (uninstall / reset).
 pub fn restore_all(ledger: &mut ModLedger) -> ModReport {
     let mut report = ModReport::default();
     for k in ledger.files.keys().cloned().collect::<Vec<_>>() {
@@ -1122,7 +983,6 @@ mod tests {
         png_bytes(&RgbaImage::from_pixel(w, h, Rgba(rgba))).unwrap()
     }
 
-    /// A fake Roblox version folder with the files mods touch.
     fn env() -> Env {
         let dir = tempfile::tempdir().unwrap();
         let install = dir.path().join("Versions").join("version-test");
@@ -1237,7 +1097,6 @@ mod tests {
         let px = hl.get_pixel(0, 0);
         assert_eq!((px[0], px[1], px[2], px[3]), (0xa5, 0x96, 0xff, 128), "colour changed, alpha kept");
 
-        // Changing only the accent recolours from the backed-up original, not from our own output.
         let cfg2 = ModsConfig {
             emote_wheel: Some(WheelMod {
                 source: Some(Source::Preset { id: "dusk".into() }),
@@ -1273,13 +1132,11 @@ mod tests {
         assert_eq!(ring.dimensions(), (400, 400));
         assert_eq!(ring.get_pixel(1, 1)[3], 0, "corners are outside the circle");
         assert_eq!(ring.get_pixel(399, 0)[3], 0);
-        // Mid-slot, between the centre and the edge: the picture, darkened by half.
         let slot = ring.get_pixel(200, 50);
         assert_eq!((slot[0], slot[1], slot[2], slot[3]), (100, 50, 25, 255), "picture darkened by half");
         let centre = ring.get_pixel(200, 200);
         assert_eq!(centre[3], 255);
         assert!(centre[0] < 80, "centre darkened further so text stays readable: {centre:?}");
-        // A divider at 22.5°, half-way out.
         let a = 22.5f32.to_radians();
         let (x, y) = (200.0 + a.sin() * 140.0, 200.0 - a.cos() * 140.0);
         let divider = ring.get_pixel(x as u32, y as u32);
@@ -1317,20 +1174,17 @@ mod tests {
         let mut ledger = ModLedger::default();
         assert_eq!(apply(&cfg, &e.mods, &e.install, &mut ledger).written, 2);
 
-        // Something (a repair, a reset, another tool) puts Roblox's own file back.
         let target = e.install.join(rel_path(CURSOR_FILES[0]));
         std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
         let again = apply(&cfg, &e.mods, &e.install, &mut ledger);
         assert_eq!((again.written, again.skipped_foreign.len()), (1, 0), "{again:?}");
         assert_eq!(std::fs::read(&target).unwrap(), cursor_preset("dot").unwrap());
 
-        // While the cursor is on, another program's cursor is replaced too.
         std::fs::write(&target, b"someone else's cursor").unwrap();
         let foreign = apply(&cfg, &e.mods, &e.install, &mut ledger);
         assert_eq!((foreign.written, foreign.skipped_foreign.len()), (1, 0), "{foreign:?}");
         assert_eq!(std::fs::read(&target).unwrap(), cursor_preset("dot").unwrap());
 
-        // Restoring a file that is already Roblox's counts as restored, not foreign.
         std::fs::write(&target, png(64, 64, [255, 255, 255, 255])).unwrap();
         let off = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!((off.restored, off.skipped_foreign.len()), (2, 0), "{off:?}");
@@ -1428,8 +1282,6 @@ mod tests {
         assert_eq!(font_name(&font).as_deref(), Some("Poppins ExtraBold"));
         let family_only = font_with_names(&[(3, 0x409, 1, "Poppins"), (3, 0x409, 2, "Bold")]);
         assert_eq!(font_name(&family_only).as_deref(), Some("Poppins"));
-        // A collection: a 16-byte header pointing at its first font. Offsets
-        // inside a collection count from the start of the file.
         let mut face = font_with_names(&[(3, 0x409, 4, "First Face")]);
         face[20..24].copy_from_slice(&(28u32 + 16).to_be_bytes());
         let mut collection = b"ttcf\0\x01\0\0\0\0\0\x01\0\0\0\x10".to_vec();
@@ -1460,7 +1312,6 @@ mod tests {
             emote_wheel: Some(WheelMod { source: Some(source.clone()), accent: None, look: WheelLook::default() }),
             ..Default::default()
         };
-        // What an older Vesper left: the picture in the background layer.
         let old_bg = e.mods.prepared(&wheel_rel("Large", "CircleBackground", ""));
         std::fs::create_dir_all(old_bg.parent().unwrap()).unwrap();
         std::fs::write(&old_bg, png(400, 400, [9, 9, 9, 255])).unwrap();
@@ -1580,7 +1431,6 @@ mod tests {
         };
         let mut ledger = ModLedger::default();
         apply(&cfg, &e.mods, &sibling, &mut ledger);
-        // Turning mods off for the first install must not touch the sibling.
         let r = apply(&ModsConfig::default(), &e.mods, &e.install, &mut ledger);
         assert_eq!(r.restored, 0);
         assert_ne!(
@@ -1590,8 +1440,6 @@ mod tests {
         );
     }
 
-    /// Regression: restoring through the lowercased ledger key renamed
-    /// "ArrowCursor.png" to "arrowcursor.png" on a real Roblox install.
     #[test]
     fn restore_keeps_original_file_name_case() {
         let e = env();
@@ -1616,7 +1464,6 @@ mod tests {
         assert_eq!(names, vec!["ArrowCursor.png", "ArrowFarCursor.png"]);
     }
 
-    /// macOS: Roblox replaces its files in place when it updates.
     #[test]
     fn files_replaced_by_an_in_place_update_are_taken_over_again() {
         let e = env();
@@ -1670,12 +1517,10 @@ mod tests {
         assert_eq!((r.restored, r.unchanged), (1, 2), "{r:?}");
         assert_eq!(read(&e, SHIFT_LOCK_FILE), png(32, 32, [255, 255, 255, 255]), "Roblox's crosshair is back");
 
-        // Settings from before the switch keep Shift Lock in step with the cursor.
         let old: CursorMod = serde_json::from_str(r#"{"source":{"kind":"preset","id":"dot"},"scale":100}"#).unwrap();
         assert!(old.shift_lock);
     }
 
-    /// Knows Roblox's own copy of some files, as Roblox.app's signature does.
     struct Known(BTreeMap<String, Vec<u8>>);
 
     impl Originals for Known {
@@ -1700,7 +1545,6 @@ mod tests {
                 .into_iter()
                 .collect(),
         );
-        // Another tool's cursor and wheel were there before Vesper.
         let leftover = png(64, 64, [0, 255, 0, 255]);
         std::fs::write(e.install.join(rel_path(CURSOR_FILES[1])), &leftover).unwrap();
         std::fs::write(e.install.join(rel_path(&background)), &leftover).unwrap();
@@ -1721,7 +1565,6 @@ mod tests {
         assert_eq!(r.written, 2);
         assert_eq!(read(&e, &background), known.0[&background], "the wheel is Roblox's own again");
 
-        // Turning the cursor off brings back Roblox's cursor, not the other tool's.
         let off = apply_build(&ModsConfig::default(), &e.mods, &e.install, "mac-1", &mut ledger, &known);
         assert_eq!(off.restored, 2, "{off:?}");
         assert_eq!(read(&e, CURSOR_FILES[1]), known.0[CURSOR_FILES[1]]);
@@ -1733,7 +1576,6 @@ mod tests {
         let e = env();
         let rel = CURSOR_FILES[0];
         let roblox_own = read(&e, rel);
-        // An older Vesper backed up another tool's cursor as if it were Roblox's.
         std::fs::write(e.install.join(rel_path(rel)), b"another tool's cursor").unwrap();
         prepare_cursor(&e.mods, &Source::Preset { id: "dot".into() }, None, 100, None).unwrap();
         let cfg = ModsConfig {

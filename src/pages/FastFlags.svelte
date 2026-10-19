@@ -81,10 +81,8 @@
     const next = { ...profile.flags };
     if (value === null) delete next[name];
     else next[name] = value;
-    // Picking one graphics API turns the others off, so they can't conflict.
     const apis = ['FFlagDebugGraphicsPreferVulkan', 'FFlagDebugGraphicsPreferOpenGL', 'FFlagDebugGraphicsPreferD3D11'];
     if (value === 'True' && apis.includes(name)) for (const other of apis) if (other !== name) delete next[other];
-    // Setting a texture level enables the override it depends on.
     if (name === 'DFIntTextureQualityOverride' && value !== null) next.DFFlagTextureQualityOverrideEnabled = 'True';
     setFlags(next);
   }

@@ -1,5 +1,3 @@
-// The Fast Flags page model: one row per flag, searchable and filterable.
-
 import type { Catalog, FlagCheck, FlagInfo, FlagSet, Issue } from './types';
 import { computer } from './platform';
 
@@ -21,13 +19,10 @@ export type Show = 'all' | 'set' | 'issues';
 export interface FlagRow {
   name: string;
   info: FlagInfo | null;
-  /** Value in the profile, or null when not set. */
   value: string | null;
   check: FlagCheck | null;
   issues: Issue[];
-  /** Not in the catalog: added by the user or imported. */
   custom: boolean;
-  /** Known to be ignored by Roblox (e.g. the old FPS unlocker). */
   ignoredReason: string | null;
 }
 
@@ -90,7 +85,6 @@ export function categoryCounts(rows: FlagRow[]): Record<string, number> {
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral';
 
-/** What Vesper can honestly say about whether Roblox honours a flag. */
 export function verificationBadge(row: FlagRow): { label: string; tone: Tone; hint: string } {
   if (row.check?.verdict === 'denied') {
     return {
@@ -135,7 +129,6 @@ function shortVersion(v: string | null | undefined): string {
   return p.length >= 2 ? `${p[0]}.${p[1]}` : v;
 }
 
-/** Turns a raw input into Roblox's string form, or an error. Mirrors the Rust rules. */
 export function kindOf(name: string): 'bool' | 'int' | 'string' | null {
   const m = /^(?:DF|SF|F)(Flag|Int|Log|String)[A-Za-z0-9_]+$/.exec(name);
   if (!m) return null;
@@ -161,7 +154,6 @@ export function normalizeValue(name: string, raw: string): { value?: string; err
   return { value: raw };
 }
 
-/** Parses a pasted ClientAppSettings.json-style object into a flag set. */
 export function parseFlagJson(text: string): { flags?: FlagSet; error?: string } {
   let parsed: unknown;
   try {

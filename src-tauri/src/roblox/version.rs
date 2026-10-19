@@ -1,5 +1,3 @@
-//! Roblox client version numbers, e.g. `0.741.0.7411058`.
-
 use serde::{Serialize, Serializer};
 use std::fmt;
 use std::path::Path;
@@ -23,7 +21,6 @@ impl Serialize for RobloxVersion {
 impl FromStr for RobloxVersion {
     type Err = String;
 
-    /// Accepts `0.741.0.7411058` and the PE resource form `0, 741, 0, 7411058`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<u32> = s
             .split(['.', ','])
@@ -37,11 +34,6 @@ impl FromStr for RobloxVersion {
     }
 }
 
-/// Reads the file version from an executable's version resource.
-///
-/// The `FileVersion` string is preferred: Roblox build numbers (e.g. 7400927)
-/// don't fit the 16-bit fields of the binary VS_FIXEDFILEINFO, which would
-/// report a truncated value (60895).
 #[cfg(windows)]
 pub fn file_version(path: &Path) -> Option<RobloxVersion> {
     use std::os::windows::ffi::OsStrExt;
@@ -54,7 +46,6 @@ pub fn file_version(path: &Path) -> Option<RobloxVersion> {
         s.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
-    /// Returns a pointer and length (in the unit VerQueryValue uses) for `sub`.
     unsafe fn query(buf: &[u8], sub: &str) -> Option<(*const core::ffi::c_void, u32)> {
         let sub = wide(sub);
         let mut ptr: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -72,16 +63,13 @@ pub fn file_version(path: &Path) -> Option<RobloxVersion> {
         let mut buf = vec![0u8; size as usize];
         GetFileVersionInfoW(PCWSTR(path_w.as_ptr()), None, size, buf.as_mut_ptr().cast()).ok()?;
 
-        // 1. The FileVersion string for each language/code page the file declares.
         if let Some((ptr, len)) = query(&buf, r"\VarFileInfo\Translation") {
             let pairs = std::slice::from_raw_parts(ptr as *const u16, (len / 2) as usize);
             for pair in pairs.as_chunks::<2>().0 {
                 let key = format!(r"\StringFileInfo\{:04x}{:04x}\FileVersion", pair[0], pair[1]);
                 if let Some((sptr, slen)) = query(&buf, &key) {
-                    // Length is in characters and includes the terminator.
                     let chars = std::slice::from_raw_parts(sptr as *const u16, slen as usize);
                     let end = chars.iter().position(|c| *c == 0).unwrap_or(chars.len());
-                    // System files append text: "10.0.26100.9278 (WinBuild.160101.0800)".
                     let text = String::from_utf16_lossy(&chars[..end]);
                     let text = text.split('(').next().unwrap_or_default().trim();
                     if let Ok(v) = text.parse() {
@@ -91,7 +79,6 @@ pub fn file_version(path: &Path) -> Option<RobloxVersion> {
             }
         }
 
-        // 2. Fall back to the binary block.
         let (ptr, len) = query(&buf, "\\")?;
         if (len as usize) < std::mem::size_of::<VS_FIXEDFILEINFO>() {
             return None;
@@ -109,14 +96,11 @@ pub fn file_version(path: &Path) -> Option<RobloxVersion> {
     }
 }
 
-/// Reads Roblox's version from the Info.plist of the app bundle `path` (the
-/// player inside `Contents/MacOS`) belongs to.
 #[cfg(target_os = "macos")]
 pub fn file_version(path: &Path) -> Option<RobloxVersion> {
     let plist = path.parent()?.parent()?.join("Info.plist");
     let bytes = std::fs::read(&plist).ok()?;
     let text = if bytes.starts_with(b"bplist") {
-        // Binary property list: let macOS's own tool convert it.
         let out = std::process::Command::new("/usr/bin/plutil")
             .args(["-convert", "xml1", "-o", "-"])
             .arg(&plist)
@@ -136,12 +120,10 @@ pub fn file_version(_path: &Path) -> Option<RobloxVersion> {
     None
 }
 
-/// The string value of `key` in an XML property list.
 pub fn plist_string(xml: &str, key: &str) -> Option<String> {
     let at = xml.find(&format!("<key>{key}</key>"))?;
     let rest = &xml[at..];
     let open = rest.find("<string>")?;
-    // The value must be the next element, not a later key's.
     if rest[..open].matches("<key>").count() > 1 {
         return None;
     }
@@ -149,8 +131,6 @@ pub fn plist_string(xml: &str, key: &str) -> Option<String> {
     Some(value[..value.find("</string>")?].trim().to_owned())
 }
 
-/// Roblox's version from its Info.plist. Accepts a full `0.695.0.6950754` in
-/// either version key, or a three-part short version plus a build number.
 pub fn plist_version(xml: &str) -> Option<RobloxVersion> {
     let short = plist_string(xml, "CFBundleShortVersionString");
     let build = plist_string(xml, "CFBundleVersion");
@@ -199,7 +179,6 @@ mod tests {
         assert_eq!(plist_string("<key>Empty</key><true/><key>Next</key><string>x</string>", "Empty"), None);
     }
 
-    /// Roblox build numbers overflow the binary version fields; the string must be used.
     #[cfg(windows)]
     #[test]
     fn reads_untruncated_roblox_version_when_installed() {
@@ -219,9 +198,6 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn reads_a_real_windows_binary_version() {
-        // notepad.exe always ships with a version resource. Unmanifested test
-        // binaries get Windows' compatibility "version lie" (6.2.x) for system
-        // files, so check the build number, which is reported truthfully.
         let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into());
         let v = file_version(Path::new(&windir).join("System32").join("notepad.exe").as_path());
         assert!(v.is_some_and(|v| v.2 >= 10240), "got {v:?}");

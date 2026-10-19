@@ -50,7 +50,6 @@
     await api.appQuit();
   }
 
-  // Ctrl+1…7 (⌘1…7 on macOS) jumps between pages.
   function onkeydown(e: KeyboardEvent) {
     if (!(isMac ? e.metaKey : e.ctrlKey) || e.altKey) return;
     const order = Object.keys(pages) as (keyof typeof pages)[];
@@ -129,7 +128,6 @@
     z-index: -1;
     background: var(--bg-gradient);
   }
-  /* Glass: Windows' Mica or macOS's window material shows through faintly; the dusk tint stays in charge. */
   :global(:root[data-transparency='full']) .backdrop {
     background:
       radial-gradient(120% 90% at 85% -10%, rgba(123, 105, 240, 0.2), transparent 55%),

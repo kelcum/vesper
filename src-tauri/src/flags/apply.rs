@@ -1,11 +1,3 @@
-//! Writing flags into a Roblox installation.
-//!
-//! Roblox reads `<version folder>\ClientSettings\ClientAppSettings.json`.
-//! Vesper records a SHA-256 of every file it writes in an ownership ledger:
-//! a file is only removed or silently replaced when its content still matches
-//! what Vesper wrote. Anything else (hand-edited, written by another tool)
-//! is backed up before being replaced, and never deleted.
-
 use super::model::FlagSet;
 use crate::paths::write_atomic;
 use crate::redact::display_path;
@@ -27,15 +19,11 @@ pub struct OwnedFile {
     pub flag_count: usize,
 }
 
-/// Ledger of Roblox files written by Vesper.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Ownership {
     pub files: BTreeMap<String, OwnedFile>,
 }
 
-/// Ledger key for a file. Windows paths are case-insensitive, so they are
-/// compared lowercased; elsewhere the exact path is kept, since it is also
-/// how the file is found again.
 fn key(path: &Path) -> String {
     let s = path.to_string_lossy();
     if cfg!(windows) {
@@ -77,7 +65,6 @@ impl Ownership {
         self.files.remove(&key(file));
     }
 
-    /// Paths of every file Vesper believes it wrote.
     pub fn paths(&self) -> Vec<PathBuf> {
         self.files.keys().map(PathBuf::from).collect()
     }
@@ -87,7 +74,6 @@ pub fn settings_file(version_dir: &Path) -> PathBuf {
     version_dir.join(SETTINGS_DIR).join(SETTINGS_FILE)
 }
 
-/// Serialises flags the way Roblox expects: a flat JSON object of strings.
 pub fn render(flags: &FlagSet) -> String {
     let mut s = serde_json::to_string_pretty(flags).unwrap_or_else(|_| "{}".into());
     s.push('\n');
@@ -97,15 +83,10 @@ pub fn render(flags: &FlagSet) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ApplyAction {
-    /// Flags were written.
     Written,
-    /// The file already contained exactly these flags.
     Unchanged,
-    /// Vesper's file was removed (no flags to apply).
     Removed,
-    /// There was no file to remove.
     NothingToRemove,
-    /// A file not written by Vesper exists and was left alone.
     LeftForeignFile,
 }
 
@@ -115,7 +96,6 @@ pub struct ApplyOutcome {
     pub file: String,
     pub action: ApplyAction,
     pub flag_count: usize,
-    /// Where a foreign file was copied before it was replaced.
     pub backup: Option<String>,
 }
 
@@ -129,7 +109,6 @@ fn backup_foreign(target: &Path, content: &[u8], version_dir: &Path, backup_dir:
     Ok(dest)
 }
 
-/// Writes `flags` into `version_dir`. An empty set removes Vesper's file.
 pub fn apply(
     version_dir: &Path,
     flags: &FlagSet,
@@ -167,8 +146,6 @@ pub fn apply(
     Ok(ApplyOutcome { file: display_path(&target), action: ApplyAction::Written, flag_count: flags.len(), backup })
 }
 
-/// Removes Vesper's flags file from `version_dir`.
-/// With `force`, a foreign file is backed up and removed too.
 pub fn remove(version_dir: &Path, ledger: &mut Ownership, force: bool, backup_dir: &Path) -> io::Result<ApplyOutcome> {
     let target = settings_file(version_dir);
     let existing = std::fs::read(&target).ok();
@@ -210,7 +187,6 @@ fn remove_inner(
     Ok(ApplyOutcome { file: display_path(target), action: ApplyAction::Removed, flag_count: 0, backup })
 }
 
-/// Reads the flags currently present in an installation, if any.
 pub fn read_current(version_dir: &Path) -> Option<Result<FlagSet, String>> {
     let bytes = std::fs::read(settings_file(version_dir)).ok()?;
     let parsed: Result<BTreeMap<String, serde_json::Value>, _> = serde_json::from_slice(&bytes);

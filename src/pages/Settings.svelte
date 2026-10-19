@@ -52,8 +52,6 @@
   let confirmOpen = $state(false);
   let current = $state<string>('general');
 
-  // A section picked from the list stays highlighted until the next scroll by
-  // hand, even if it's too far down to reach the top.
   let pinned = false;
 
   onMount(async () => {
@@ -180,7 +178,6 @@
     }
   });
 
-  // ------------------------------------------------ servers
   let regions = $state<Option[]>([]);
   let pings = $state<CityPing[] | null>(null);
   let pinging = $state(false);
@@ -193,7 +190,6 @@
     if (r) pings = r;
     pinging = false;
   }
-  /** Best city per region, in region order. */
   const byRegion = $derived.by(() => {
     if (!pings) return [];
     return regions
@@ -1117,7 +1113,6 @@
   .pv img {
     border-radius: 10px;
   }
-  /* The small image Discord shows in the corner (assets "idle" / "playing"). */
   .pv-badge {
     position: absolute;
     right: -5px;

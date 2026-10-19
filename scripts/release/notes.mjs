@@ -1,7 +1,3 @@
-// Prints the CHANGELOG.md section for a version (used for release notes).
-//
-//   node scripts/release/notes.mjs 0.1.0 > notes.md
-
 import { readFileSync } from 'node:fs';
 
 export function sectionFor(changelog, version) {

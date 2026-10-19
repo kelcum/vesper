@@ -1,10 +1,3 @@
-// Validates the Fast Flag catalog independently of the Rust tests.
-//
-//   node scripts/check-flag-catalog.mjs
-//
-// Fails on structural problems. Warns when the catalog hasn't been reviewed
-// for a while, because Roblox changes its allowlist without notice.
-
 import { readFileSync } from 'node:fs';
 
 const path = new URL('../src-tauri/resources/flags/catalog.json', import.meta.url);

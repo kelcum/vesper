@@ -1,16 +1,3 @@
-// Builds the xan.gripe/vesper page in website/vesper/.
-//
-//   node scripts/site/build.mjs
-//
-// - copies the app's fonts, so the site and app use the same type
-// - converts docs/screenshots/*.png to WebP (needs Python with Pillow)
-// - renders the Fast Flag table from the real catalog
-// - renders download, version and changelog blocks from website/vesper/release.json
-//   ("unreleased" shows "Coming soon": the page never links to a file that isn't there)
-//
-// The folder is then copied as-is into the kelcum.github.io repository
-// (scripts/site/publish.mjs).
-
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -36,7 +23,6 @@ function sizeLabel(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 }
 
-/** Tiny Markdown subset for CHANGELOG sections: ### headings and - bullets. */
 function changelogHtml(md) {
   const out = [];
   let list = false;
@@ -60,19 +46,16 @@ function changelogHtml(md) {
   return out.join('\n');
 }
 
-// 1. Fonts
 ensure(join(site, 'assets/fonts'));
 for (const f of ['Geist-Variable.woff2', 'GeistMono-Variable.woff2', 'OFL.txt']) {
   copyFileSync(join(root, 'src/assets/fonts', f), join(site, 'assets/fonts', f));
 }
 
-// 2. Screenshots → WebP
 ensure(join(site, 'shots'));
 const pngs = readdirSync(join(root, 'docs/screenshots')).filter((f) => f.endsWith('.png'));
 execFileSync(
   'python',
   [
-    // -P keeps the working directory off sys.path while allowing user-installed Pillow.
     '-P',
     '-c',
     'import sys\nfrom PIL import Image\nsrc,dst=sys.argv[1],sys.argv[2]\nfor n in sys.argv[3:]:\n    Image.open(f"{src}/{n}").convert("RGB").save(f"{dst}/{n[:-4]}.webp","WEBP",quality=86,method=6)',
@@ -83,7 +66,6 @@ execFileSync(
   { stdio: 'inherit' },
 );
 
-// 3. Flag table
 const catalog = JSON.parse(read('src-tauri/resources/flags/catalog.json'));
 const label = {
   rendering: 'Rendering',
@@ -112,12 +94,10 @@ ${rows}
 </tbody></table></div>
 <p class="table-note">Catalog reviewed ${esc(catalog.reviewed)}. Source: <a href="${esc(catalog.allowlist.url)}">Roblox's allowlist announcement</a>.</p>`;
 
-// 4. Release blocks
 const release = JSON.parse(readFileSync(join(site, 'release.json'), 'utf8'));
 let html = readFileSync(join(site, 'index.html'), 'utf8');
 html = replaceBlock(html, 'flags', table);
 
-// GitHub links only once the repository is public.
 const footerLinks = release.repoPublic
   ? `<a href="${esc(release.repo)}">GitHub</a>\n<a href="${esc(release.repo)}/releases">Changelog</a>`
   : '';
@@ -135,7 +115,6 @@ if (release.status === 'released' && release.installer) {
     }
   }
   const href = `download/${encodeURIComponent(inst.file)}`;
-  // With a Mac build, every download button comes in a Windows and a Mac version.
   const macHref = release.mac ? `download/${encodeURIComponent(release.mac.file)}` : null;
   const macButton = macHref
     ? `\n<a class="btn btn-primary" href="${macHref}" download>${downloadIcon} Download for Mac</a>`
@@ -162,7 +141,6 @@ if (release.status === 'released' && release.installer) {
   const portable = release.portable
     ? `<li><b>Portable:</b> <a href="download/${encodeURIComponent(release.portable.file)}" download>${esc(release.portable.file)}</a> (${sizeLabel(release.portable.size)}), keeps everything in a folder next to Vesper.exe</li>`
     : '';
-  // Only once a release really has a Mac build.
   const mac = release.mac
     ? `<li><b>macOS:</b> <a href="download/${encodeURIComponent(release.mac.file)}" download>${esc(release.mac.file)}</a> (${sizeLabel(release.mac.size)}), macOS 11 or later, Apple silicon and Intel. SHA-256 <code>${esc(release.mac.sha256)}</code></li>`
     : '';
@@ -197,7 +175,6 @@ ${notes ? `<details><summary>What's new in ${esc(release.version)}</summary>${ch
   );
 }
 
-// Format like the rest of the repo, so a rebuild with no changes leaves no diff.
 const indexPath = join(site, 'index.html');
 const options = await prettier.resolveConfig(indexPath);
 writeFileSync(indexPath, await prettier.format(html, { ...options, filepath: indexPath }));

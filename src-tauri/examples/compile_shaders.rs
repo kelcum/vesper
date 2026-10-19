@@ -1,9 +1,3 @@
-//! Compiles the shader overlay's colour grade (src/shade/grade.hlsl) into the
-//! files Vesper ships, so the app itself never needs Microsoft's shader
-//! compiler. Run it after changing the HLSL, then commit the results:
-//!
-//! `cargo run --example compile_shaders`
-
 #[cfg(windows)]
 fn main() {
     use sha2::{Digest, Sha256};
@@ -48,7 +42,6 @@ fn main() {
         std::fs::write(dir.join(file), &bytes).expect("write shader");
         println!("{file}: {} bytes", bytes.len());
     }
-    // Line endings don't change the shader, so they don't change the hash either.
     let hash = format!("{:x}", Sha256::digest(source.replace('\r', "").as_bytes()));
     std::fs::write(dir.join("grade.sha256"), &hash).expect("write hash");
     println!("grade.sha256: {hash}");

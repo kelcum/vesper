@@ -1,14 +1,3 @@
-//! Roblox's own files on macOS, for cleaning up what other tools left behind.
-//!
-//! Roblox.app is code-signed: `Contents/_CodeSignature/CodeResources` holds
-//! the SHA-256 of every file in `Contents/Resources`. That tells Roblox's own
-//! cursor apart from one another tool or an older customisation left there.
-//!
-//! Roblox's own copy of such a file comes from Roblox's public download of the
-//! Mac app on setup.rbxcdn.com. Only that file's bytes are read out of the
-//! archive, with HTTP range requests, and they're used only if they match the
-//! signature. No account or cookie is involved.
-
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 use crate::mods::Originals;
@@ -22,10 +11,8 @@ use std::sync::{LazyLock, OnceLock};
 
 const MAC_VERSION_URL: &str = "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer";
 const CDN: &str = "setup.rbxcdn.com";
-/// The largest single file taken out of the download (Roblox's biggest fonts are a few MB).
 const MAX_FILE: u64 = 64 * 1024 * 1024;
 const MAX_DIRECTORY: u64 = 16 * 1024 * 1024;
-/// The end-of-archive record plus the longest comment a zip can carry.
 const TAIL: u64 = 22 + 65_535;
 
 static FILE: LazyLock<Regex> = LazyLock::new(|| {
@@ -35,8 +22,6 @@ static FILE: LazyLock<Regex> = LazyLock::new(|| {
     .expect("valid regex")
 });
 
-/// SHA-256 of every file in `Contents/Resources`, by its path there (with
-/// `/`), from a code signature's CodeResources (an XML property list).
 pub fn resource_hashes(xml: &str) -> HashMap<String, [u8; 32]> {
     let Some(start) = xml.find("<key>files2</key>") else { return HashMap::new() };
     let rest = &xml[start..];
@@ -55,8 +40,6 @@ fn unescape(s: &str) -> String {
     s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
 }
 
-// ------------------------------------------------------------------ reading a zip over HTTP
-
 fn le16(b: &[u8], i: usize) -> Option<u64> {
     Some(u16::from_le_bytes(b.get(i..i + 2)?.try_into().ok()?) as u64)
 }
@@ -67,14 +50,12 @@ fn le64(b: &[u8], i: usize) -> Option<u64> {
     Some(u64::from_le_bytes(b.get(i..i + 8)?.try_into().ok()?))
 }
 
-/// Where the central directory is, from the archive's last bytes.
 #[derive(Debug, PartialEq)]
 enum Directory {
     At {
         offset: u64,
         size: u64,
     },
-    /// A ZIP64 archive: its own end record, at this offset, says.
     Zip64 {
         record: u64,
     },
@@ -114,7 +95,6 @@ struct Entry {
     method: u64,
 }
 
-/// Every file in a zip, by name, from its central directory.
 fn read_directory(cd: &[u8]) -> Result<HashMap<String, Entry>, String> {
     let bad = || "the download's zip directory is damaged".to_string();
     let mut out = HashMap::new();
@@ -130,7 +110,6 @@ fn read_directory(cd: &[u8]) -> Result<HashMap<String, Entry>, String> {
         let name_end = p + 46 + name_len;
         let extra_end = name_end + extra_len;
         let name = String::from_utf8_lossy(cd.get(p + 46..name_end).ok_or_else(bad)?).into_owned();
-        // ZIP64: whatever didn't fit in 32 bits is in extra field 1, in this order.
         if [size, compressed, offset].contains(&0xFFFF_FFFF) {
             let mut e = name_end;
             while e + 4 <= extra_end {
@@ -197,15 +176,12 @@ async fn get_range(http: &reqwest::Client, url: &str, from: u64, len: u64) -> Re
     Ok(b.to_vec())
 }
 
-/// Roblox's Mac app download, read a file at a time.
 pub struct RemoteZip {
     url: String,
     entries: HashMap<String, Entry>,
-    /// The app folder at the top of the archive ("RobloxPlayer.app").
     app: String,
 }
 
-/// The app at the top of the archive, from a name like `X.app/Contents/…`.
 fn top_app(entries: &HashMap<String, Entry>) -> Option<String> {
     entries.keys().find_map(|n| {
         let (app, _) = n.split_once(".app/Contents/")?;
@@ -239,7 +215,6 @@ impl RemoteZip {
         Ok(Self { url: url.to_owned(), entries, app })
     }
 
-    /// The bytes of `rel`, a path in the app's `Contents` folder (with `/`).
     pub async fn read(&self, http: &reqwest::Client, rel: &str) -> Result<Vec<u8>, String> {
         let e = self.entries.get(&format!("{}/Contents/{rel}", self.app)).ok_or("it isn't in Roblox's download")?;
         if e.size > MAX_FILE || e.compressed > MAX_FILE {
@@ -264,23 +239,18 @@ async fn latest_mac_build(http: &reqwest::Client) -> Result<String, String> {
     Ok(crate::roblox::cdn::parse_version(&text)?.version_hash)
 }
 
-// ------------------------------------------------------------------ Originals for Roblox.app
-
 fn slashes(rel: &str) -> String {
     rel.replace('\\', "/")
 }
 
-/// Roblox.app's own files: which they are from its signature, and their bytes from Roblox's download.
 pub struct MacOriginals {
     hashes: HashMap<String, [u8; 32]>,
     http: reqwest::Client,
     download: OnceLock<Result<RemoteZip, String>>,
-    /// Set after a download fails, so a bad connection costs one timeout, not one per file.
     offline: OnceLock<String>,
 }
 
 impl MacOriginals {
-    /// Reads the signature of the Roblox.app whose `Contents/Resources` is `content_root`.
     pub fn read(content_root: &Path, http: reqwest::Client) -> Option<Self> {
         let file = content_root.parent()?.join("_CodeSignature").join("CodeResources");
         let hashes = resource_hashes(&std::fs::read_to_string(file).ok()?);
@@ -406,7 +376,6 @@ mod tests {
         assert!(!h.contains_key("MacOS/RobloxCrashHandler"));
     }
 
-    /// A zip with one stored and one compressed file, built the way Roblox's is.
     fn zip(files: &[(&str, &[u8], bool)]) -> Vec<u8> {
         let mut out = Vec::new();
         let mut cd = Vec::new();
@@ -420,7 +389,6 @@ mod tests {
             };
             let method: u16 = if *deflate { 8 } else { 0 };
             let offset = out.len() as u32;
-            // Local header with sizes left to a data descriptor, plus an extra field.
             out.extend_from_slice(&[0x50, 0x4b, 0x03, 0x04, 20, 0, 8, 0]);
             out.extend_from_slice(&method.to_le_bytes());
             out.extend_from_slice(&[0; 4 + 4 + 4 + 4]);
@@ -488,9 +456,6 @@ mod tests {
         assert!(find_directory(&z).is_err(), "ZIP64 marker without its locator");
     }
 
-    /// Reads a real file out of Roblox's current Mac download and checks it
-    /// against the signature in that same download. Needs the internet:
-    /// `cargo test -- --ignored roblox_mac_download`.
     #[test]
     #[ignore]
     fn roblox_mac_download() {

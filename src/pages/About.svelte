@@ -8,7 +8,6 @@
   import { app } from '../lib/store.svelte';
 
   const SITE = 'https://xan.gripe/vesper';
-  // Questions, requests and problem reports (the code itself isn't public).
   const CONTACT = 'https://xan.gripe/k3/#contact';
 
   const credits = [

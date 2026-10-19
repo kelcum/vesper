@@ -1,11 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  // A stand-in for a Roblox baseplate, so previews are judged against what
-  // they'll actually sit on in game rather than a flattering gradient.
   interface Props {
     height?: number;
-    /** Hide the system cursor, for previews that draw their own. */
     hideCursor?: boolean;
     onpointermove?: (e: PointerEvent) => void;
     onpointerleave?: (e: PointerEvent) => void;
@@ -54,7 +51,6 @@
     transform-origin: 50% 0;
     transform: perspective(260px) rotateX(58deg);
     background-color: #6f6b67;
-    /* Baseplate studs: a darker rounded square with a light top edge, every 26 px. */
     background-image:
       radial-gradient(circle at 50% 50%, transparent 0 7px, rgba(0, 0, 0, 0) 7px),
       linear-gradient(rgba(255, 255, 255, 0.07) 0 2px, transparent 2px),

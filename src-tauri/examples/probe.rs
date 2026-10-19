@@ -1,10 +1,3 @@
-//! Prints what Vesper detects on this PC, without changing anything.
-//!
-//!     cargo run --example probe
-//!
-//! Useful when filing a bug report or checking detection on a new machine.
-//! Paths are shown with the user profile hidden.
-
 use std::time::Duration;
 use vesper_lib::perf::{monitor::Monitor, system};
 use vesper_lib::roblox::{detect, gbs, logs};

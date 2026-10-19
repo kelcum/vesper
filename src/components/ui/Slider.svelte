@@ -6,7 +6,6 @@
     step?: number;
     label: string;
     unit?: string;
-    /** Called when the user releases the slider. */
     onchange?: (value: number) => void;
   }
   let { value = $bindable(), min, max, step = 1, label, unit = '', onchange }: Props = $props();

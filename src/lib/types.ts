@@ -1,8 +1,4 @@
-// TypeScript mirrors of the Rust types sent over IPC (serde, camelCase).
-
 export type FlagSet = Record<string, string>;
-
-// ---------------------------------------------------------------- settings
 
 export type CloseBehavior = 'tray' | 'quit';
 export type AfterLaunch = 'stay' | 'minimize' | 'tray' | 'hidden';
@@ -81,10 +77,7 @@ export interface Settings {
   originalFpsCap: number | null;
 }
 
-/** A deep-partial settings patch. */
 export type SettingsPatch = { [K in keyof Settings]?: Settings[K] extends object ? Partial<Settings[K]> : Settings[K] };
-
-// ---------------------------------------------------------------- profiles
 
 export type FpsCap =
   { mode: 'robloxDefault' } | { mode: 'matchDisplay' } | { mode: 'fixed'; value: number } | { mode: 'unlimited' };
@@ -118,8 +111,6 @@ export interface ProfilePatch {
   priority?: Priority;
   affinity?: number | null;
 }
-
-// ---------------------------------------------------------------- flags
 
 export type Risk = 'low' | 'medium' | 'high';
 export type Behavior = 'established' | 'uncertain';
@@ -197,8 +188,6 @@ export interface InstalledFlags {
   writtenByVesper: boolean;
 }
 
-// ---------------------------------------------------------------- roblox
-
 export type InstallSource = 'official' | 'allUsers' | 'fishstrap' | 'bloxstrap' | 'custom';
 
 export interface RobloxInstall {
@@ -271,8 +260,6 @@ export interface FpsCapStatus {
   locked: boolean;
 }
 
-// ---------------------------------------------------------------- performance
-
 export interface SystemInfo {
   platform: 'windows' | 'macos' | 'linux';
   os: string;
@@ -310,8 +297,6 @@ export interface PerfSample {
   fpsStatus: FpsStatus;
 }
 
-// ---------------------------------------------------------------- discord, updates
-
 export type PresenceStatus =
   | { state: 'disabled' }
   | { state: 'notConfigured' }
@@ -329,8 +314,6 @@ export type UpdateState =
   | { state: 'downloading'; downloaded: number; total: number | null }
   | { state: 'installing' }
   | { state: 'failed'; message: string };
-
-// ---------------------------------------------------------------- backups, recovery
 
 export type BackupReason = 'manual' | 'beforeRestore' | 'beforeImport' | 'beforeReset';
 export interface BackupInfo {
@@ -352,8 +335,6 @@ export interface CleanupSummary {
   alreadyGone: number;
 }
 
-// ---------------------------------------------------------------- customize
-
 export interface WheelLook {
   dim: number;
   dividers: boolean;
@@ -371,7 +352,6 @@ export interface ModReport {
   written: number;
   unchanged: number;
   restored: number;
-  /** Files another program had changed, put back to Roblox's own. */
   cleaned: string[];
   missing: string[];
   skippedForeign: string[];
@@ -387,7 +367,6 @@ export interface ModsView {
   cursorScale: [number, number];
   maxWheelDim: number;
   launcherFonts: string[];
-  /** The name inside the chosen font file ("Poppins ExtraBold"). */
   fontName: string | null;
   lastReport: ModReport | null;
   robloxRunning: boolean;
@@ -398,14 +377,10 @@ export interface ModsView {
     wheelRing: string | null;
     wheelGradient: string | null;
     wheelLine: string | null;
-    /** The chosen font file, for showing text in it. */
     font: string | null;
-    /** A 360° strip of the sky in use. */
     sky: string | null;
   };
 }
-
-// ---------------------------------------------------------------- games, servers, history
 
 export type ServerKind = 'public' | 'private' | 'reserved';
 export interface GameInfo {
@@ -460,8 +435,6 @@ export interface Option {
   id: string;
   label: string;
 }
-
-// ---------------------------------------------------------------- bootstrap
 
 export interface Bootstrap {
   version: string;

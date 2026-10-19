@@ -1,5 +1,3 @@
-// Dev-only: renders a contact sheet of the mark at real sizes for review.
-// Usage: node scripts/brand/preview.mjs <out.png>
 import { Resvg } from '@resvg/resvg-js';
 import { writeFileSync } from 'node:fs';
 import { markSvg } from './mark.mjs';
@@ -9,7 +7,6 @@ const png = (svg, w) => new Resvg(svg, { fitTo: { mode: 'width', value: w } }).r
 const uri = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
 
 const tiles = [
-  // [label, detail, container, renderSize, displaySize, pixelated]
   ['512', 'full', 'squircle', 360, 360, false],
   ['circle', 'full', 'circle', 160, 160, false],
   ['64', 'medium', 'squircle', 64, 64, false],

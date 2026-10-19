@@ -1,9 +1,3 @@
-//! Self-test for the shader overlay: opens a colourful window for a few
-//! seconds, grades it with the Noir preset (black and white), reads the
-//! screen back and checks the colours really turned grey on screen.
-//!
-//! `cargo run --example shade_selftest`
-
 #[cfg(windows)]
 fn main() {
     use std::time::{Duration, Instant};

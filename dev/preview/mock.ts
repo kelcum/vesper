@@ -1,13 +1,3 @@
-// Runs Vesper's real interface in a browser on sample data, for reviewing and
-// screenshotting screens without a backend. Nothing here can reach Roblox.
-//
-//   npm run dev, then open http://localhost:1420/dev/preview/#home
-//   (#home, #recent, #profiles, #flags, #customize, #performance, #settings,
-//    #about; add ?running to show Roblox as running, ?platform=macos for the
-//    Mac interface, ?locked for a read-only Roblox settings file,
-//    ?focus=<css selector> to scroll a section into view (&click to press a
-//    button first), and ?still to skip transitions for screenshots)
-
 import catalog from '../../src-tauri/resources/flags/catalog.json';
 import sampleFont from '../../assets/fonts/Geist-SemiBold.ttf?url';
 import pkg from '../../package.json';
@@ -248,7 +238,6 @@ const city = (cityName: string, cc: string, region: string, ms: number, measured
   servers: 0,
 });
 const pings = [
-  // A made-up player on the US east coast.
   city('Ashburn', 'US', 'us-east', 14),
   city('New York City', 'US', 'us-east', 19, false),
   city('Chicago', 'US', 'us-central', 31, false),
@@ -294,8 +283,6 @@ function merge(target: Record<string, any>, patch: Record<string, any>) {
   return target;
 }
 
-// ---------------------------------------------------------------- events
-
 const callbacks = new Map<number, (payload: unknown) => void>();
 const listeners = new Map<string, number[]>();
 let nextId = 1;
@@ -330,8 +317,6 @@ setInterval(() => {
     fpsStatus: running ? { state: 'measuring' } : { state: 'off' },
   });
 }, 1000);
-
-// ---------------------------------------------------------------- commands
 
 const handlers: Record<string, (args: any) => unknown> = {
   bootstrap,
@@ -427,14 +412,12 @@ const handlers: Record<string, (args: any) => unknown> = {
   unregisterCallback: (id: number) => callbacks.delete(id),
   invoke: async (cmd: string, args: unknown) => {
     const h = handlers[cmd];
-    // Anything else (window controls, saving, applying) quietly does nothing here.
     return h ? structuredClone(await h(args ?? {})) : null;
   },
   convertFileSrc: (p: string) => p,
 };
 (window as any).__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
 
-// ?still: transitions finish at once, so screenshots never catch a page halfway in.
 if (location.search.includes('still')) {
   const animate = Element.prototype.animate;
   Element.prototype.animate = function (keyframes, options) {
@@ -451,7 +434,6 @@ const { app } = await import('../../src/lib/store.svelte');
 const page = location.hash.slice(1);
 if (page) setTimeout(() => app.go(page as never), 300);
 const query = new URLSearchParams(location.search);
-// &click=<css selector> presses a button first (say, the ping test).
 const click = query.get('click');
 if (click) setTimeout(() => document.querySelector<HTMLElement>(click)?.click(), 700);
 const focus = query.get('focus');
@@ -459,6 +441,5 @@ if (focus)
   setTimeout(() => {
     const el = document.querySelector(focus);
     el?.scrollIntoView({ block: 'start' });
-    // Clear of the window's title bar, or further down with &offset=<px>.
     el?.closest('.scroll')?.scrollBy(0, Number(query.get('offset') ?? -64));
   }, 1800);

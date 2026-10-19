@@ -1,9 +1,3 @@
-//! Commands behind the Customize page and the custom window background.
-//!
-//! Image work (resizing a wheel to 18 sizes) runs on a blocking thread so the
-//! window stays responsive. Changes are applied to Roblox straight away when
-//! it's closed; otherwise they take effect the next time it starts.
-
 use crate::config::Settings;
 use crate::error::{Problem, Result};
 use crate::mods::{self, CursorMod, FileMod, ModReport, ModsConfig, PresetInfo, Source, WheelMod};
@@ -20,12 +14,9 @@ pub struct Previews {
     pub cursor: Option<String>,
     pub wheel_background: Option<String>,
     pub wheel_ring: Option<String>,
-    /// The highlight Roblox draws over the slot under the mouse, in the chosen colour.
     pub wheel_gradient: Option<String>,
     pub wheel_line: Option<String>,
-    /// The chosen font, so the page can show text in it.
     pub font: Option<String>,
-    /// A 360° strip of the sky: the custom one, or Roblox's own.
     pub sky: Option<String>,
 }
 
@@ -40,30 +31,24 @@ pub struct ModsView {
     pub custom_file_count: usize,
     pub cursor_scale: (u8, u8),
     pub max_wheel_dim: u8,
-    /// Launchers with a custom font Vesper can bring over (e.g. "Fishstrap").
     pub launcher_fonts: Vec<&'static str>,
-    /// The name inside the chosen font file ("Poppins ExtraBold").
     pub font_name: Option<String>,
     pub last_report: Option<ModReport>,
     pub roblox_running: bool,
-    /// True when the last change was applied to Roblox already.
     pub applied_now: bool,
     pub previews: Previews,
 }
 
-/// Larger fonts (big CJK families) aren't sent to the page for previewing.
 const MAX_FONT_PREVIEW: usize = 8 * 1024 * 1024;
 
 fn data_url(bytes: &[u8]) -> String {
     format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
-/// The file Vesper prepared for a mod, if any.
 fn prepared(state: &AppState, rel: &str) -> Option<String> {
     std::fs::read(state.mod_paths.root.join(mods::rel_path(rel))).ok().map(|b| data_url(&b))
 }
 
-/// Preview of a layer: the prepared file when the mod is on, otherwise Roblox's own art.
 fn preview(state: &AppState, rel: &str, modded: bool) -> Option<String> {
     modded.then(|| prepared(state, rel)).flatten().or_else(|| roblox_original(state, rel))
 }
@@ -74,7 +59,6 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
     let layer = |name: &str| format!(r"{}\Large\{name}.png", mods::WHEEL_DIR);
     let accent = config.emote_wheel.as_ref().and_then(|w| w.accent.as_deref()).and_then(mods::parse_hex);
     let see_through = matches!(config.emote_wheel.as_ref().and_then(|w| w.source.as_ref()), Some(Source::File { .. }));
-    // Large @1x: a 400 px wheel.
     let cut = see_through.then_some(mods::WHEEL_INNER * 200.0);
     let highlight = |name: &str, cut: Option<f32>| {
         let bytes = roblox_original_bytes(state, &layer(name))?;
@@ -126,7 +110,6 @@ fn view(state: &AppState, applied_now: bool) -> ModsView {
     }
 }
 
-/// Roblox's unmodified file: the backup if Vesper replaced it, otherwise the live one.
 fn roblox_original_bytes(state: &AppState, rel: &str) -> Option<Vec<u8>> {
     let install = state.preferred_install()?;
     let rel = mods::rel_path(rel);
@@ -134,7 +117,6 @@ fn roblox_original_bytes(state: &AppState, rel: &str) -> Option<Vec<u8>> {
     std::fs::read(backup).ok().or_else(|| std::fs::read(install.content_root().join(&rel)).ok())
 }
 
-/// Roblox's own sky as a preview strip, made once per Roblox version.
 fn roblox_sky_preview(state: &AppState) -> Option<String> {
     static CACHE: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
     let version = state.preferred_install()?.version_hash;
@@ -185,7 +167,6 @@ fn problem(what: impl Into<String>) -> Problem {
         .fix("Choose another file and try again.")
 }
 
-/// Saves the config and applies it to Roblox if Roblox is closed.
 fn commit(app: &AppHandle, state: &AppState) -> Result<bool> {
     lock(&state.mods).save(&state.mod_paths).map_err(|e| Problem::io("Couldn't save your customisations.", &e))?;
     if state.roblox_running.load(Ordering::Relaxed) {
@@ -211,7 +192,6 @@ pub fn mods_get(state: State<'_, AppState>) -> ModsView {
     view(&state, false)
 }
 
-/// Keeps a copy of a picked image so size or colour changes don't need it picked again.
 fn store_source(state: &AppState, kind: &str, path: &Path) -> Result<PathBuf> {
     let dest = state.mod_paths.root.join("sources").join(kind);
     std::fs::create_dir_all(dest.parent().expect("has parent"))
@@ -225,10 +205,6 @@ fn stored_source(state: &AppState, kind: &str) -> Option<PathBuf> {
     p.is_file().then_some(p)
 }
 
-/// `preset` picks a built-in style, `path` a new image. With neither and
-/// `reuse`, the current style or image is rendered again (e.g. at a new size).
-/// `color` tints a built-in style. `shift_lock` says whether it also replaces
-/// the Shift Lock crosshair; left out, that stays as it was (on at first).
 #[tauri::command]
 pub async fn mods_set_cursor(
     app: AppHandle,
@@ -267,9 +243,6 @@ pub async fn mods_set_cursor(
     .await
 }
 
-/// With no preset and no path, keeps Roblox's wheel and only changes the accent,
-/// unless `reuse` asks to keep the previously picked style or image.
-/// `dim` and `dividers` change how a picture is drawn; left out, they stay as they were.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn mods_set_wheel(
@@ -329,7 +302,6 @@ pub async fn mods_set_font(app: AppHandle, path: PathBuf) -> Result<ModsView> {
     .await
 }
 
-/// Brings over the custom font Fishstrap or Bloxstrap applies to Roblox.
 #[tauri::command]
 pub async fn mods_use_launcher_font(app: AppHandle, launcher: String) -> Result<ModsView> {
     blocking(app, move |app| {
@@ -344,8 +316,6 @@ pub async fn mods_use_launcher_font(app: AppHandle, launcher: String) -> Result<
     .await
 }
 
-/// `Vesper.exe --import-font <file|Fishstrap|Bloxstrap>`: sets the custom font and exits.
-/// Only while Vesper isn't running, so the open app can't overwrite the change.
 pub fn import_font_cli(arg: Option<&str>) -> i32 {
     let fail = |msg: &str| {
         eprintln!("{msg}");
@@ -404,7 +374,6 @@ pub async fn mods_set_custom(app: AppHandle, enabled: bool) -> Result<ModsView> 
     .await
 }
 
-/// Sets a custom sky from a built-in look, a 360° panorama, or six pictures.
 #[tauri::command]
 pub async fn mods_set_sky(
     app: AppHandle,
@@ -441,7 +410,6 @@ pub async fn mods_set_sky(
     .await
 }
 
-/// Turns one customisation off and restores Roblox's original files.
 #[tauri::command]
 pub async fn mods_clear(app: AppHandle, kind: String) -> Result<ModsView> {
     blocking(app, move |app| {
@@ -482,7 +450,6 @@ pub fn mods_open_custom_folder(app: AppHandle, state: State<'_, AppState>) -> Re
         .map_err(|e| Problem::internal("Couldn't open the folder.", e))
 }
 
-/// Shows a customisation's files in Roblox's folder, with the main one selected.
 #[tauri::command]
 pub fn mods_reveal(app: AppHandle, state: State<'_, AppState>, kind: String) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;
@@ -499,7 +466,6 @@ pub fn mods_reveal(app: AppHandle, state: State<'_, AppState>, kind: String) -> 
     };
     let root = install.content_root();
     let mut path = root.join(mods::rel_path(&rel));
-    // A file this Roblox doesn't have (the font before one is chosen): show the folder it goes in.
     while !path.exists() && path != root && path.pop() {}
     let opened = if path.is_file() {
         app.opener().reveal_item_in_dir(&path)
@@ -513,12 +479,9 @@ fn file_name(p: &Path) -> String {
     p.file_name().map(|n| n.to_string_lossy().chars().take(80).collect()).unwrap_or_else(|| "file".into())
 }
 
-// ------------------------------------------------------------------ window background
-
 const MAX_BACKGROUND_SOURCE: u64 = 40 * 1024 * 1024;
 const BACKGROUND_MAX_SIDE: u32 = 2560;
 
-/// Stores a downscaled JPEG copy, so a huge photo never slows the window down.
 #[tauri::command]
 pub async fn appearance_set_background(app: AppHandle, path: PathBuf) -> Result<Settings> {
     blocking(app, move |app| {

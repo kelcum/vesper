@@ -84,7 +84,6 @@ libc = "0.2"
 [dev-dependencies]
 tempfile = "3"
 
-# Only the compile_shaders example uses the shader compiler; the app ships the compiled shaders.
 [target.'cfg(windows)'.dev-dependencies]
 windows = { version = "0.62", features = ["Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D_Fxc"] }
 
@@ -94,6 +93,5 @@ lto = true
 opt-level = "s"
 strip = true
 
-# Image decoding/resizing is unusably slow unoptimised; optimise dependencies in dev and test builds.
 [profile.dev.package."*"]
 opt-level = 2

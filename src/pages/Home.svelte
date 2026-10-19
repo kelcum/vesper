@@ -51,7 +51,6 @@
     api.perfWatch('home', false);
   });
 
-  // Validate the join field as the user types (debounced).
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const value = target;
@@ -110,7 +109,6 @@
 
   async function launch() {
     if (parseError) return;
-    // Roblox runs once at a time: force-quit it and start again (back into the same server when nothing else was asked for).
     if (app.robloxRunning) await app.attempt(() => api.robloxRestart(target.trim() || null, !target.trim()));
     else await app.attempt(() => api.robloxLaunch(target));
   }

@@ -1,17 +1,3 @@
-// Renders Vesper's built-in Roblox customisation presets (original artwork).
-//
-//   node scripts/brand/mods.mjs
-//
-// Output: src-tauri/resources/mods/
-//   cursors/<id>.png                    64×64, hotspot at the centre (Roblox
-//                                       draws cursor images centred on the mouse)
-//   wheels/<id>/CircleBackground.png    1920×1920 masters, downscaled by the app
-//   wheels/<id>/SegmentedCircle.png     to every size class and scale
-//   wheels/photo/SegmentedCircle*.png   the dividers drawn over a photo wheel
-//
-// Wheel geometry follows Roblox's own layers: a full background disc, a centre
-// disc of 0.465 R, and eight dividers at 22.5° + 45°·k.
-
 import { Resvg } from '@resvg/resvg-js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -24,8 +10,6 @@ const out = (p) => {
   return full;
 };
 const render = (svg, w) => new Resvg(svg, { fitTo: { mode: 'width', value: w } }).render().asPng();
-
-// ------------------------------------------------------------- cursors
 
 const cursors = {
   dot: `
@@ -56,7 +40,6 @@ const cursors = {
   plus: `
     <path d="M32 21 V43 M21 32 H43" stroke="#0a0914" stroke-width="5.4" stroke-linecap="round"/>
     <path d="M32 21 V43 M21 32 H43" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>`,
-  // Tip exactly on the centre, pointing up-left.
   arrow: `<path transform="translate(32 32) scale(1.15)"
       d="M0 0 L0 17.2 L4.3 13.3 L7.3 20.1 L10.2 18.8 L7.2 12.2 L12.8 12.2 Z"
       fill="#ffffff" stroke="#0a0914" stroke-width="1.7" stroke-linejoin="round" paint-order="stroke"/>`,
@@ -66,8 +49,6 @@ for (const [id, body] of Object.entries(cursors)) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${body}</svg>`;
   writeFileSync(out(`cursors/${id}.png`), render(svg, 64));
 }
-
-// ------------------------------------------------------------- emote wheels
 
 const S = 1920;
 const C = S / 2;
@@ -138,9 +119,6 @@ const wheels = {
   },
 };
 
-// Drawn over the user's own picture: the picture is the background disc, so
-// the overlay only adds Roblox-style dividers, an edge and a see-through centre
-// that keeps "Select an Emote" readable.
 const photoOverlay = (withDividers) => {
   const d = dividers({
     color: '#ffffff',
@@ -169,7 +147,6 @@ for (const [id, w] of Object.entries(wheels)) {
   writeFileSync(out('wheels/photo/SegmentedCircleClean.png'), render(doc(photoOverlay(false)), S));
 }
 
-// Small thumbnails for the Customize page (the 1920 px masters are too heavy to bundle twice).
 const thumbs = (p) => {
   const full = join(root, 'src/assets/mods', p);
   mkdirSync(dirname(full), { recursive: true });

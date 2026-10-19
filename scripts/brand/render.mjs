@@ -1,16 +1,3 @@
-// Renders every Vesper brand asset from scripts/brand/mark.mjs.
-//
-//   node scripts/brand/render.mjs
-//
-// Outputs (committed to the repo, so builds never need this script):
-//   assets/branding/*            logo, icon, wordmark, social preview, presence art
-//   src-tauri/icons/*            application + tray icons (and the macOS menu bar template)
-//   src-tauri/installer/*.bmp    NSIS installer artwork
-//   website/vesper/assets/brand/ favicon + Open Graph image
-//
-// The wordmark is converted to outlines with `usvg` (cargo install usvg)
-// so the logo files never depend on an installed font.
-
 import { Resvg } from '@resvg/resvg-js';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
@@ -53,10 +40,7 @@ function rgba(svg, width) {
   return { w: img.width, h: img.height, px: img.pixels };
 }
 
-// ---------------------------------------------------------------- ICO / BMP
-
 function ico(entries) {
-  // entries: [{ size, png: Buffer }] – PNG-compressed entries (Vista+).
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
@@ -79,7 +63,6 @@ function ico(entries) {
 }
 
 function bmp24({ w, h, px }, bg = [255, 255, 255]) {
-  // Composites RGBA over `bg` and writes a bottom-up 24-bit BMP (NSIS needs BMP).
   const rowSize = Math.ceil((w * 3) / 4) * 4;
   const data = Buffer.alloc(rowSize * h);
   for (let y = 0; y < h; y++) {
@@ -107,8 +90,6 @@ function bmp24({ w, h, px }, bg = [255, 255, 255]) {
   return Buffer.concat([file, data]);
 }
 
-// ---------------------------------------------------------------- wordmark
-
 function hasUsvg() {
   try {
     execFileSync('usvg', ['--version'], { stdio: 'ignore' });
@@ -118,7 +99,6 @@ function hasUsvg() {
   }
 }
 
-/** Converts a text-bearing SVG to outlines with usvg. */
 function outline(svg) {
   const tmpIn = out('.brand-tmp/in.svg');
   const tmpOut = out('.brand-tmp/out.svg');
@@ -137,7 +117,6 @@ function outline(svg) {
   return result;
 }
 
-// Lockup metrics (in px of the source canvas).
 const WM = {
   fontSize: 200,
   baseline: 196,
@@ -148,7 +127,6 @@ const WM = {
 
 function wordmarkSource(color) {
   const markCx = WM.markR + 8;
-  // Centre the mark on the x-height band of the lowercase word.
   const xHeight = 0.53 * WM.fontSize;
   const markCy = WM.baseline - xHeight / 2;
   const scale = (WM.markR * 2) / 1024;
@@ -162,10 +140,6 @@ function wordmarkSource(color) {
 </svg>`;
 }
 
-/**
- * Crops an SVG to its visible pixels. Geometric bounding boxes include
- * clipped-away shapes (the full planet circle), so scan rendered alpha instead.
- */
 function cropToContent(svg, pad = 6) {
   const img = new Resvg(svg, { font: { fontFiles, loadSystemFonts: false } }).render();
   const { width: w, height: h, pixels } = img;
@@ -194,10 +168,7 @@ function cropToContent(svg, pad = 6) {
   );
 }
 
-// ---------------------------------------------------------------- scenes
-
 function socialPreview() {
-  // 1280×640 – GitHub social preview and website Open Graph image.
   const W = 1280;
   const H = 640;
   const planetCy = 1980;
@@ -250,7 +221,6 @@ function socialPreview() {
 }
 
 function installerSidebar() {
-  // 164×314 welcome/finish panel. Rendered at 2× then downsampled by resvg.
   const W = 164;
   const H = 314;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -271,7 +241,6 @@ function installerSidebar() {
 }
 
 function installerHeader() {
-  // 150×57 header bitmap. NSIS draws it on a white header strip.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="57" viewBox="0 0 150 57">
   <rect width="150" height="57" fill="#ffffff"/>
   <g transform="translate(103 10.5) scale(${36 / 1024})">
@@ -280,24 +249,19 @@ function installerHeader() {
 </svg>`;
 }
 
-// ---------------------------------------------------------------- main
-
 function main() {
   const brand = 'assets/branding';
 
-  // Vector masters
   writeFileSync(out(`${brand}/logo.svg`), markSvg({ detail: 'full', container: 'circle' }));
   writeFileSync(out(`${brand}/icon.svg`), markSvg({ detail: 'full', container: 'squircle' }));
   writeFileSync(out(`${brand}/icon-small.svg`), markSvg({ detail: 'small', container: 'squircle' }));
   writeFileSync(out(`${brand}/mark-transparent.svg`), markSvg({ detail: 'full', container: 'none' }));
 
-  // Raster masters
   writeFileSync(out(`${brand}/logo.png`), png(markSvg({ detail: 'full', container: 'circle' }), 1024));
   writeFileSync(out(`${brand}/icon.png`), png(markSvg({ detail: 'full', container: 'squircle' }), 1024));
   writeFileSync(out(`${brand}/avatar.png`), png(markSvg({ detail: 'medium', container: 'square' }), 1024));
   writeFileSync(out(`${brand}/presence.png`), png(markSvg({ detail: 'medium', container: 'square' }), 1024));
 
-  // Multi-resolution ICO with optical sizes
   const icoSizes = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
   const icoEntries = icoSizes.map((size) => ({
     size,
@@ -306,7 +270,6 @@ function main() {
   const icoBuf = ico(icoEntries);
   writeFileSync(out(`${brand}/icon.ico`), icoBuf);
 
-  // Tauri icons
   writeFileSync(out('src-tauri/icons/icon.ico'), icoBuf);
   writeFileSync(out('src-tauri/icons/32x32.png'), png(markSvg({ detail: 'small', container: 'squircle' }), 32));
   writeFileSync(out('src-tauri/icons/128x128.png'), png(markSvg({ detail: 'full', container: 'squircle' }), 128));
@@ -315,15 +278,12 @@ function main() {
   writeFileSync(out('src-tauri/icons/tray.png'), png(markSvg({ detail: 'small', container: 'squircle' }), 32));
   writeFileSync(out('src-tauri/icons/tray-template.png'), png(trayTemplateSvg(), null, 64));
 
-  // Installer artwork
   writeFileSync(out('src-tauri/installer/sidebar.bmp'), bmp24(rgba(installerSidebar(), 164), [11, 10, 23]));
   writeFileSync(out('src-tauri/installer/header.bmp'), bmp24(rgba(installerHeader(), 150)));
 
-  // Social preview
   const social = png(socialPreview(), 1280);
   writeFileSync(out(`${brand}/social-preview.png`), social);
 
-  // Wordmark lockups (outlined text)
   if (hasUsvg()) {
     for (const [name, color] of [
       ['wordmark.svg', ink.light],
@@ -339,7 +299,6 @@ function main() {
     console.warn('usvg not found – keeping existing wordmark files.');
   }
 
-  // Website brand files
   const site = 'website/vesper/assets/brand';
   writeFileSync(out(`${site}/favicon.svg`), markSvg({ detail: 'medium', container: 'squircle' }));
   writeFileSync(out(`${site}/favicon-32.png`), png(markSvg({ detail: 'small', container: 'squircle' }), 32));

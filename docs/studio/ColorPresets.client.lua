@@ -1,17 +1,3 @@
---[[
-	Colour presets for experiences you build in Roblox Studio.
-
-	Vesper doesn't inject scripts into Roblox: running code inside games you
-	don't own needs an exploit executor and gets accounts banned. In your own
-	experiences, though, colour grading is a normal, supported feature. This
-	LocalScript applies the same presets with Roblox's ColorCorrectionEffect.
-
-	How to use:
-	  1. In Studio, put this LocalScript in StarterPlayer > StarterPlayerScripts.
-	  2. Pick a preset below (or call ColorPresets.apply("Night") from your own code).
-	  3. Press Play.
-]]
-
 local Lighting = game:GetService("Lighting")
 
 local Config = {

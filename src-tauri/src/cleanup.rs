@@ -1,10 +1,3 @@
-//! Undoing Vesper's changes to Roblox.
-//!
-//! Used by "Reset Fast Flags" in the app and by the Windows uninstaller
-//! (`Vesper.exe --cleanup`). Only files whose content still matches what
-//! Vesper wrote are removed; anything else is left alone unless forced,
-//! and forced removals keep a backup.
-
 use crate::flags::apply::{self, ApplyAction, Ownership};
 use crate::paths::AppPaths;
 use serde::Serialize;
@@ -18,11 +11,9 @@ pub struct CleanupSummary {
     pub already_gone: usize,
 }
 
-/// Removes every flags file in the ledger.
 pub fn remove_all_flags(ledger: &mut Ownership, force: bool, backups: &Path) -> CleanupSummary {
     let mut s = CleanupSummary::default();
     for file in ledger.paths() {
-        // <install folder>/ClientSettings/ClientAppSettings.json
         let Some(version_dir) = file.parent().and_then(Path::parent) else { continue };
         match apply::remove(version_dir, ledger, force, backups) {
             Ok(o) => match o.action {
@@ -39,8 +30,6 @@ pub fn remove_all_flags(ledger: &mut Ownership, force: bool, backups: &Path) -> 
     s
 }
 
-/// Entry point for `Vesper.exe --cleanup`. Never shows UI; always exits 0 so
-/// the uninstaller continues.
 pub fn run_cli() -> i32 {
     let Ok(paths) = AppPaths::resolve() else { return 0 };
     crate::logging::init(&paths.logs, log::LevelFilter::Info);
@@ -88,7 +77,6 @@ mod tests {
         let mut ledger = Ownership::default();
         apply::apply(&a, &flags, &mut ledger, &backups).unwrap();
         apply::apply(&b, &flags, &mut ledger, &backups).unwrap();
-        // Someone edits b's file afterwards.
         std::fs::write(apply::settings_file(&b), "{\"FFlagTheirs\":\"True\"}").unwrap();
 
         let s = remove_all_flags(&mut ledger, false, &backups);

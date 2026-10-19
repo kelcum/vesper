@@ -96,8 +96,6 @@
     padding: 0 8px;
     margin-bottom: 10px;
   }
-  /* macOS draws the window buttons over the top-left corner; the space above
-     the logo stays part of the drag area, like a title bar. */
   :global(:root[data-platform='macos']) .brand {
     height: 74px;
     padding-top: 28px;

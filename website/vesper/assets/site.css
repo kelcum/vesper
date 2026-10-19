@@ -1,5 +1,3 @@
-/* xan.gripe/vesper: liquid glass over a dusk sky, in Vesper's lavender and blue. */
-
 @font-face {
   font-family: 'Geist';
   src: url('fonts/Geist-Variable.woff2') format('woff2');
@@ -50,7 +48,6 @@ body {
   overflow-x: hidden;
 }
 main {
-  /* Glows may reach past the edges; never let them widen the page. */
   overflow-x: clip;
 }
 img {
@@ -85,8 +82,6 @@ a {
   top: 16px;
 }
 
-/* ------------------------------------------------------------ backdrop
-   Slow colour fields over the night, like the window behind the app. */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -149,7 +144,6 @@ a {
   }
 }
 
-/* ------------------------------------------------------------ glass */
 .glass {
   position: relative;
   background:
@@ -163,7 +157,6 @@ a {
     inset 0 1px 0 rgb(255 255 255 / 0.16),
     0 30px 60px -30px rgb(0 0 0 / 0.7);
 }
-/* Light-catching rim. */
 .glass::after {
   content: '';
   position: absolute;
@@ -185,7 +178,6 @@ a {
   mask-composite: exclude;
 }
 
-/* ------------------------------------------------------------ layout */
 .wrap {
   width: min(1160px, 100% - 32px);
   margin-inline: auto;
@@ -253,7 +245,6 @@ code {
   overflow-wrap: anywhere;
 }
 
-/* ------------------------------------------------------------ nav */
 .nav {
   position: sticky;
   top: 14px;
@@ -300,7 +291,6 @@ code {
   background: rgb(255 255 255 / 0.08);
 }
 
-/* ------------------------------------------------------------ buttons */
 .btn {
   position: relative;
   display: inline-flex;
@@ -369,7 +359,6 @@ a.btn-primary:hover {
 a.btn-ghost:hover {
   background: rgb(255 255 255 / 0.12);
 }
-/* "Coming soon": visible, clearly not a link. */
 .btn.soon {
   cursor: default;
   color: var(--text);
@@ -384,7 +373,6 @@ a.btn-ghost:hover {
   font-size: 14px;
 }
 
-/* ------------------------------------------------------------ hero */
 .hero {
   padding: 92px 0 0;
   text-align: center;
@@ -449,7 +437,6 @@ a.btn-ghost:hover {
   border-radius: 21px;
   width: 100%;
 }
-/* The planet's lit edge from the logo, rising behind the window. */
 .hero-shot::before {
   content: '';
   position: absolute;
@@ -501,7 +488,6 @@ a.btn-ghost:hover {
   opacity: 0.85;
 }
 
-/* ------------------------------------------------------------ stats */
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -528,7 +514,6 @@ a.btn-ghost:hover {
   color: var(--muted);
 }
 
-/* ------------------------------------------------------------ bento */
 .bento {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -591,7 +576,6 @@ a.btn-ghost:hover {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
-/* ------------------------------------------------------------ spotlight */
 .spotlight {
   display: grid;
   grid-template-columns: 0.9fr 1.4fr;
@@ -649,7 +633,6 @@ a.btn-ghost:hover {
   width: 100%;
 }
 
-/* Real Roblox log excerpt */
 .log {
   margin: 0;
   overflow: hidden;
@@ -720,7 +703,6 @@ a.btn-ghost:hover {
   background: rgb(255 255 255 / 0.07);
 }
 
-/* ------------------------------------------------------------ flag table */
 .table-card {
   margin-top: 48px;
   padding: 8px;
@@ -774,7 +756,6 @@ td:nth-child(3) {
   color: var(--accent-soft);
 }
 
-/* ------------------------------------------------------------ tour */
 .tour-tabs {
   display: inline-flex;
   flex-wrap: wrap;
@@ -782,7 +763,6 @@ td:nth-child(3) {
   gap: 2px;
   margin-top: 40px;
   padding: 5px;
-  /* A pill on one row, rounded corners when the tabs wrap. */
   border-radius: 26px;
 }
 .tour-tabs button {
@@ -846,7 +826,6 @@ td:nth-child(3) {
   text-align: center;
 }
 
-/* ------------------------------------------------------------ profiles */
 .profiles {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -870,7 +849,6 @@ td:nth-child(3) {
   font-size: 14px;
 }
 
-/* ------------------------------------------------------------ download */
 .download {
   display: flex;
   gap: 40px;
@@ -951,7 +929,6 @@ td:nth-child(3) {
   font-size: 15px;
 }
 
-/* ------------------------------------------------------------ privacy */
 .privacy-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -1042,7 +1019,6 @@ td:nth-child(3) {
   text-decoration: underline;
 }
 
-/* ------------------------------------------------------------ FAQ */
 .faq {
   margin-top: 48px;
   padding: 10px 30px;
@@ -1083,7 +1059,6 @@ td:nth-child(3) {
   color: var(--muted);
 }
 
-/* ------------------------------------------------------------ footer */
 footer {
   margin-top: 140px;
   padding: 34px 0 48px;
@@ -1118,7 +1093,6 @@ footer .brand {
   letter-spacing: 0.02em;
 }
 
-/* ------------------------------------------------------------ privacy page */
 .legal {
   width: min(760px, 100% - 32px);
   margin: 70px auto 0;
@@ -1163,8 +1137,6 @@ footer .brand {
   color: var(--accent-soft);
 }
 
-/* ------------------------------------------------------------ reveal */
-/* Starts faint (never invisible) once the script runs (it adds .js), then settles in. */
 .js .reveal {
   opacity: 0.25;
   transform: translateY(26px);
@@ -1177,7 +1149,6 @@ footer .brand {
   transform: none;
 }
 
-/* ------------------------------------------------------------ responsive */
 @media (max-width: 960px) {
   .nav-links {
     display: none;
@@ -1289,7 +1260,6 @@ footer .brand {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  /* Flag table as stacked rows: name, description, then area and effect. */
   table,
   tbody,
   tr,

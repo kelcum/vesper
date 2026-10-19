@@ -34,7 +34,6 @@ html {
   font-feature-settings: 'ss01', 'cv11';
 }
 
-/* With Mica on, the window itself supplies the backdrop. */
 body {
   background: var(--bg);
 }
@@ -100,7 +99,6 @@ textarea {
   border-radius: var(--radius-sm);
 }
 
-/* Thin, quiet scrollbars */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--surface-3) transparent;
@@ -114,7 +112,6 @@ textarea {
   }
 }
 
-/* Shared glass surface */
 .glass {
   background: var(--surface);
   border: 1px solid var(--border);

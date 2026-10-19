@@ -1,16 +1,3 @@
-//! Reading Roblox's own client log to verify which flags it accepted.
-//!
-//! On startup the Roblox client logs the local settings it loaded and one
-//! line per flag it refuses:
-//!
-//! ```text
-//! ... [FLog::Output] LoadClientSettingsFromLocal: "{ "FFlagX": "True", ... }"
-//! ... [FLog::FlagFetchingStarterModule] Successfully loaded flags
-//! ... [FLog::FlagFetchingStarterModule] Denied local configuration for: FFlagY
-//! ```
-//!
-//! Vesper only extracts these lines. Nothing else from the log is stored or shown.
-
 use crate::flags::model::{json_to_flag_string, FlagSet};
 use regex::Regex;
 use serde::Serialize;
@@ -28,14 +15,11 @@ static VERSION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\d+\.\d+\.\d+\
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FlagLoad {
-    /// Flags Roblox read from ClientAppSettings.json. `None` if the line wasn't found.
     pub loaded: Option<FlagSet>,
     pub denied: Vec<String>,
-    /// True once the denial block has been fully written.
     pub finished: bool,
 }
 
-/// Parses the flag-loading section of a Roblox player log.
 pub fn parse_flag_load(text: &str) -> FlagLoad {
     let mut out = FlagLoad::default();
 
@@ -61,17 +45,12 @@ pub fn parse_flag_load(text: &str) -> FlagLoad {
     out
 }
 
-/// Finds the `}` that closes the echoed settings file. Roblox prints the file
-/// verbatim, so a trailing newline in the file puts whitespace between the
-/// brace and the closing quote (`}\n"`).
 fn closing_brace(rest: &str) -> Option<usize> {
     rest.match_indices('}')
         .map(|(i, _)| i)
         .find(|&i| rest[i + 1..].trim_start_matches([' ', '\t', '\r', '\n']).starts_with('"'))
 }
 
-/// Extracts the Roblox version from a log file name,
-/// e.g. `0.741.0.7411058_20261007T160222Z_Player_DD16B_last.log` → `0.741.0.7411058`.
 pub fn version_from_log_name(name: &str) -> Option<String> {
     VERSION.captures(name).map(|c| c[1].to_owned())
 }
@@ -80,7 +59,6 @@ pub fn is_player_log(name: &str) -> bool {
     name.ends_with(".log") && name.contains("_Player_") && !name.contains("CrashHandler")
 }
 
-/// Returns the newest player log modified at or after `since`.
 pub fn newest_player_log_since(dir: &Path, since: SystemTime) -> Option<PathBuf> {
     let threshold = since.checked_sub(Duration::from_secs(2)).unwrap_or(since);
     std::fs::read_dir(dir)
@@ -98,15 +76,11 @@ pub fn newest_player_log_since(dir: &Path, since: SystemTime) -> Option<PathBuf>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Verdict {
-    /// Roblox read the flag and did not deny it.
     Accepted,
-    /// Roblox logged "Denied local configuration" for it.
     Denied,
-    /// Roblox didn't read it (for example, a different install was launched).
     NotRead,
 }
 
-/// Compares what Vesper wrote with what Roblox reported.
 pub fn verdicts(expected: &FlagSet, load: &FlagLoad) -> BTreeMap<String, Verdict> {
     expected
         .keys()
@@ -127,7 +101,6 @@ pub fn verdicts(expected: &FlagSet, load: &FlagLoad) -> BTreeMap<String, Verdict
 mod tests {
     use super::*;
 
-    // Same format as a real Roblox 0.741 player log (timestamps kept, nothing personal).
     const LOG: &str = r#"2026-10-07T16:02:22.400Z,0.400280,7dc4,6,Warning [FLog::FlagFetchingStarterModule] Fetching flags from CDN, attempt: 0
 2026-10-07T16:02:22.638Z,0.638899,7dc4,6 [FLog::Output] LoadClientSettingsFromLocal: "{
   "FFlagHandleAltEnterFullscreenManually": "False",
@@ -150,7 +123,6 @@ mod tests {
         assert!(load.finished);
     }
 
-    /// Real Roblox 0.742 output for a file written by Vesper (ends with a newline).
     #[test]
     fn parses_settings_echoed_with_trailing_newline() {
         let log = "2026-10-10T13:41:18.584Z,0.584861,774c,6 [FLog::Output] LoadClientSettingsFromLocal: \"{\n  \"FFlagHandleAltEnterFullscreenManually\": \"False\"\n}\n\"\n2026-10-10T13:41:18.585Z,0.585861,774c,6,Warning [FLog::FlagFetchingStarterModule] Successfully loaded flags\n2026-10-10T13:41:18.590Z,0.590000,774c,6,Info [FLog::Other] next line\n";
@@ -163,7 +135,6 @@ mod tests {
 
     #[test]
     fn unfinished_log_is_detected() {
-        // Cut off right after the denial lines: more denials could still arrive.
         let cut = LOG.split("2026-10-07T16:02:22.647Z").next().unwrap();
         let load = parse_flag_load(cut);
         assert!(!load.finished);

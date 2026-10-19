@@ -17,7 +17,6 @@
   const busy = $derived(['preparing', 'starting', 'updating'].includes(app.launch.state));
   let confirmClear = $state(false);
 
-  /** Recent visits grouped by day ("Today", "Yesterday", "12 Oct"). */
   const groups = $derived.by(() => {
     const out: { label: string; visits: Visit[] }[] = [];
     const today = new Date();
@@ -35,7 +34,6 @@
                 month: 'short',
                 year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric',
               });
-      // Keyed by label below, so a day appears once even if the list is out of order.
       const group = out.find((g) => g.label === label);
       if (group) group.visits.push(v);
       else out.push({ label, visits: [v] });
@@ -46,7 +44,6 @@
   const joinUrl = (v: Visit) =>
     v.kind === 'public' ? `https://www.roblox.com/games/start?placeId=${v.placeId}&gameInstanceId=${v.jobId}` : null;
 
-  /** Joins through Vesper, so the profile, flags and customisations apply. */
   async function launch(input: string) {
     if (app.robloxRunning) await app.attempt(() => api.robloxRestart(input, false));
     else await app.attempt(() => api.robloxLaunch(input));

@@ -1,13 +1,4 @@
-/*
-  Vesper design tokens — shared by the desktop app and xan.gripe/vesper.
-  Keep this file identical in both places (scripts/site/build.mjs copies it).
-
-  Palette: dusk. A dark, slightly indigo neutral base; violet → blue accents
-  taken from the logo's planetary limb; lavender for highlights.
-*/
-
 :root {
-  /* Type */
   --font-sans: 'Geist', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Cascadia Mono', Consolas, monospace;
   --text-xs: 11.5px;
@@ -20,7 +11,6 @@
   --leading: 1.5;
   --tracking-tight: -0.015em;
 
-  /* Space & shape */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -35,14 +25,12 @@
   --radius-xl: 22px;
   --radius-pill: 999px;
 
-  /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
   --dur-fast: 120ms;
   --dur: 200ms;
   --dur-slow: 320ms;
 
-  /* Brand */
   --violet-300: #cbc2ff;
   --violet-400: #b0a3ff;
   --violet-500: #9584ff;
@@ -55,14 +43,12 @@
   --accent-gradient: linear-gradient(135deg, #a18fff 0%, #7b8cff 55%, #5d7dff 100%);
   --accent-glow: 0 0 0 1px rgba(161, 143, 255, 0.35), 0 8px 28px -10px rgba(123, 105, 240, 0.65);
 
-  /* Status */
   --ok: #5fd3a6;
   --warn: #f2c46d;
   --bad: #ff7a8a;
   --info: #7fb2ff;
 }
 
-/* Dark is the default theme. */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -119,7 +105,6 @@
   --info: #3b72d9;
 }
 
-/* Density */
 :root[data-density='compact'] {
   --space-4: 13px;
   --space-5: 16px;
@@ -127,7 +112,6 @@
   --text-md: 13px;
 }
 
-/* Reduced or no motion */
 :root[data-motion='reduced'] {
   --dur-fast: 0ms;
   --dur: 90ms;
@@ -140,7 +124,6 @@
   --dur-slow: 0ms;
 }
 
-/* Transparency: "off" swaps glass for solid surfaces. */
 :root[data-transparency='off'] {
   --surface: var(--surface-solid);
   --surface-2: color-mix(in srgb, var(--surface-solid) 92%, var(--text) 8%);

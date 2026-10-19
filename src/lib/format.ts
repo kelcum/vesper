@@ -17,7 +17,6 @@ export function percent(n: number | null | undefined, digits = 0): string {
   return `${n.toFixed(digits)}%`;
 }
 
-/** "just now", "5 min ago", "3 h ago", "2 days ago", or a date. */
 export function relativeTime(iso: string | null | undefined, now: Date = new Date()): string {
   if (!iso) return 'never';
   const t = new Date(iso);
@@ -56,7 +55,6 @@ export function fpsCapLabel(cap: FpsCap | null | undefined, displayHz?: number |
   }
 }
 
-/** Short form for chips. */
 export function fpsCapShort(cap: FpsCap | null | undefined, displayHz?: number | null): string {
   if (!cap) return 'FPS unchanged';
   if (cap.mode === 'matchDisplay') return displayHz ? `${displayHz} FPS` : 'Display FPS';
@@ -77,7 +75,6 @@ export function sourceLabel(s: InstallSource): string {
   }[s];
 }
 
-/** Compares Roblox versions like 0.741.0.7411058. Returns <0, 0 or >0. */
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(/[.,]/).map((x) => parseInt(x.trim(), 10) || 0);
   const pb = b.split(/[.,]/).map((x) => parseInt(x.trim(), 10) || 0);
@@ -88,14 +85,12 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** "0.741" from "0.741.0.7411058" for compact display. */
 export function minorVersion(v: string | null | undefined): string {
   if (!v) return '?';
   const p = v.split('.');
   return p.length >= 2 ? `${p[0]}.${p[1]}` : v;
 }
 
-/** "1 h 12 min", "4 min", "less than a minute" */
 export function duration(ms: number): string {
   const min = Math.floor(ms / 60000);
   if (min < 1) return 'less than a minute';
@@ -104,7 +99,6 @@ export function duration(ms: number): string {
   return min % 60 ? `${h} h ${min % 60} min` : `${h} h`;
 }
 
-/** "Private server", "Reserved server", or null for public servers. */
 export function serverKindLabel(kind: 'public' | 'private' | 'reserved'): string | null {
   return kind === 'private' ? 'Private server' : kind === 'reserved' ? 'Reserved server' : null;
 }

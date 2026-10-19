@@ -1,15 +1,3 @@
-//! Roblox's frame-rate cap.
-//!
-//! Since Roblox stopped honouring local frame-rate Fast Flags, the supported
-//! way to change the cap is Roblox's own `FramerateCap` setting in
-//! `%LOCALAPPDATA%\Roblox\GlobalBasicSettings_<n>.xml` — the same value the
-//! in-game "Maximum Frame Rate" option writes.
-//!
-//! Rules:
-//! * Edit only the one value; keep the BOM, line endings and every other byte.
-//! * Never write 0 (it breaks Roblox's renderer). -1 means "Roblox default".
-//! * Only write while Roblox is closed — Roblox rewrites this file on exit.
-
 use crate::paths::write_atomic;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -17,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 pub const DEFAULT_CAP: i32 = -1;
-/// What "Unlimited" writes: a cap no display reaches.
 pub const UNLIMITED_CAP: i32 = 9999;
 pub const MIN_CUSTOM: i32 = 15;
 pub const MAX_CUSTOM: i32 = 1000;
@@ -27,20 +14,16 @@ static CAP_RE: LazyLock<Regex> =
 static FILE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^GlobalBasicSettings_(\d+)\.xml$").expect("valid regex"));
 
-/// A frame-rate limit as chosen in a profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "mode", content = "value")]
 pub enum FpsCap {
-    /// Roblox's own default.
     RobloxDefault,
-    /// The refresh rate of the primary display, detected at launch.
     MatchDisplay,
     Fixed(i32),
     Unlimited,
 }
 
 impl FpsCap {
-    /// The value to write, given the detected display refresh rate.
     pub fn resolve(self, display_hz: Option<u32>) -> Result<i32, String> {
         match self {
             FpsCap::RobloxDefault => Ok(DEFAULT_CAP),
@@ -61,7 +44,6 @@ pub fn validate_cap(n: i32) -> Result<i32, String> {
     }
 }
 
-/// Finds the newest GlobalBasicSettings file (Roblox bumps the number occasionally).
 pub fn settings_path(roblox_data: &Path) -> Option<PathBuf> {
     std::fs::read_dir(roblox_data)
         .ok()?
@@ -79,7 +61,6 @@ pub fn read_cap(xml: &str) -> Option<i32> {
     CAP_RE.captures(xml)?[2].parse().ok()
 }
 
-/// Returns `xml` with the cap set to `value`, changing nothing else.
 pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
     if value == 0 {
         return Err("A frame-rate cap of 0 breaks Roblox's renderer.".into());
@@ -87,7 +68,6 @@ pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
     if CAP_RE.is_match(xml) {
         return Ok(CAP_RE.replace(xml, format!("${{1}}{value}${{3}}")).into_owned());
     }
-    // Insert into the UserGameSettings properties, matching the file's style.
     let item =
         xml.find(r#"<Item class="UserGameSettings""#).ok_or("This settings file has no UserGameSettings section.")?;
     let props_rel = xml[item..].find("<Properties>").ok_or("This settings file has no Properties section.")?;
@@ -112,7 +92,6 @@ pub fn with_cap(xml: &str, value: i32) -> Result<String, String> {
 #[derive(Debug)]
 pub enum CapError {
     NoSettingsFile,
-    /// The file is marked read-only, usually by another launcher's "lock settings" option.
     ReadOnly,
     Io(std::io::Error),
     Invalid(String),
@@ -129,14 +108,12 @@ impl std::fmt::Display for CapError {
     }
 }
 
-/// Reads the current cap from disk.
 pub fn current_cap(roblox_data: &Path) -> Result<Option<i32>, CapError> {
     let path = settings_path(roblox_data).ok_or(CapError::NoSettingsFile)?;
     let text = read_text(&path).map_err(CapError::Io)?;
     Ok(read_cap(&text.body))
 }
 
-/// Writes the cap. Returns the previous value.
 pub fn set_cap(roblox_data: &Path, value: i32) -> Result<Option<i32>, CapError> {
     let path = settings_path(roblox_data).ok_or(CapError::NoSettingsFile)?;
     let text = read_text(&path).map_err(CapError::Io)?;
@@ -151,7 +128,6 @@ pub fn set_cap(roblox_data: &Path, value: i32) -> Result<Option<i32>, CapError> 
     }
     bytes.extend_from_slice(updated.as_bytes());
 
-    // Fishstrap and others can mark the file read-only; respect that choice.
     if is_read_only(&path) {
         return Err(CapError::ReadOnly);
     }
@@ -160,8 +136,6 @@ pub fn set_cap(roblox_data: &Path, value: i32) -> Result<Option<i32>, CapError> 
     Ok(previous)
 }
 
-/// Whether the settings file is locked against changes. On macOS this also
-/// covers Finder's "Locked" checkbox, which isn't a permission bit.
 pub fn is_read_only(path: &Path) -> bool {
     let Ok(meta) = std::fs::metadata(path) else { return false };
     #[cfg(target_os = "macos")]

@@ -1,28 +1,11 @@
-//! Turning what the user pastes into something Roblox can launch.
-//!
-//! Accepted input:
-//! * a place ID (`920587237`)
-//! * a game page URL (`https://www.roblox.com/games/920587237/Name`),
-//!   including `?privateServerLinkCode=` links
-//! * `https://www.roblox.com/games/start?placeId=…`
-//! * Roblox's documented app links (`roblox://placeId=…`, `roblox://experiences/start?placeId=…`)
-//! * share links (`https://www.roblox.com/share?code=…`), which only Roblox's
-//!   website can resolve, so they are opened in the browser.
-//!
-//! Input is reduced to validated parts and the launch URI is rebuilt from
-//! those parts. Raw user text never reaches the Roblox process.
-//! Format reference: https://create.roblox.com/docs/production/promotion/deeplinking
-
 use serde::Serialize;
 use url::Url;
 
-/// Roblox's documented limit for decoded launch data.
 pub const MAX_LAUNCH_DATA_BYTES: usize = 200;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum LaunchTarget {
-    /// Opens the Roblox app home screen.
     App,
     #[serde(rename_all = "camelCase")]
     Experience {
@@ -31,7 +14,6 @@ pub enum LaunchTarget {
         link_code: Option<String>,
         launch_data: Option<String>,
     },
-    /// Must be opened in the browser.
     ShareLink { url: String },
 }
 
@@ -81,8 +63,6 @@ pub fn parse(input: &str) -> Result<LaunchTarget, String> {
 }
 
 fn parse_app_link(rest: &str) -> Result<LaunchTarget, String> {
-    // Documented form: roblox://placeId=1&launchData=x
-    // Also seen:       roblox://experiences/start?placeId=1
     let rest = rest.trim_end_matches('/');
     let query =
         rest.strip_prefix("experiences/start?").or_else(|| rest.strip_prefix("experiences/start/?")).unwrap_or(rest);
@@ -127,7 +107,6 @@ fn is_guid(s: &str) -> bool {
         && [8, 4, 4, 4, 12].iter().zip(&parts).all(|(n, p)| p.len() == *n && p.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
-/// Builds the argument passed to RobloxPlayerBeta.exe. `None` opens the app.
 pub fn launch_argument(target: &LaunchTarget) -> Option<String> {
     match target {
         LaunchTarget::App | LaunchTarget::ShareLink { .. } => None,

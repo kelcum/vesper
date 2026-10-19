@@ -1,5 +1,3 @@
-// Global app state. Loaded once from `bootstrap`, then kept current by backend events.
-
 import { listen } from '@tauri-apps/api/event';
 import { api, toProblem } from './api';
 import { applyAppearance } from './appearance';
@@ -100,7 +98,6 @@ class AppStore {
       this.bootError = toProblem(err);
       this.ready = true;
     } finally {
-      // Show the window only once the first frame is ready (no empty flash).
       requestAnimationFrame(() => api.appReady().catch(() => {}));
     }
   }
@@ -192,7 +189,6 @@ class AppStore {
     setTimeout(() => (this.toasts = this.toasts.filter((t) => t.id !== id)), tone === 'bad' ? 7000 : 4200);
   }
 
-  /** Runs an action and shows its Problem if it fails. Returns undefined on failure. */
   async attempt<T>(fn: () => Promise<T>, success?: string): Promise<T | undefined> {
     try {
       const r = await fn();

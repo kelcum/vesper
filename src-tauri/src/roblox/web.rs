@@ -1,11 +1,3 @@
-//! Public, anonymous lookups: game names and icons from Roblox, and where
-//! Roblox servers are from RoValra's public server database.
-//!
-//! No cookies or accounts are involved. What each request sends:
-//! * Roblox (games, thumbnails, users): the game, place or user id.
-//! * RoValra (apis.rovalra.com): a place id to list its servers by city, or
-//!   a Roblox server address to look up its city. Nothing about the player.
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -45,7 +37,6 @@ pub struct Location {
 }
 
 impl Location {
-    /// "Frankfurt am Main, DE"
     pub fn short(&self) -> String {
         if self.city.is_empty() {
             self.country.clone()
@@ -122,7 +113,6 @@ pub async fn game_info(http: &reqwest::Client, universe_id: u64) -> Result<GameI
     Ok(GameInfo { universe_id, root_place_id: g.root_place_id, name: g.name, creator: g.creator.name, icon_url: icon })
 }
 
-/// Thumbnail links must point at Roblox's image CDN.
 pub fn is_roblox_cdn(url: &str) -> bool {
     url::Url::parse(url)
         .ok()
@@ -141,9 +131,6 @@ pub async fn user_info(http: &reqwest::Client, id: u64) -> Result<UserInfo, Stri
     Ok(UserInfo { id: u.id, name: u.name, display_name: u.display_name })
 }
 
-// ------------------------------------------------------------------ RoValra
-
-/// Where a Roblox server address is, from RoValra's records of Roblox's network.
 pub async fn locate_server(http: &reqwest::Client, ip: &str) -> Result<Location, String> {
     #[derive(Deserialize)]
     struct R {
@@ -166,7 +153,6 @@ pub async fn locate_server(http: &reqwest::Client, ip: &str) -> Result<Location,
     Ok(Location { city: l.city, region: l.region, country: l.country_name, country_code: l.country_code })
 }
 
-/// A city with Roblox servers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Datacenter {
@@ -218,7 +204,6 @@ pub async fn datacenters(http: &reqwest::Client) -> Result<Vec<Datacenter>, Stri
     Ok(out)
 }
 
-/// How many servers RoValra has seen for a place, per city ("Ashburn" → 45).
 pub async fn server_counts(http: &reqwest::Client, place_id: u64) -> Result<BTreeMap<String, u32>, String> {
     #[derive(Deserialize)]
     struct R {
@@ -253,7 +238,6 @@ pub struct KnownServer {
     pub first_seen: Option<String>,
 }
 
-/// Servers RoValra has seen for a place in one city.
 pub async fn servers_in_city(
     http: &reqwest::Client,
     place_id: u64,
@@ -293,7 +277,6 @@ pub async fn servers_in_city(
         .collect())
 }
 
-/// A server Roblox currently lists for a place.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveServer {
@@ -302,7 +285,6 @@ pub struct LiveServer {
     pub max_players: u32,
 }
 
-/// Roblox's own list of open public servers, up to `pages` pages of 100.
 pub async fn live_servers(http: &reqwest::Client, place_id: u64, pages: usize) -> Result<Vec<LiveServer>, String> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -330,7 +312,6 @@ pub async fn live_servers(http: &reqwest::Client, place_id: u64, pages: usize) -
         }
         let page: Page = match get_json(http, url.as_str()).await {
             Ok(p) => p,
-            // Later pages are a bonus; keep what was found.
             Err(e) if i > 0 => {
                 log::debug!("Stopped reading the server list: {e}");
                 break;

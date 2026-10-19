@@ -1,18 +1,3 @@
-//! Starting the Roblox player process.
-//!
-//! The process handle is released immediately after creation. Roblox's
-//! anti-cheat reacts to tools that keep handles to the game open, so all
-//! later monitoring uses handle-free APIs (see `process.rs`).
-//!
-//! Priority is set through the process creation flags, so it needs no
-//! extra access. CPU affinity, when chosen, is applied in the same instant
-//! using the creation handle, before it is closed.
-//!
-//! On macOS Vesper asks macOS to open Roblox.app, as Finder or a browser
-//! link would, and game links reach Roblox the same way. macOS doesn't let
-//! apps raise another app's priority or pin it to processors, so priority is
-//! left to macOS and a chosen affinity is reported as not applied.
-
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -43,25 +28,19 @@ impl Priority {
 pub struct SpawnRequest {
     pub exe: PathBuf,
     pub working_dir: PathBuf,
-    /// A validated launch URI from `deeplink::launch_argument`, or `None` to open the app.
     pub argument: Option<String>,
     pub priority: Priority,
-    /// Bit mask of logical processors, or `None` to leave Windows in charge.
     pub affinity: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Spawned {
-    /// The started process, or 0 when macOS started Roblox on Vesper's behalf.
     pub pid: u32,
-    /// `None` when no affinity was requested.
     pub affinity_error: Option<String>,
-    /// Set when the requested priority couldn't be applied.
     pub priority_error: Option<String>,
 }
 
-/// The mask covering every logical processor on this machine.
 pub fn all_processors_mask() -> u64 {
     let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1).min(64);
     if n == 64 {
@@ -71,7 +50,6 @@ pub fn all_processors_mask() -> u64 {
     }
 }
 
-/// Validates an affinity mask against this machine.
 pub fn validate_affinity(mask: u64) -> Result<u64, String> {
     let valid = mask & all_processors_mask();
     if valid == 0 {
@@ -110,7 +88,6 @@ pub fn spawn(req: &SpawnRequest) -> std::io::Result<Spawned> {
         }
     });
 
-    // Dropping `Child` closes the process and thread handles without waiting or killing.
     drop(child);
 
     Ok(Spawned { pid, affinity_error: affinity_error.filter(|e| !e.is_empty()), priority_error: None })
@@ -131,7 +108,6 @@ pub fn spawn(req: &SpawnRequest) -> std::io::Result<Spawned> {
     if let Some(arg) = &req.argument {
         cmd.arg(arg);
     }
-    // `open` returns once macOS has started (or activated) Roblox.
     let out = cmd.output()?;
     if !out.status.success() {
         let reason = String::from_utf8_lossy(&out.stderr).trim().to_owned();
@@ -140,7 +116,6 @@ pub fn spawn(req: &SpawnRequest) -> std::io::Result<Spawned> {
     Ok(Spawned {
         pid: 0,
         affinity_error: req.affinity.map(|_| "macOS doesn't let apps choose which processors another app uses".into()),
-        // macOS schedules Roblox itself; the interface says so instead of a notice on every launch.
         priority_error: None,
     })
 }
@@ -159,7 +134,6 @@ mod tests {
         PathBuf::from(std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into())).join("System32")
     }
 
-    /// Spawns a real, harmless process through the same code path Roblox uses.
     #[test]
     fn spawns_with_priority_and_releases_the_process() {
         let req = SpawnRequest {
@@ -169,12 +143,10 @@ mod tests {
             priority: Priority::AboveNormal,
             affinity: Some(1),
         };
-        // cmd.exe treats the single argument as its command line.
         let s = spawn(&req).unwrap();
         assert!(s.pid > 0);
         assert_eq!(s.affinity_error, None);
 
-        // The child exits by itself; we hold no handle, so wait via snapshots.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         while process::snapshot().unwrap().iter().any(|p| p.pid == s.pid) {
             assert!(std::time::Instant::now() < deadline, "child should exit on its own");

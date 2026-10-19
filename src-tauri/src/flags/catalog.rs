@@ -1,10 +1,3 @@
-//! The flag catalog: what Vesper knows about each Fast Flag, and how sure it is.
-//!
-//! The catalog lives in `resources/flags/catalog.json` and is compiled into
-//! the binary. It only describes flags on Roblox's published allowlist.
-//! Each entry records its sources, a confidence level for the described
-//! behaviour, and any Roblox-published default value.
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
@@ -46,13 +39,10 @@ pub enum Risk {
     High,
 }
 
-/// How confident the catalog is about what a flag does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Behavior {
-    /// Consistent across multiple independent sources (launchers, Roblox staff posts).
     Established,
-    /// Name and allowlist status are verified, but the exact effect is not documented.
     Uncertain,
 }
 
@@ -82,7 +72,6 @@ pub struct ChoiceOption {
 #[serde(rename_all = "camelCase")]
 pub struct PublishedDefault {
     pub value: String,
-    /// Key into `sources`.
     pub source: String,
     pub observed: String,
 }
@@ -164,7 +153,6 @@ mod tests {
     use super::*;
     use crate::flags::model::{kind_of, ValueKind};
 
-    /// The allowlist as published by Roblox on the DevForum (checked 2026-10-07).
     const PUBLISHED_ALLOWLIST: &[&str] = &[
         "DFIntCSGLevelOfDetailSwitchingDistance",
         "DFIntCSGLevelOfDetailSwitchingDistanceL12",

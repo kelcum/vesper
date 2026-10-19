@@ -97,7 +97,6 @@
     app.setProfiles(await app.attempt(() => api.profilesDelete(id), 'Profile deleted'));
   }
 
-  // BigInt: JavaScript's bitwise operators are 32-bit, and PCs can have more processors.
   function toggleCore(i: number) {
     if (!editing) return;
     const all = (1n << BigInt(Math.min(cpuCount, 64))) - 1n;
@@ -219,7 +218,6 @@
       </div>
     </article>
   {/each}
-  <!-- Fills the grid's last gap and makes the next step obvious. -->
   <button class="new-tile" type="button" onclick={() => (creating = true)}>
     <span class="plus"><Plus size={18} aria-hidden="true" /></span>
     <span class="new-title">New profile</span>

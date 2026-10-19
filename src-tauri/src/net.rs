@@ -1,24 +1,10 @@
-//! Measuring how far each Roblox city is from this PC, in milliseconds.
-//!
-//! Roblox's game servers can't be pinged before joining: they ignore ICMP
-//! and unknown UDP, and Roblox carries traffic over its own backbone from a
-//! nearby entry point, so tracing the route ends close to home. Instead,
-//! Vesper times a TCP handshake (one round trip; nothing is sent after it)
-//! to a public cloud endpoint in 27 cities around the world. Most Roblox
-//! cities are in the same metro area as one of them (Roblox's Cape Town and
-//! Zürich servers even run in those exact data centres), so their ping is
-//! measured. For the others, the measurements are used to work out where this
-//! connection reaches the internet, and the ping is estimated from distance.
-
 use serde::Serialize;
 use std::time::{Duration, Instant};
 
 const ATTEMPTS: usize = 3;
 const TIMEOUT: Duration = Duration::from_secs(2);
-/// A city this close to a measured endpoint takes its measurement.
 const SAME_METRO_KM: f64 = 160.0;
 
-/// Cloud regions with a public endpoint, and where they are.
 pub const ENDPOINTS: &[(&str, f64, f64)] = &[
     ("us-east-1", 39.04, -77.49),
     ("us-east-2", 39.96, -83.00),
@@ -54,11 +40,9 @@ pub const ENDPOINTS: &[(&str, f64, f64)] = &[
 pub struct Sample {
     pub lat: f64,
     pub lon: f64,
-    /// Best handshake time in ms; `None` when the endpoint didn't answer.
     pub ms: Option<f64>,
 }
 
-/// Great-circle distance in km.
 pub fn distance_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let (p1, p2) = (lat1.to_radians(), lat2.to_radians());
     let dp = p2 - p1;
@@ -85,7 +69,6 @@ async fn handshake(host: String) -> Option<f64> {
     best
 }
 
-/// Times a handshake with every endpoint (in parallel, about two seconds).
 pub async fn measure() -> Vec<Sample> {
     let mut set = tokio::task::JoinSet::new();
     for (i, (region, _, _)) in ENDPOINTS.iter().enumerate() {
@@ -100,8 +83,6 @@ pub async fn measure() -> Vec<Sample> {
     out
 }
 
-/// Where this connection reaches the internet, fitted from the samples:
-/// ping ≈ `base` + distance / `km_per_ms`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
@@ -126,7 +107,6 @@ pub fn fit(samples: &[Sample]) -> Option<Model> {
                 let mut rest: Vec<f64> = known.iter().zip(&d).map(|((_, _, ms), d)| ms - d / km_per_ms).collect();
                 rest.sort_by(f64::total_cmp);
                 let base = rest[rest.len() / 2].max(0.0);
-                // Relative error: nearby endpoints say most about where the connection is.
                 let err: f64 =
                     known.iter().zip(&d).map(|((_, _, ms), d)| (ms - (base + d / km_per_ms)).abs() / ms.max(5.0)).sum();
                 if best.as_ref().is_none_or(|(e, _)| err < *e) {
@@ -140,15 +120,12 @@ pub fn fit(samples: &[Sample]) -> Option<Model> {
     best.map(|(_, m)| m)
 }
 
-/// Ping to a place: measured when an endpoint is in the same metro area,
-/// otherwise estimated. Returns (ms, measured).
 pub fn ping_to(samples: &[Sample], model: Option<&Model>, lat: f64, lon: f64) -> Option<(u32, bool)> {
     let nearest = samples
         .iter()
         .filter_map(|s| Some((distance_km(lat, lon, s.lat, s.lon), s.ms?)))
         .min_by(|a, b| a.0.total_cmp(&b.0));
     if let Some((km, ms)) = nearest.filter(|(km, _)| *km <= SAME_METRO_KM) {
-        // Within a metro area, a few extra km of fibre.
         return Some(((ms + km / 100.0).round().max(1.0) as u32, true));
     }
     let m = model?;
@@ -162,11 +139,10 @@ mod tests {
 
     #[test]
     fn distances_are_great_circle() {
-        let d = distance_km(51.51, -0.13, 48.86, 2.35); // London–Paris
+        let d = distance_km(51.51, -0.13, 48.86, 2.35);
         assert!((330.0..360.0).contains(&d), "{d}");
     }
 
-    /// Real handshake times measured from a connection near Frankfurt.
     fn europe() -> Vec<Sample> {
         let ms = [
             114.0, 130.0, 176.0, 168.0, 116.0, 167.0, 199.0, 43.0, 35.0, 38.0, 29.0, 34.0, 37.0, 54.0, 38.0, 81.0,
@@ -180,9 +156,7 @@ mod tests {
         let s = europe();
         let m = fit(&s).unwrap();
         assert!(distance_km(m.lat, m.lon, 50.11, 8.68) < 900.0, "near Frankfurt: {m:?}");
-        // Ashburn shares a metro with us-east-1: measured.
         assert_eq!(ping_to(&s, Some(&m), 39.04, -77.49), Some((114, true)));
-        // Warsaw has no endpoint: estimated, and closer than New York.
         let (warsaw, measured) = ping_to(&s, Some(&m), 52.23, 21.01).unwrap();
         assert!(!measured);
         assert!(warsaw < 60, "{warsaw}");

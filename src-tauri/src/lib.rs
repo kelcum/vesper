@@ -1,7 +1,3 @@
-//! Vesper: a calm, honest Roblox launcher for Windows and macOS.
-
-// `Problem` is a rich, user-facing error (what / why / fix). It is only returned
-// on failure paths that are rare and never in hot loops, so its size is fine.
 #![allow(clippy::result_large_err)]
 
 pub mod backup;
@@ -83,7 +79,6 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = app.state::<AppState>();
 
-            // Discord presence runs on its own thread.
             let status_app = handle.clone();
             let presence = Presence::start(move |s| {
                 let _ = status_app.emit(events::DISCORD, &s);
@@ -99,7 +94,6 @@ pub fn run() {
             state::spawn_roblox_watcher(handle.clone());
             fit_window_to_screen(&handle);
 
-            // Background checks that never block the window.
             let bg = handle.clone();
             tauri::async_runtime::spawn(async move {
                 let st = bg.state::<AppState>();
@@ -123,14 +117,12 @@ pub fn run() {
                     }
                     if state.settings().general.close_behavior == CloseBehavior::Tray {
                         api.prevent_close();
-                        // The interface explains the tray the first time, then hides itself.
                         let _ = app.emit(events::CLOSE_REQUESTED, ());
                     } else {
                         api.prevent_close();
                         tray::quit(app);
                     }
                 }
-                // Minimizing by hand can hide Vesper to the tray; minimizing for Roblox never does.
                 WindowEvent::Resized(_)
                     if state.settings().general.minimize_to_tray
                         && window.is_minimized().unwrap_or(false)
@@ -225,14 +217,12 @@ pub fn run() {
                 }
                 log::logger().flush();
             }
-            // Clicking Vesper in the Dock brings back a window closed to the menu bar.
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { has_visible_windows: false, .. } => tray::show_main(app),
             _ => {}
         });
 }
 
-/// Keeps the default window inside small screens (1280×720 and up).
 fn fit_window_to_screen(app: &tauri::AppHandle) {
     let Some(w) = app.get_webview_window("main") else { return };
     let Ok(Some(monitor)) = w.current_monitor() else { return };
@@ -247,8 +237,6 @@ fn fit_window_to_screen(app: &tauri::AppHandle) {
     }
 }
 
-/// 0.3.0 had an Avatar page that kept its own browser profile, holding the
-/// Roblox sign-in made there. The page is gone, so its data goes too.
 fn forget_avatar_page(cache: &std::path::Path) {
     let dir = cache.join("roblox-web");
     if dir.exists() {

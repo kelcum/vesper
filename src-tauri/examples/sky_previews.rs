@@ -1,7 +1,3 @@
-//! Renders each built-in sky as a horizon strip and a cross layout, for checking by eye.
-//!
-//! `cargo run --example sky_previews -- <output dir>`
-
 fn main() {
     let out = std::path::PathBuf::from(std::env::args().nth(1).expect("output directory"));
     std::fs::create_dir_all(&out).unwrap();

@@ -1,5 +1,3 @@
-//! Everything that touches Roblox: finding it, launching it, and reading what it reports.
-
 pub mod activity;
 pub mod cdn;
 pub mod deeplink;

@@ -1,12 +1,3 @@
-//! Structured logging.
-//!
-//! Every record is written as one JSON object per line to
-//! `logs/vesper-YYYY-MM-DD.log`, after passing through [`crate::redact`].
-//! A short in-memory tail feeds the diagnostics view without re-reading files.
-//!
-//! Vesper's own modules log at the configured level. Dependencies only
-//! contribute warnings and errors, so the log stays readable.
-
 use crate::redact::redact;
 use chrono::{SecondsFormat, Utc};
 use log::{Level, LevelFilter, Log, Metadata, Record};
@@ -58,7 +49,6 @@ fn usize_to_level(v: usize) -> LevelFilter {
     }
 }
 
-/// Installs the global logger. Calling it twice is harmless.
 pub fn init(dir: &Path, level: LevelFilter) {
     let logger = LOGGER.get_or_init(|| Logger {
         level: AtomicUsize::new(level_to_usize(level)),
@@ -71,14 +61,12 @@ pub fn init(dir: &Path, level: LevelFilter) {
     prune(dir, KEEP_FILES);
 }
 
-/// Changes the level for Vesper's own records at runtime.
 pub fn set_level(level: LevelFilter) {
     if let Some(l) = LOGGER.get() {
         l.level.store(level_to_usize(level), Ordering::Relaxed);
     }
 }
 
-/// The most recent entries, oldest first.
 pub fn tail(limit: usize) -> Vec<LogEntry> {
     LOGGER
         .get()
@@ -172,7 +160,6 @@ impl Log for Logger {
     }
 }
 
-/// Keeps the newest `keep` log files and deletes the rest.
 pub fn prune(dir: &Path, keep: usize) {
     let Ok(read) = std::fs::read_dir(dir) else { return };
     let mut files: Vec<PathBuf> = read
@@ -182,7 +169,6 @@ pub fn prune(dir: &Path, keep: usize) {
             p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("vesper-") && n.ends_with(".log"))
         })
         .collect();
-    // Names embed the date, so lexical order is chronological.
     files.sort();
     if files.len() > keep {
         for old in &files[..files.len() - keep] {

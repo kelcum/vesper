@@ -1,10 +1,3 @@
-//! Backups of Vesper's own configuration: settings and profiles (which hold
-//! the Fast Flags). Each backup is one readable JSON file.
-//!
-//! Automatic backups are taken before anything replaces configuration
-//! (restore, import, reset) and are pruned to the newest [`KEEP_AUTOMATIC`].
-//! Manual backups are never deleted automatically.
-
 use crate::config::Settings;
 use crate::paths::write_atomic;
 use crate::profiles::ProfileStore;
@@ -63,7 +56,6 @@ pub struct BackupInfo {
 impl Bundle {
     pub fn new(reason: Reason, settings: &Settings, profiles: &ProfileStore) -> Self {
         let mut settings = settings.clone();
-        // History of the last launch is not configuration.
         settings.last_launch = None;
         Self {
             format: FORMAT.into(),
@@ -76,7 +68,6 @@ impl Bundle {
         }
     }
 
-    /// Parses and validates a backup file's contents.
     pub fn parse(bytes: &[u8]) -> Result<Self, String> {
         let v: serde_json::Value =
             serde_json::from_slice(bytes).map_err(|e| format!("The file isn't valid JSON ({e})."))?;
@@ -113,7 +104,6 @@ fn file_for(dir: &Path, id: &str) -> Option<PathBuf> {
     is_valid_id(id).then(|| dir.join(format!("{id}.json")))
 }
 
-/// Writes a backup into `dir` and returns its info.
 pub fn create(dir: &Path, bundle: &Bundle) -> io::Result<BackupInfo> {
     std::fs::create_dir_all(dir)?;
     let base = format!("{}-{}", bundle.created_at.format("%Y%m%d-%H%M%S"), bundle.reason.slug());
@@ -132,7 +122,6 @@ pub fn create(dir: &Path, bundle: &Bundle) -> io::Result<BackupInfo> {
     Ok(bundle.info(id, json.len() as u64))
 }
 
-/// Lists backups, newest first. Unreadable files are skipped.
 pub fn list(dir: &Path) -> Vec<BackupInfo> {
     let Ok(rd) = std::fs::read_dir(dir) else { return Vec::new() };
     let mut out: Vec<BackupInfo> = rd
@@ -163,14 +152,12 @@ pub fn delete(dir: &Path, id: &str) -> io::Result<()> {
     std::fs::remove_file(path)
 }
 
-/// Copies a backup to a user-chosen location.
 pub fn export(dir: &Path, id: &str, dest: &Path) -> Result<(), String> {
     let bundle = load(dir, id)?;
     let json = serde_json::to_vec_pretty(&bundle).map_err(|e| e.to_string())?;
     std::fs::write(dest, json).map_err(|e| e.to_string())
 }
 
-/// Deletes the oldest automatic backups beyond `keep`.
 pub fn prune(dir: &Path, keep: usize) {
     let automatic: Vec<BackupInfo> = list(dir).into_iter().filter(|b| b.reason != Reason::Manual).collect();
     for old in automatic.iter().skip(keep) {

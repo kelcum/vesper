@@ -1,5 +1,3 @@
-//! Commands the interface can call. Every failure is a [`Problem`].
-
 use crate::backup::{self, BackupInfo, Bundle, Reason};
 use crate::cleanup::{self, CleanupSummary};
 use crate::config::{FlagMode, Settings};
@@ -50,8 +48,6 @@ fn after_profiles_change(app: &AppHandle, state: &AppState) -> Result<ProfileSto
     Ok(store)
 }
 
-// ------------------------------------------------------------------ bootstrap
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bootstrap {
@@ -100,8 +96,6 @@ pub fn notices_take(state: State<'_, AppState>) -> Vec<String> {
     std::mem::take(&mut *lock(&state.notices))
 }
 
-// ------------------------------------------------------------------ settings
-
 fn merge(base: &mut Value, patch: Value) {
     match (base, patch) {
         (Value::Object(b), Value::Object(p)) => {
@@ -113,7 +107,6 @@ fn merge(base: &mut Value, patch: Value) {
     }
 }
 
-/// Applies a partial settings object, e.g. `{"discord": {"richPresence": true}}`.
 #[tauri::command]
 pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value) -> Result<Settings> {
     let old = state.settings();
@@ -123,7 +116,6 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
         Problem::invalid("One of the settings has an unexpected value.", "Reload Vesper and try again.").details(e)
     })?;
     new.sanitize();
-    // Fields the interface can't change directly.
     new.last_launch = old.last_launch.clone();
     new.original_fps_cap = old.original_fps_cap;
     if let Some(dir) = &new.roblox.install_dir {
@@ -204,8 +196,6 @@ pub fn first_run_finish(app: AppHandle, state: State<'_, AppState>, choices: Fir
     bootstrap(state)
 }
 
-// ------------------------------------------------------------------ roblox
-
 #[tauri::command]
 pub fn roblox_detect(app: AppHandle, state: State<'_, AppState>) -> Detection {
     state.redetect(&app)
@@ -223,9 +213,6 @@ pub fn roblox_launch(app: AppHandle, input: Option<String>) -> Result<()> {
     crate::session::begin(app, target)
 }
 
-/// Closes Roblox and launches it again: into `input` when given, otherwise
-/// back into the current server when `rejoin` is set (or the same game, for
-/// servers that can't be joined by link).
 #[tauri::command]
 pub fn roblox_restart(app: AppHandle, state: State<'_, AppState>, input: Option<String>, rejoin: bool) -> Result<()> {
     let input = input.unwrap_or_default();
@@ -275,8 +262,6 @@ pub async fn roblox_latest(state: State<'_, AppState>, refresh: bool) -> Result<
         }
     }
 }
-
-// ------------------------------------------------------------------ games, servers, history
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -337,7 +322,6 @@ pub fn shaders_info(state: State<'_, AppState>) -> ShaderInfo {
     }
 }
 
-/// The slider values of a built-in look.
 #[tauri::command]
 pub fn shaders_preset(id: String) -> Result<crate::shade::ShaderParams> {
     crate::shade::preset(&id).ok_or_else(|| Problem::invalid("That look doesn't exist.", "Pick one from the list."))
@@ -348,7 +332,6 @@ pub fn servers_regions() -> Vec<RegionInfo> {
     crate::servers::REGIONS.iter().map(|r| RegionInfo { id: r.id, label: r.label }).collect()
 }
 
-/// Ping to every Roblox city, or to the cities a game (link or place id) has servers in.
 #[tauri::command]
 pub async fn servers_scan(
     state: State<'_, AppState>,
@@ -374,8 +357,6 @@ pub async fn servers_scan(
                 .action(ProblemAction::Retry)
         })
 }
-
-// ------------------------------------------------------------------ flags
 
 #[tauri::command]
 pub fn flags_validate(flags: FlagSet) -> Vec<Issue> {
@@ -413,7 +394,6 @@ pub struct InstalledFlags {
     pub written_by_vesper: bool,
 }
 
-/// What's in the Roblox install's ClientAppSettings.json right now.
 #[tauri::command]
 pub fn flags_installed(state: State<'_, AppState>) -> InstalledFlags {
     let Some(install) = state.preferred_install() else {
@@ -430,12 +410,10 @@ pub fn flags_installed(state: State<'_, AppState>) -> InstalledFlags {
     InstalledFlags { file: Some(crate::redact::display_path(&path)), flags, error, written_by_vesper: owned }
 }
 
-/// Recovery: removes the flags Vesper wrote from every Roblox folder.
 #[tauri::command]
 pub fn flags_remove_applied(app: AppHandle, state: State<'_, AppState>, force: bool) -> CleanupSummary {
     let summary = {
         let mut ledger = lock(&state.ownership);
-        // Also cover the current install if it has a file Vesper never recorded.
         if force {
             if let Some(i) = state.preferred_install() {
                 let _ = apply::remove(&i.dir, &mut ledger, true, &state.paths.roblox_backups());
@@ -448,8 +426,6 @@ pub fn flags_remove_applied(app: AppHandle, state: State<'_, AppState>, force: b
     log::info!("Reset Fast Flags: {summary:?}");
     summary
 }
-
-// ------------------------------------------------------------------ profiles
 
 #[tauri::command]
 pub fn profiles_get(state: State<'_, AppState>) -> ProfileStore {
@@ -531,8 +507,6 @@ pub fn profiles_import(app: AppHandle, state: State<'_, AppState>, path: PathBuf
     Ok(ImportOutcome { store, profile: r.profile, issues: r.issues })
 }
 
-// ------------------------------------------------------------------ frame-rate cap
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FpsCapStatus {
@@ -540,7 +514,6 @@ pub struct FpsCapStatus {
     pub original: Option<i32>,
     pub display_hz: Option<u32>,
     pub error: Option<String>,
-    /// Roblox's settings file is read-only (often another launcher's lock).
     pub locked: bool,
 }
 
@@ -564,7 +537,6 @@ pub fn fps_cap_status(state: State<'_, AppState>) -> FpsCapStatus {
     fps_status(&state)
 }
 
-/// Puts Roblox's frame-rate setting back to what it was before Vesper changed it.
 #[tauri::command]
 pub fn fps_cap_restore(state: State<'_, AppState>) -> Result<FpsCapStatus> {
     if state.roblox_running.load(Ordering::Relaxed) {
@@ -575,7 +547,6 @@ pub fn fps_cap_restore(state: State<'_, AppState>) -> Result<FpsCapStatus> {
     }
     let original = lock(&state.settings).original_fps_cap.unwrap_or(gbs::DEFAULT_CAP);
     match gbs::set_cap(&state.env.roblox_data(), original) {
-        // Nothing to put back: Roblox will create the file with its own default.
         Ok(_) | Err(gbs::CapError::NoSettingsFile) => {}
         Err(gbs::CapError::ReadOnly) => {
             return Err(Problem::new("fps.locked", "Roblox's settings file is locked")
@@ -593,9 +564,6 @@ pub fn fps_cap_restore(state: State<'_, AppState>) -> Result<FpsCapStatus> {
     Ok(fps_status(&state))
 }
 
-// ------------------------------------------------------------------ performance
-
-/// The interface reports which views need live data; sampling stops when none do.
 #[tauri::command]
 pub fn perf_watch(app: AppHandle, state: State<'_, AppState>, source: String, active: bool) {
     {
@@ -613,8 +581,6 @@ pub fn perf_watch(app: AppHandle, state: State<'_, AppState>, source: String, ac
 pub fn system_info(state: State<'_, AppState>) -> SystemInfo {
     state.system.clone()
 }
-
-// ------------------------------------------------------------------ backups & recovery
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -638,7 +604,6 @@ fn restore_bundle(app: &AppHandle, state: &AppState, bundle: Bundle, reason: Rea
     let mut settings = bundle.settings;
     {
         let current = lock(&state.settings);
-        // Keep machine history and the remembered original cap from this PC.
         settings.last_launch = current.last_launch.clone();
         settings.original_fps_cap = current.original_fps_cap;
     }
@@ -703,8 +668,6 @@ pub fn recovery_reset_settings(app: AppHandle, state: State<'_, AppState>) -> Re
     restore_bundle(&app, &state, bundle, Reason::BeforeReset)
 }
 
-// ------------------------------------------------------------------ folders, links, diagnostics
-
 #[tauri::command]
 pub fn open_folder(app: AppHandle, state: State<'_, AppState>, kind: String) -> Result<()> {
     let path = match kind.as_str() {
@@ -734,12 +697,9 @@ const ALLOWED_HOSTS: &[&str] = &[
     "discord.com",
     "learn.microsoft.com",
     "support.microsoft.com",
-    // Free fonts for the Customize page.
     "fonts.google.com",
     "www.fontshare.com",
-    // Free 360° skies for the Customize page.
     "polyhaven.com",
-    // Reporting a wrong Windows Security detection.
     "www.microsoft.com",
 ];
 
@@ -804,8 +764,6 @@ pub fn logs_tail(limit: usize) -> Vec<LogEntry> {
     logging::tail(limit.min(400))
 }
 
-// ------------------------------------------------------------------ discord
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscordInfo {
@@ -817,8 +775,6 @@ pub struct DiscordInfo {
 pub fn discord_status(state: State<'_, AppState>) -> DiscordInfo {
     DiscordInfo { status: state.presence_status(), configured: crate::discord::client_id().is_some() }
 }
-
-// ------------------------------------------------------------------ updates
 
 fn set_update(app: &AppHandle, state: &AppState, s: UpdateState) {
     *lock(&state.update) = s.clone();
@@ -856,7 +812,6 @@ pub async fn updates_check(app: AppHandle, state: State<'_, AppState>) -> Result
     Ok(next)
 }
 
-/// Downloads, verifies and installs the pending update, then restarts Vesper.
 #[tauri::command]
 pub async fn updates_install(app: AppHandle, state: State<'_, AppState>) -> Result<()> {
     let update = lock(&state.pending_update).take().ok_or_else(|| {
@@ -897,8 +852,6 @@ pub async fn updates_install(app: AppHandle, state: State<'_, AppState>) -> Resu
     }
 }
 
-// ------------------------------------------------------------------ window
-
 #[tauri::command]
 pub fn app_hide(app: AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -911,7 +864,6 @@ pub fn app_quit(app: AppHandle) {
     crate::tray::quit(&app);
 }
 
-/// Called once the interface has rendered, so the window never flashes empty.
 #[tauri::command]
 pub fn app_ready(app: AppHandle, state: State<'_, AppState>) {
     let hidden_start = std::env::args().any(|a| a == "--autostart") && state.settings().general.start_minimized;
@@ -922,7 +874,6 @@ pub fn app_ready(app: AppHandle, state: State<'_, AppState>) {
         state.sync_keep_applied(&app);
     }
     state.sync_shaders(&app);
-    // "Launch Roblox when Vesper starts": once per run, not on every window reload.
     static LAUNCHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if state.settings().general.launch_roblox_on_start
         && !state.roblox_running.load(Ordering::Relaxed)

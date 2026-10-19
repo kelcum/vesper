@@ -1,18 +1,7 @@
-//! Custom skyboxes.
-//!
-//! Roblox draws its default sky from six textures in
-//! `PlatformContent\pc\textures\sky` (DXT1 DDS files named `.tex`). Games
-//! that place their own Sky keep theirs; every other game shows these, so
-//! replacing them gives a custom sky there. Vesper builds the six faces from
-//! a built-in look, a single panorama picture, or six pictures, encodes them
-//! the way Roblox's own files are encoded, and lets the mods system put them
-//! in place (and back).
-
 use image::{imageops::FilterType, DynamicImage, Rgba, RgbaImage};
 use std::path::Path;
 
 pub const SKY_DIR: &str = r"PlatformContent\pc\textures\sky";
-/// Roblox's names for the faces, in its file order.
 pub const FACES: [&str; 6] = ["bk", "dn", "ft", "lf", "rt", "up"];
 pub const FACE_SIZE: u32 = 1024;
 
@@ -22,8 +11,6 @@ pub fn face_rel(face: &str) -> String {
 
 pub const PRESETS: &[(&str, &str)] =
     &[("midnight", "Midnight"), ("sunset", "Sunset"), ("dawn", "Dawn"), ("overcast", "Overcast"), ("void", "Void")];
-
-// ------------------------------------------------------------------ DXT1
 
 fn to565(c: [f32; 3]) -> u16 {
     let r = (c[0].clamp(0.0, 255.0) * 31.0 / 255.0).round() as u16;
@@ -40,10 +27,8 @@ fn dist2(a: [f32; 3], b: [f32; 3]) -> f32 {
     (0..3).map(|i| (a[i] - b[i]).powi(2)).sum()
 }
 
-/// Compresses one 4×4 block of RGB colours into 8 bytes (opaque DXT1).
 fn encode_block(px: &[[f32; 3]; 16]) -> [u8; 8] {
     let mean = px.iter().fold([0.0f32; 3], |m, p| [m[0] + p[0] / 16.0, m[1] + p[1] / 16.0, m[2] + p[2] / 16.0]);
-    // Main axis of the colours (a few rounds of power iteration on the covariance).
     let mut cov = [[0.0f32; 3]; 3];
     for p in px {
         let d = [p[0] - mean[0], p[1] - mean[1], p[2] - mean[2]];
@@ -74,7 +59,6 @@ fn encode_block(px: &[[f32; 3]; 16]) -> [u8; 8] {
         std::mem::swap(&mut c0, &mut c1);
     }
     if c0 == c1 {
-        // Four-colour mode needs c0 > c1; a flat block uses index 0 throughout.
         return [c0 as u8, (c0 >> 8) as u8, c1 as u8, (c1 >> 8) as u8, 0, 0, 0, 0];
     }
     let (a, b) = (from565(c0), from565(c1));
@@ -114,25 +98,22 @@ fn encode_level(img: &RgbaImage) -> Vec<u8> {
     out
 }
 
-/// A complete DDS file: DXT1, square, with every mip level down to 1×1, as
-/// Roblox ships its own sky.
 pub fn encode_dds(face: &RgbaImage) -> Vec<u8> {
     let size = face.width();
     let levels = 32 - size.leading_zeros();
     let mut out = Vec::new();
     out.extend_from_slice(b"DDS ");
     let mut header = [0u32; 31];
-    header[0] = 124; // header size
-    header[1] = 0x1 | 0x2 | 0x4 | 0x1000 | 0x20000 | 0x80000; // caps, height, width, pixel format, mip count, linear size
+    header[0] = 124;
+    header[1] = 0x1 | 0x2 | 0x4 | 0x1000 | 0x20000 | 0x80000;
     header[2] = size;
     header[3] = size;
     header[4] = size.div_ceil(4) * size.div_ceil(4) * 8;
     header[6] = levels;
-    // Pixel format (offset 72 in the file).
     header[18] = 32;
-    header[19] = 0x4; // four-cc
+    header[19] = 0x4;
     header[20] = u32::from_le_bytes(*b"DXT1");
-    header[26] = 0x1000 | 0x8 | 0x400000; // texture, complex, mipmap
+    header[26] = 0x1000 | 0x8 | 0x400000;
     for v in header {
         out.extend_from_slice(&v.to_le_bytes());
     }
@@ -147,7 +128,6 @@ pub fn encode_dds(face: &RgbaImage) -> Vec<u8> {
     out
 }
 
-/// Decodes the top level of a DXT1 DDS file (for previews and checks).
 pub fn decode_dds(bytes: &[u8]) -> Option<RgbaImage> {
     if bytes.len() < 128 || &bytes[0..4] != b"DDS " || &bytes[84..88] != b"DXT1" {
         return None;
@@ -193,15 +173,6 @@ pub fn decode_dds(bytes: &[u8]) -> Option<RgbaImage> {
     Some(img)
 }
 
-// ------------------------------------------------------------------ building faces
-
-/// Where a pixel of a face looks, as a unit vector (x right, y up, z back;
-/// the camera's default forward is −z).
-///
-/// Worked out from Roblox's own sky: going right around the horizon the
-/// faces are `rt`, `ft`, `lf`, `bk`, each upright as stored; `up` is stored
-/// turned a quarter anticlockwise from its place above that ring, `dn` a
-/// quarter clockwise.
 fn direction(face: &str, u: f32, v: f32) -> [f32; 3] {
     let (a, b) = (2.0 * u - 1.0, 1.0 - 2.0 * v);
     let d = match face {
@@ -210,12 +181,10 @@ fn direction(face: &str, u: f32, v: f32) -> [f32; 3] {
         "bk" => [-a, b, 1.0],
         "rt" => [-1.0, b, -a],
         "up" => {
-            // Position in the ring layout, where the bottom edge meets ft.
             let (ru, rv) = (1.0 - v, u);
             [2.0 * ru - 1.0, 1.0, 1.0 - 2.0 * rv]
         }
         _ => {
-            // "dn": the top edge meets ft in the ring layout.
             let (ru, rv) = (v, 1.0 - u);
             [2.0 * ru - 1.0, -1.0, 2.0 * rv - 1.0]
         }
@@ -224,7 +193,6 @@ fn direction(face: &str, u: f32, v: f32) -> [f32; 3] {
     [d[0] / len, d[1] / len, d[2] / len]
 }
 
-/// Renders the six faces from a function of direction, in parallel.
 pub fn render(size: u32, color: &(dyn Fn([f32; 3]) -> [f32; 3] + Sync)) -> Vec<(&'static str, RgbaImage)> {
     std::thread::scope(|s| {
         let jobs: Vec<_> = FACES
@@ -259,7 +227,6 @@ fn hex(c: u32) -> [f32; 3] {
     [((c >> 16) & 255) as f32, ((c >> 8) & 255) as f32, (c & 255) as f32]
 }
 
-/// A vertical gradient: below the horizon, at it, partway up, and at the top.
 fn gradient(d: [f32; 3], ground: u32, horizon: u32, mid: u32, zenith: u32) -> [f32; 3] {
     let y = d[1];
     if y < 0.0 {
@@ -272,7 +239,6 @@ fn gradient(d: [f32; 3], ground: u32, horizon: u32, mid: u32, zenith: u32) -> [f
     }
 }
 
-/// Deterministic sparkle for night skies.
 fn stars(d: [f32; 3]) -> f32 {
     if d[1] < 0.02 {
         return 0.0;
@@ -296,7 +262,6 @@ fn stars(d: [f32; 3]) -> f32 {
     (1.0 - dist * 1.6).max(0.0) * brightness * (d[1] * 3.0).min(1.0)
 }
 
-/// A soft glow around a light source.
 fn glow(d: [f32; 3], toward: [f32; 3], size: f32) -> f32 {
     let dot = d[0] * toward[0] + d[1] * toward[1] + d[2] * toward[2];
     ((dot - 1.0) / size).exp()
@@ -326,9 +291,8 @@ pub fn preset_color(id: &str) -> Option<fn([f32; 3]) -> [f32; 3]> {
     })
 }
 
-/// Samples an equirectangular panorama (2:1, 360° wide) in a direction.
 fn sample_panorama(img: &RgbaImage, d: [f32; 3]) -> [f32; 3] {
-    let lon = d[0].atan2(-d[2]); // 0 straight ahead, positive to the right
+    let lon = d[0].atan2(-d[2]);
     let lat = d[1].clamp(-1.0, 1.0).asin();
     let (w, h) = (img.width() as f32, img.height() as f32);
     let x = (0.5 + lon / std::f32::consts::TAU) * w - 0.5;
@@ -358,7 +322,6 @@ fn load_image(path: &Path) -> Result<DynamicImage, String> {
         .map_err(|_| "That file isn't a picture Vesper can read (PNG, JPEG or WebP).".to_string())
 }
 
-/// Faces from one 360° panorama picture.
 pub fn faces_from_panorama(path: &Path) -> Result<Vec<(&'static str, RgbaImage)>, String> {
     let img = load_image(path)?;
     let ratio = img.width() as f32 / img.height().max(1) as f32;
@@ -369,14 +332,11 @@ pub fn faces_from_panorama(path: &Path) -> Result<Vec<(&'static str, RgbaImage)>
             img.height()
         ));
     }
-    // Large enough to fill 1024-pixel faces, small enough to be quick.
     let img = if img.width() > 4096 { img.resize(4096, 2048, FilterType::Triangle) } else { img };
     let rgba = img.to_rgba8();
     Ok(render(FACE_SIZE, &|d| sample_panorama(&rgba, d)))
 }
 
-/// Which face a file name stands for: SkyboxBk/Back, Dn/Down/Bottom,
-/// Ft/Front, Lf/Left, Rt/Right, Up/Top.
 pub fn face_of_name(name: &str) -> Option<&'static str> {
     let stem = Path::new(name).file_stem()?.to_string_lossy().to_lowercase();
     let words: &[(&str, &[&str])] = &[
@@ -404,7 +364,6 @@ pub fn face_of_name(name: &str) -> Option<&'static str> {
     found
 }
 
-/// Faces from six pictures, matched to faces by their file names.
 pub fn faces_from_files(paths: &[std::path::PathBuf]) -> Result<Vec<(&'static str, RgbaImage)>, String> {
     let mut out: Vec<(&'static str, RgbaImage)> = Vec::new();
     for p in paths {
@@ -427,7 +386,6 @@ pub fn faces_from_files(paths: &[std::path::PathBuf]) -> Result<Vec<(&'static st
     Ok(out)
 }
 
-/// A 360° strip of the horizon (the four sides in viewing order), for previews.
 pub fn preview_strip(faces: &[(&str, RgbaImage)], height: u32) -> RgbaImage {
     let mut strip = RgbaImage::new(height * 4, height);
     for (i, name) in ["rt", "ft", "lf", "bk"].iter().enumerate() {
@@ -450,7 +408,6 @@ mod tests {
             *p = Rgba([(x * 4) as u8, (y * 4) as u8, 128, 255]);
         }
         let dds = encode_dds(&img);
-        // Same layout as Roblox's own sky files: header + every level down to 1×1.
         let expected: usize = (0..7).map(|l| ((64u32 >> l).div_ceil(4).pow(2) * 8) as usize).sum();
         assert_eq!(dds.len(), 128 + expected);
         assert_eq!(u32::from_le_bytes(dds[28..32].try_into().unwrap()), 7, "mip count");
@@ -467,7 +424,6 @@ mod tests {
     #[test]
     fn roblox_sized_faces_match_its_file_size() {
         let face = RgbaImage::from_pixel(FACE_SIZE, FACE_SIZE, Rgba([10, 20, 30, 255]));
-        // Roblox's sky512_*.tex files are 699,192 bytes.
         assert_eq!(encode_dds(&face).len(), 699_192);
     }
 
@@ -485,7 +441,6 @@ mod tests {
         a.iter().zip(b).all(|(p, q)| (0..3).all(|k| (p[k] as i32 - q[k] as i32).abs() <= 12))
     }
 
-    /// The faces meet without seams in the layout found in Roblox's own sky.
     #[test]
     fn rendered_faces_join_like_robloxs() {
         let colour = |d: [f32; 3]| [(d[0] + 1.0) * 127.0, (d[1] + 1.0) * 127.0, (d[2] + 1.0) * 127.0];
@@ -495,7 +450,6 @@ mod tests {
             let (a, b) = (&faces[ring[i]], &faces[ring[(i + 1) % 4]]);
             assert!(close(&edge(a, "right"), &edge(b, "left")), "{} → {}", ring[i], ring[(i + 1) % 4]);
         }
-        // Roblox's up face sits above the ring once turned a quarter clockwise; dn anticlockwise.
         let up = image::imageops::rotate90(&faces["up"]);
         let dn = image::imageops::rotate270(&faces["dn"]);
         assert!(close(&edge(&up, "bottom"), &edge(&faces["ft"], "top")), "up meets ft");
@@ -503,7 +457,6 @@ mod tests {
         let up_left: Vec<[u8; 4]> = edge(&up, "left");
         let rt_top: Vec<[u8; 4]> = edge(&faces["rt"], "top");
         assert!(close(&up_left, &rt_top), "up meets rt");
-        // Straight ahead is the middle of ft; the sky is above.
         assert!(faces["ft"].get_pixel(32, 32).0[2] < 10, "ft looks toward -z");
         assert!(faces["up"].get_pixel(32, 32).0[1] > 245);
     }
@@ -512,7 +465,6 @@ mod tests {
     fn panoramas_put_the_middle_straight_ahead() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pano.png");
-        // Left half red, right half blue: the middle of the picture is ahead.
         let mut pano = RgbaImage::new(512, 256);
         for (x, _, p) in pano.enumerate_pixels_mut() {
             *p = if x < 256 { Rgba([255, 0, 0, 255]) } else { Rgba([0, 0, 255, 255]) };

@@ -1,17 +1,3 @@
-// Vesper mark geometry. Everything is drawn on a 1024×1024 canvas.
-//
-// The mark is a dusk scene: a dark sky, the luminous limb of a planet,
-// and the evening star above it. Three shapes, so it survives 16 px.
-//
-// `detail` controls optical sizing:
-//   "full"  – halo, atmosphere glow and glass edge (≥ 48 px)
-//   "small" – thicker limb, larger star, no soft effects (≤ 32 px)
-// `container` controls the outer shape:
-//   "squircle" – app icon tile
-//   "circle"   – standalone logo / avatar
-//   "square"   – full bleed, no rounding (Discord / GitHub crop it themselves)
-//   "none"     – transparent background, limb + star only (for overlays)
-
 export const palette = {
   skyTop: '#0c0b1a',
   skyHorizon: '#221d47',
@@ -27,15 +13,9 @@ export const palette = {
 const S = 1024;
 const CX = 512;
 
-// The limb highlight is the planet circle minus a second, larger circle.
-// Given the planet (cy, r), the band thickness at the top (`top`) and at
-// the canvas edges (`edge`), solve for the cut circle so the band tapers
-// like real atmospheric light instead of having a uniform stroke.
 function solveCut(cy, r, top, edge) {
   const half = S / 2;
   const edgeY = cy - Math.sqrt(r * r - half * half);
-  // Unknown e (radius growth). Cut centre is cy + top + e, radius r + e.
-  // At the edge: (cy + top + e) - sqrt((r + e)^2 - half^2) = edgeY + edge
   let lo = 0;
   let hi = 20000;
   for (let i = 0; i < 200; i++) {
@@ -48,7 +28,6 @@ function solveCut(cy, r, top, edge) {
   return { cy: cy + top + e, r: r + e };
 }
 
-// Optical sizes: the same drawing, re-weighted so it reads at each size.
 const OPTICAL = {
   full: { planetCy: 1640, top: 74, edge: 12, star: { x: 668, y: 304, r: 30 } },
   medium: { planetCy: 1610, top: 104, edge: 28, star: { x: 684, y: 300, r: 56 } },
@@ -57,7 +36,6 @@ const OPTICAL = {
 
 function geometry(detail) {
   const o = OPTICAL[detail] ?? OPTICAL.full;
-  // Planet: a very large circle whose top edge forms the horizon.
   const planetR = 1060;
   return {
     planetCy: o.planetCy,
@@ -67,7 +45,6 @@ function geometry(detail) {
   };
 }
 
-/** Picks the optical size for a target pixel size. */
 export function detailFor(px) {
   if (px <= 32) return 'small';
   if (px <= 96) return 'medium';
@@ -80,10 +57,6 @@ function clipShape(container) {
   return null;
 }
 
-/**
- * Returns the inner SVG markup (defs + shapes) for the mark.
- * `id` prefixes gradient ids so several marks can live in one document.
- */
 export function markBody({ detail = 'full', container = 'squircle', id = 'v' } = {}) {
   const g = geometry(detail);
   const horizonY = g.planetCy - g.planetR;
@@ -161,13 +134,8 @@ export function markSvg(opts = {}) {
 `;
 }
 
-/**
- * The mark as a macOS menu bar "template" image: limb and star in solid
- * black on transparent. macOS recolours it for light and dark menu bars.
- */
 export function trayTemplateSvg() {
   const g = geometry('small');
-  // Cropped to the drawing: macOS sizes menu bar images by height.
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="112 170 800 560" width="800" height="560">
   <defs>
     <mask id="t-limbmask" maskUnits="userSpaceOnUse" x="0" y="0" width="${S}" height="${S}">

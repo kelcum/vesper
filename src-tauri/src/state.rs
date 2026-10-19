@@ -1,8 +1,3 @@
-//! Application state shared by commands, the tray and background threads.
-//!
-//! Locks are held briefly and never nested: data is cloned out, worked on,
-//! then written back.
-
 use crate::config::{FlagMode, Settings};
 use crate::discord::presence::{Presence, PresenceState, PresenceStatus};
 use crate::error::{Problem, ProblemAction, Result};
@@ -50,7 +45,6 @@ pub enum LaunchStatus {
         step: String,
     },
     Starting,
-    /// Roblox's own installer is updating Roblox before it opens.
     Updating,
     Running {
         pid: u32,
@@ -72,7 +66,6 @@ pub struct MonitorControl {
     pub sources: BTreeSet<String>,
 }
 
-/// Counts shader overlays started, so only the newest one reports its status.
 static SHADE_RUN: AtomicU64 = AtomicU64::new(0);
 
 pub struct AppState {
@@ -98,32 +91,23 @@ pub struct AppState {
     pub mods: Mutex<ModsConfig>,
     pub mod_ledger: Mutex<ModLedger>,
     pub last_mod_report: Mutex<Option<ModReport>>,
-    /// The game and server the player is in, from Roblox's log.
     pub activity: Mutex<Option<crate::roblox::activity::Activity>>,
     pub activity_watch: Mutex<Option<crate::roblox::activity::ActivityWatcher>>,
-    /// The signed-in Roblox player's id, from Roblox's log.
     pub roblox_user: Mutex<Option<u64>>,
     pub user_info: Mutex<Option<crate::roblox::web::UserInfo>>,
-    /// Game names and icons by universe id.
     pub games: Mutex<std::collections::HashMap<u64, crate::roblox::web::GameInfo>>,
-    /// Universe ids by place id, looked up when Roblox's log doesn't say.
     pub universes: Mutex<std::collections::HashMap<u64, u64>>,
-    /// Server cities by server address.
     pub locations: Mutex<std::collections::HashMap<String, crate::roblox::web::Location>>,
     pub history: Mutex<crate::history::History>,
     pub server_cache: crate::servers::ServerCache,
     pub shade: Mutex<Option<crate::shade::Overlay>>,
     pub shade_status: Mutex<crate::shade::ShaderStatus>,
     pub roblox_running: AtomicBool,
-    /// Vesper hid or minimized itself when it launched Roblox.
     pub hidden_for_roblox: AtomicBool,
-    /// Vesper minimized itself for Roblox and should stay on the taskbar (or
-    /// Dock), even with "Minimize to tray" on. Cleared when the window is used again.
     pub minimized_for_roblox: AtomicBool,
     pub quitting: AtomicBool,
 }
 
-/// Locks a mutex, recovering from poisoning (a panicked thread must not lock the app up).
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -216,9 +200,6 @@ impl AppState {
         }
     }
 
-    /// Brings Roblox's files in line with the mod settings. `dir` is an install
-    /// folder (see `RobloxInstall::dir`). Returns `None` when nothing is
-    /// configured and nothing was applied before.
     pub fn apply_mods(&self, dir: &std::path::Path) -> Option<ModReport> {
         let cfg = lock(&self.mods).clone();
         let nothing = cfg == ModsConfig::default() && lock(&self.mod_ledger).files.is_empty();
@@ -231,7 +212,6 @@ impl AppState {
             Err(e) => log::warn!("Couldn't rebuild the picture emote wheel: {e}"),
         }
         let content = detect::content_root(dir);
-        // macOS: Roblox.app's signature tells Roblox's own files from leftovers.
         #[cfg(target_os = "macos")]
         let roblox = crate::roblox::originals::MacOriginals::read(&content, self.http.clone());
         #[cfg(target_os = "macos")]
@@ -351,7 +331,6 @@ impl AppState {
         let _ = app.emit(events::LAUNCH, &status);
     }
 
-    /// Starts or stops the performance monitor to match who is watching.
     pub fn sync_monitor(&self, app: &AppHandle) {
         let s = self.settings();
         let mut m = lock(&self.monitor);
@@ -367,21 +346,18 @@ impl AppState {
             ));
             log::debug!("Performance monitor started");
         } else if !wanted && m.handle.is_some() {
-            m.handle = None; // Drop stops the thread.
+            m.handle = None;
             log::debug!("Performance monitor stopped");
         }
     }
 
-    /// Restarts the monitor so changed settings (interval, FPS counter) take effect.
     pub fn restart_monitor(&self, app: &AppHandle) {
         lock(&self.monitor).handle = None;
         self.sync_monitor(app);
     }
 
-    /// Starts or stops the shader overlay: on while it's enabled and the player is in a game.
     pub fn sync_shaders(&self, app: &AppHandle) {
         let s = lock(&self.settings).shaders.clone();
-        // Only inside a game: the Roblox app's home and menus stay untouched.
         let in_game = lock(&self.activity).is_some();
         let wanted = s.enabled && in_game && self.roblox_running.load(Ordering::Relaxed);
         let mut slot = lock(&self.shade);
@@ -393,7 +369,6 @@ impl AppState {
                 *slot = Some(crate::shade::Overlay::start(s.params, crate::shade::roblox_window, move |status| {
                     let state = emitter.state::<AppState>();
                     let mut current = lock(&state.shade_status);
-                    // An overlay that was replaced reports "off" as it ends; that's not news.
                     if SHADE_RUN.load(Ordering::Relaxed) != run {
                         return;
                     }
@@ -412,7 +387,6 @@ impl AppState {
         }
     }
 
-    /// Starts or stops the Versions-folder watcher to match the flag mode.
     pub fn sync_keep_applied(&self, app: &AppHandle) {
         let mode = lock(&self.settings).roblox.flag_mode;
         let install = self.preferred_install();
@@ -434,7 +408,6 @@ impl AppState {
     }
 }
 
-/// Writes the active profile's flags into a version folder Roblox just created.
 pub fn apply_to_new_version(app: &AppHandle, dir: &std::path::Path) {
     let state = app.state::<AppState>();
     state.apply_mods(dir);
@@ -468,10 +441,6 @@ pub fn save_published(paths: &AppPaths, p: &PublishedValues) {
     }
 }
 
-/// Watches for Roblox starting and stopping (including launches from the website).
-/// A process snapshot costs about a millisecond and opens no handles.
-/// Brings Vesper back (or quits) once Roblox has stayed closed for a moment;
-/// Roblox briefly restarts itself when it updates.
 fn after_roblox_closed(app: AppHandle) {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(3));
@@ -480,7 +449,6 @@ fn after_roblox_closed(app: AppHandle) {
             state.hidden_for_roblox.store(true, Ordering::Relaxed);
             return;
         }
-        // Back in the tray, whatever happens to the window.
         crate::tray::set_shown(&app, true);
         let behaviour = lock(&state.settings).general.when_roblox_closes;
         log::info!("Roblox closed; Vesper will {behaviour:?}");
@@ -488,7 +456,6 @@ fn after_roblox_closed(app: AppHandle) {
             crate::config::WhenRobloxCloses::Show => crate::tray::show_main(&app),
             crate::config::WhenRobloxCloses::Stay => {}
             crate::config::WhenRobloxCloses::Quit => {
-                // Never close a window someone is using.
                 let in_use = app.get_webview_window("main").is_some_and(|w| {
                     w.is_visible().unwrap_or(false)
                         && !w.is_minimized().unwrap_or(false)
@@ -516,10 +483,6 @@ pub fn spawn_roblox_watcher(app: AppHandle) {
         .expect("spawn roblox watcher");
 }
 
-/// Records whether Roblox is running (`pids` are its players) and, when that
-/// changed, starts or stops everything that follows it. The watcher calls it
-/// every few seconds, and launches and restarts call it as soon as they know,
-/// so a change is never missed whoever notices it first.
 pub fn roblox_seen(app: &AppHandle, pids: &[u32]) {
     let state = app.state::<AppState>();
     let running = !pids.is_empty();

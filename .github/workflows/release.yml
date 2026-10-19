@@ -1,18 +1,5 @@
 name: Release
 
-# Builds the signed Windows installer, a portable zip and a universal macOS
-# app (disk image plus updater archive), then the updater manifest and
-# checksums, and creates a *draft* GitHub release for review.
-# Publishing to xan.gripe/vesper is a separate, manual step
-# (scripts/site/publish.mjs), so nothing goes public automatically.
-#
-# Repository secrets: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-# Repository variable (optional): VESPER_DISCORD_CLIENT_ID, to use a Discord application
-# other than the one built into src-tauri/src/discord/mod.rs
-#
-# The Mac app is signed ad hoc (no Apple Developer ID), so macOS asks people
-# to confirm it the first time they open it.
-
 on:
   push:
     tags: ['v*.*.*']
@@ -123,7 +110,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # One app for Apple silicon and Intel Macs.
       - name: Build app
         run: npx tauri build --target universal-apple-darwin --bundles app,dmg
 

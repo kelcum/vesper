@@ -1,24 +1,9 @@
-//! Noticing Roblox updates.
-//!
-//! When Roblox updates itself on Windows it installs into a new `version-…`
-//! folder, which has no ClientAppSettings.json. With "Keep flags applied" on,
-//! Vesper watches the Versions folder (event-driven, no polling) and writes the
-//! active profile's flags into a new folder as soon as it appears, again once
-//! the player executable lands, before Roblox starts it, and a last time when
-//! Roblox's installer finishes unpacking the rest (textures, fonts).
-//!
-//! On macOS Roblox replaces Roblox.app in place, which removes the flags and
-//! customisations. Vesper watches the app and applies them again once the
-//! update has settled.
-
 use super::detect::{DetectEnv, RobloxInstall};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-/// Starts watching for Roblox updates. `on_new_version` receives the install
-/// folder to bring up to date.
 pub fn watch_updates(
     env: &DetectEnv,
     install: Option<&RobloxInstall>,
@@ -47,9 +32,6 @@ fn installer_running() -> bool {
 }
 
 impl VersionsWatcher {
-    /// Calls `on_new_version(dir)` once when the folder appears, once more
-    /// when RobloxPlayerBeta.exe exists inside it, and again after Roblox's
-    /// installer exits if it was still running then.
     pub fn start(versions_dir: &Path, on_new_version: impl Fn(&Path) + Send + 'static) -> notify::Result<Self> {
         std::fs::create_dir_all(versions_dir).ok();
         let (tx, rx) = mpsc::channel::<PathBuf>();
@@ -70,7 +52,6 @@ impl VersionsWatcher {
                 while let Ok(dir) = rx.recv() {
                     log::info!("New Roblox version folder: {}", crate::redact::display_path(&dir));
                     on_new_version(&dir);
-                    // Wait (bounded) for the player to be extracted, then apply again.
                     let exe = dir.join(super::detect::PLAYER_EXE);
                     let deadline = Instant::now() + Duration::from_secs(180);
                     while !exe.is_file() && Instant::now() < deadline && dir.is_dir() {
@@ -92,14 +73,9 @@ impl VersionsWatcher {
         Ok(Self { _watcher: watcher, _thread: thread })
     }
 
-    /// Watches the app bundle that `install_dir` (its `Contents/MacOS`) belongs
-    /// to and calls `on_new_version(install_dir)` once changes to it have
-    /// settled and Roblox's installer has finished. Vesper's own writes cause
-    /// one more call, which finds nothing left to do.
     pub fn start_app(install_dir: &Path, on_new_version: impl Fn(&Path) + Send + 'static) -> notify::Result<Self> {
         let app = super::detect::app_bundle(install_dir)
             .ok_or_else(|| notify::Error::generic("Roblox isn't inside an app bundle"))?;
-        // Events arrive with symbolic links resolved (/var is /private/var).
         let app = std::fs::canonicalize(&app).unwrap_or(app);
         let parent = app.parent().ok_or_else(|| notify::Error::generic("Roblox.app has no parent folder"))?.to_owned();
         let dir = install_dir.to_path_buf();
@@ -112,7 +88,6 @@ impl VersionsWatcher {
                 }
             }
         })?;
-        // The parent, so replacing the whole app is noticed too.
         watcher.watch(&parent, RecursiveMode::Recursive)?;
 
         let thread = std::thread::Builder::new()
@@ -120,7 +95,6 @@ impl VersionsWatcher {
             .spawn(move || {
                 let exe = dir.join(super::detect::PLAYER_EXE);
                 while rx.recv().is_ok() {
-                    // Let the update settle: no changes for a few seconds and the installer gone.
                     let deadline = Instant::now() + Duration::from_secs(300);
                     loop {
                         match rx.recv_timeout(Duration::from_secs(3)) {
@@ -152,7 +126,6 @@ mod tests {
     #[test]
     fn reports_new_version_folders_twice_and_ignores_others() {
         let tmp = tempfile::tempdir().unwrap();
-        // macOS reports events under the real path (/private/var, not /var).
         let dir = tmp.path().canonicalize().unwrap();
         let calls = Arc::new(Mutex::new(Vec::<PathBuf>::new()));
         let seen = calls.clone();

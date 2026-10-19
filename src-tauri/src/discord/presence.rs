@@ -1,17 +1,3 @@
-//! Discord Rich Presence for Vesper itself.
-//!
-//! Runs on its own thread so Discord being slow, closed or restarting never
-//! affects the app. When Discord isn't available it retries quietly with
-//! backoff and logs only when the state changes. Turning the setting off
-//! clears the presence immediately; closing Vesper closes the pipe, which
-//! makes Discord remove it.
-//!
-//! The presence contains: Vesper's name and artwork, a short status and the
-//! session start time. When the player turns them on, it also shows the game
-//! being played (name, creator, icon, time in game), a button that joins the
-//! same public server, and a button to their Roblox profile. Never paths,
-//! account names, server addresses or anything else from Roblox.
-
 use super::ipc::{default_pipe_base, Connection, IpcError};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -20,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const PAGE_URL: &str = "https://xan.gripe/vesper";
-/// Art asset names uploaded to the Discord application (scripts/brand/discord.mjs).
 pub const LARGE_IMAGE: &str = "vesper";
 pub const SMALL_PLAYING: &str = "playing";
 pub const SMALL_IDLE: &str = "idle";
@@ -31,7 +16,6 @@ const REFRESH: Duration = Duration::from_secs(60);
 #[serde(rename_all = "camelCase", tag = "state", content = "detail")]
 pub enum PresenceStatus {
     Disabled,
-    /// This build has no Discord application ID.
     NotConfigured,
     Connecting,
     Connected,
@@ -40,14 +24,11 @@ pub enum PresenceStatus {
     Error(String),
 }
 
-/// The game being played, as far as the player chose to share it.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GamePresence {
     pub name: String,
     pub creator: String,
-    /// A Roblox CDN image.
     pub icon_url: Option<String>,
-    /// When the server was joined; `None` hides the timer.
     pub joined_unix: Option<i64>,
 }
 
@@ -58,12 +39,10 @@ pub struct PresenceState {
     pub show_profile: bool,
     pub show_roblox_status: bool,
     pub game: Option<GamePresence>,
-    /// Opens Roblox in the same public server.
     pub join_url: Option<String>,
     pub profile_url: Option<String>,
 }
 
-/// Discord requires 2 to 128 characters for text fields.
 fn text(s: &str, max: usize) -> String {
     let t: String = s.chars().take(max).collect();
     if t.chars().count() < 2 {
@@ -87,7 +66,6 @@ fn buttons(state: &PresenceState) -> Value {
     Value::Array(b)
 }
 
-/// The activity Discord shows. Pure, so it is easy to test for privacy.
 pub fn activity(state: &PresenceState, started_unix: i64) -> Value {
     if let Some(g) = &state.game {
         let mut a = json!({
@@ -124,7 +102,6 @@ pub fn activity(state: &PresenceState, started_unix: i64) -> Value {
         "buttons": buttons(state),
         "instance": false,
     });
-    // The badge shows whether Roblox is running, so it follows the same setting.
     if state.show_roblox_status {
         a["assets"]["small_image"] = json!(if state.roblox_running { SMALL_PLAYING } else { SMALL_IDLE });
         a["assets"]["small_text"] = json!(status);
@@ -148,7 +125,6 @@ pub struct Presence {
 }
 
 impl Presence {
-    /// Starts the presence thread. `on_status` is called whenever the status changes.
     pub fn start(on_status: impl Fn(PresenceStatus) + Send + 'static) -> Self {
         Self::start_with_pipe(default_pipe_base(), on_status)
     }
@@ -176,7 +152,6 @@ impl Presence {
         self.status.lock().map(|s| s.clone()).unwrap_or(PresenceStatus::Disabled)
     }
 
-    /// Clears the presence and stops the thread (waits briefly).
     pub fn shutdown(mut self) {
         let _ = self.tx.send(Command::Shutdown);
         if let Some(t) = self.thread.take() {
@@ -275,7 +250,6 @@ impl Worker {
             }
             Err(IpcError::NotRunning) => self.schedule_retry(PresenceStatus::DiscordNotRunning),
             Err(IpcError::Closed { code, message }) => {
-                // A rejected client ID won't fix itself quickly; retry slowly.
                 self.backoff = MAX_BACKOFF;
                 self.schedule_retry(PresenceStatus::Rejected(format!("{message} ({code})")));
             }
@@ -330,7 +304,6 @@ impl Worker {
                         continue;
                     }
                     if self.conn.is_some() {
-                        // Periodic refresh doubles as a liveness check.
                         self.push();
                     } else if Instant::now() >= self.next_attempt {
                         self.try_connect();

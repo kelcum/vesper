@@ -1,8 +1,3 @@
-//! Recently played games and servers, kept only on this PC.
-//!
-//! Stored as `history.json` in the config folder. Nothing here is sent
-//! anywhere. Recording can be turned off and the list cleared at any time.
-
 use crate::paths::write_atomic;
 use crate::roblox::activity::{Activity, ServerKind};
 use chrono::{DateTime, Utc};
@@ -21,7 +16,6 @@ pub struct Visit {
     pub name: Option<String>,
     pub creator: Option<String>,
     pub icon_url: Option<String>,
-    /// Where the server was, e.g. "London, GB".
     pub location: Option<String>,
     pub joined_at: DateTime<Utc>,
     pub left_at: Option<DateTime<Utc>>,
@@ -47,7 +41,6 @@ impl Visit {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct History {
-    /// Newest first.
     pub visits: Vec<Visit>,
 }
 
@@ -60,9 +53,6 @@ impl History {
         write_atomic(path, &serde_json::to_vec_pretty(self).map_err(std::io::Error::other)?)
     }
 
-    /// Records a server being joined. Joining the same server again (after a
-    /// reconnect or a restart) moves its entry up and starts its time again,
-    /// so the list stays newest first.
     pub fn joined(&mut self, a: &Activity) {
         if let Some(i) = self.visits.iter().position(|v| v.job_id == a.job_id && v.place_id == a.place_id) {
             let mut v = self.visits.remove(i);
@@ -76,7 +66,6 @@ impl History {
         self.visits.truncate(MAX_VISITS);
     }
 
-    /// Fills in details for the visit to `job_id`.
     pub fn update(&mut self, job_id: &str, f: impl FnOnce(&mut Visit)) -> bool {
         match self.visits.iter_mut().find(|v| v.job_id == job_id) {
             Some(v) => {
@@ -96,7 +85,6 @@ impl History {
         });
     }
 
-    /// Marks every open visit as ended (Roblox closed).
     pub fn close_all(&mut self, at: DateTime<Utc>) {
         for v in self.visits.iter_mut().filter(|v| v.left_at.is_none()) {
             v.left_at = Some(at);

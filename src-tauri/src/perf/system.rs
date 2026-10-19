@@ -1,12 +1,9 @@
-//! Static hardware facts and whole-system counters.
-
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuInfo {
     pub name: String,
-    /// Video memory of its own; 0 when the GPU shares system memory (Apple silicon).
     pub dedicated_memory: u64,
     pub vendor_id: u32,
 }
@@ -14,7 +11,6 @@ pub struct GpuInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemInfo {
-    /// `windows`, `macos` or `linux`, so the interface can word things for this system.
     pub platform: &'static str,
     pub os: String,
     pub cpu: String,
@@ -53,13 +49,11 @@ fn hklm_u32(path: &str, name: &str) -> Option<u32> {
     windows_registry::LOCAL_MACHINE.open(path).ok()?.get_u32(name).ok()
 }
 
-/// "Windows 11 Home 25H2 (build 26200.1234)".
 #[cfg(windows)]
 pub fn os_name() -> String {
     const KEY: &str = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion";
     let build: u32 = hklm(KEY, "CurrentBuildNumber").and_then(|b| b.parse().ok()).unwrap_or(0);
     let mut product = hklm(KEY, "ProductName").unwrap_or_else(|| "Windows".into());
-    // Windows 11 still reports "Windows 10" in ProductName.
     if build >= 22000 {
         product = product.replace("Windows 10", "Windows 11");
     }
@@ -68,7 +62,6 @@ pub fn os_name() -> String {
     format!("{product}{display} (build {build}{ubr})")
 }
 
-/// "macOS 15.1 (build 24B83)".
 #[cfg(target_os = "macos")]
 pub fn os_name() -> String {
     let version = mac::sysctl_string("kern.osproductversion").unwrap_or_default();
@@ -104,23 +97,19 @@ pub fn memory() -> Option<Memory> {
     Some(Memory { total: m.ullTotalPhys, available: m.ullAvailPhys })
 }
 
-/// Total memory, and what's available the way Activity Monitor counts it
-/// (everything except app memory, wired memory and the compressor).
 #[cfg(target_os = "macos")]
-#[allow(deprecated)] // libc points Mach calls at the `mach2` crate; these are stable system APIs.
+#[allow(deprecated)]
 pub fn memory() -> Option<Memory> {
     let total = mac::sysctl_u64("hw.memsize")?;
     let page = mac::sysctl_u64("hw.pagesize").unwrap_or(16384);
     let mut stats = std::mem::MaybeUninit::<libc::vm_statistics64>::zeroed();
     let mut count = libc::HOST_VM_INFO64_COUNT;
-    // SAFETY: HOST_VM_INFO64 fills a vm_statistics64 of `count` integers.
     let r = unsafe {
         libc::host_statistics64(libc::mach_host_self(), libc::HOST_VM_INFO64, stats.as_mut_ptr().cast(), &mut count)
     };
     if r != 0 {
         return Some(Memory { total, available: total });
     }
-    // SAFETY: success means the struct was written.
     let v = unsafe { stats.assume_init() };
     let app = (v.internal_page_count as u64).saturating_sub(v.purgeable_count as u64);
     let used = (app + v.wire_count as u64 + v.compressor_page_count as u64) * page;
@@ -132,7 +121,6 @@ pub fn memory() -> Option<Memory> {
     None
 }
 
-/// Hardware graphics adapters (software rasterisers excluded).
 #[cfg(windows)]
 pub fn gpus() -> Vec<GpuInfo> {
     use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE};
@@ -154,8 +142,6 @@ pub fn gpus() -> Vec<GpuInfo> {
     out
 }
 
-/// On Apple silicon the GPU is part of the chip and shares its memory. Intel
-/// Macs report their graphics through `system_profiler`.
 #[cfg(target_os = "macos")]
 pub fn gpus() -> Vec<GpuInfo> {
     let chip = cpu_name().unwrap_or_default();
@@ -175,18 +161,14 @@ pub fn gpus() -> Vec<GpuInfo> {
     Vec::new()
 }
 
-/// Refresh rate of the primary display.
 #[cfg(windows)]
 pub fn display_refresh_hz() -> Option<u32> {
     use windows::Win32::Graphics::Gdi::{EnumDisplaySettingsW, DEVMODEW, ENUM_CURRENT_SETTINGS};
     let mut mode = DEVMODEW { dmSize: std::mem::size_of::<DEVMODEW>() as u16, ..Default::default() };
     let ok = unsafe { EnumDisplaySettingsW(None, ENUM_CURRENT_SETTINGS, &mut mode) }.as_bool();
-    // 0 and 1 mean "hardware default".
     (ok && mode.dmDisplayFrequency > 1).then_some(mode.dmDisplayFrequency)
 }
 
-/// Refresh rate of the main display. Built-in panels can report 0 through
-/// CoreGraphics, so the screen's maximum frame rate (macOS 12+) is the fallback.
 #[cfg(target_os = "macos")]
 pub fn display_refresh_hz() -> Option<u32> {
     let hz = mac::main_display_hz().filter(|hz| *hz > 1.0).or_else(mac::main_screen_max_fps)?;
@@ -198,7 +180,6 @@ pub fn display_refresh_hz() -> Option<u32> {
     None
 }
 
-/// Whole-system CPU usage from consecutive `GetSystemTimes` readings.
 #[derive(Default)]
 pub struct CpuMeter {
     #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))]
@@ -206,7 +187,6 @@ pub struct CpuMeter {
 }
 
 impl CpuMeter {
-    /// Percentage since the previous call (`None` on the first call).
     #[cfg(windows)]
     pub fn sample(&mut self) -> Option<f64> {
         use windows::Win32::Foundation::FILETIME;
@@ -214,7 +194,6 @@ impl CpuMeter {
         let (mut idle, mut kernel, mut user) = (FILETIME::default(), FILETIME::default(), FILETIME::default());
         unsafe { GetSystemTimes(Some(&mut idle), Some(&mut kernel), Some(&mut user)) }.ok()?;
         let ft = |f: FILETIME| ((f.dwHighDateTime as u64) << 32) | f.dwLowDateTime as u64;
-        // Kernel time includes idle time.
         let busy_total = (ft(kernel) + ft(user), ft(idle));
         let prev = self.last.replace(busy_total)?;
         let total = busy_total.0.saturating_sub(prev.0);
@@ -222,13 +201,11 @@ impl CpuMeter {
         (total > 0).then(|| (100.0 * (total.saturating_sub(idle_delta)) as f64 / total as f64).clamp(0.0, 100.0))
     }
 
-    /// Percentage since the previous call, from the kernel's CPU tick counters.
     #[cfg(target_os = "macos")]
-    #[allow(deprecated)] // libc points Mach calls at the `mach2` crate; these are stable system APIs.
+    #[allow(deprecated)]
     pub fn sample(&mut self) -> Option<f64> {
         let mut load = std::mem::MaybeUninit::<libc::host_cpu_load_info>::zeroed();
         let mut count = libc::HOST_CPU_LOAD_INFO_COUNT;
-        // SAFETY: HOST_CPU_LOAD_INFO fills a host_cpu_load_info of `count` integers.
         let r = unsafe {
             libc::host_statistics(
                 libc::mach_host_self(),
@@ -240,7 +217,6 @@ impl CpuMeter {
         if r != 0 {
             return None;
         }
-        // SAFETY: success means the struct was written.
         let ticks = unsafe { load.assume_init() }.cpu_ticks;
         let idle = ticks[libc::CPU_STATE_IDLE as usize] as u64;
         let total: u64 = ticks.iter().map(|t| *t as u64).sum();
@@ -257,21 +233,18 @@ impl CpuMeter {
     }
 }
 
-/// System facts on macOS: sysctl values, the main display and graphics.
 #[cfg(any(target_os = "macos", test))]
 mod mac {
     #[cfg(target_os = "macos")]
     pub fn sysctl_string(name: &str) -> Option<String> {
         let name = std::ffi::CString::new(name).ok()?;
         let mut len = 0usize;
-        // SAFETY: a null buffer asks for the length.
         if unsafe { libc::sysctlbyname(name.as_ptr(), std::ptr::null_mut(), &mut len, std::ptr::null_mut(), 0) } != 0
             || len == 0
         {
             return None;
         }
         let mut buf = vec![0u8; len];
-        // SAFETY: the buffer holds `len` bytes.
         if unsafe { libc::sysctlbyname(name.as_ptr(), buf.as_mut_ptr().cast(), &mut len, std::ptr::null_mut(), 0) } != 0
         {
             return None;
@@ -286,7 +259,6 @@ mod mac {
         let name = std::ffi::CString::new(name).ok()?;
         let mut value = 0u64;
         let mut len = std::mem::size_of::<u64>();
-        // SAFETY: the value fits the buffer; 32-bit answers fill its low half (little endian).
         let r = unsafe {
             libc::sysctlbyname(name.as_ptr(), (&mut value as *mut u64).cast(), &mut len, std::ptr::null_mut(), 0)
         };
@@ -304,7 +276,6 @@ mod mac {
 
     #[cfg(target_os = "macos")]
     pub fn main_display_hz() -> Option<f64> {
-        // SAFETY: CoreGraphics display queries; the copied mode is released.
         unsafe {
             let mode = CGDisplayCopyDisplayMode(CGMainDisplayID());
             if mode.is_null() {
@@ -328,15 +299,12 @@ mod mac {
         fn objc_msgSend();
     }
 
-    /// `NSScreen.mainScreen.maximumFramesPerSecond` (macOS 12 and later).
     #[cfg(target_os = "macos")]
     pub fn main_screen_max_fps() -> Option<f64> {
         type SendId = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
         type SendBool =
             unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void) -> bool;
         type SendInt = unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> isize;
-        // SAFETY: plain Objective-C messages with the signatures AppKit declares;
-        // objc_msgSend is called through a pointer cast to each signature.
         unsafe {
             let class = objc_getClass(c"NSScreen".as_ptr());
             if class.is_null() {
@@ -359,7 +327,6 @@ mod mac {
         }
     }
 
-    /// Graphics adapters from `system_profiler -json SPDisplaysDataType`.
     pub fn parse_displays(json: &str) -> Vec<super::GpuInfo> {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return Vec::new() };
         let Some(items) = v.get("SPDisplaysDataType").and_then(|d| d.as_array()) else { return Vec::new() };
@@ -382,7 +349,6 @@ mod mac {
             .collect()
     }
 
-    /// "8 GB", "1536 MB" → bytes.
     fn parse_size(s: &str) -> Option<u64> {
         let mut parts = s.split_whitespace();
         let n: u64 = parts.next()?.parse().ok()?;

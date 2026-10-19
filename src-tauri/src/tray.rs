@@ -1,5 +1,3 @@
-//! The system tray icon and its menu.
-
 use crate::roblox::deeplink::LaunchTarget;
 use crate::state::{events, lock, AppState};
 use std::sync::atomic::Ordering;
@@ -22,7 +20,6 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     } else {
         MenuItem::with_id(app, "launch", "Launch Roblox", true, None::<&str>)?
     };
-    // Shaders use Windows Graphics Capture.
     let shaders_on = state.settings().shaders.enabled;
     let shaders = CheckMenuItem::with_id(app, "shaders", "Shaders", cfg!(windows), shaders_on, None::<&str>)?;
     let profiles = Submenu::with_id(app, "profiles", format!("Profile: {}", store.active().name), true)?;
@@ -71,9 +68,6 @@ fn tooltip(app: &AppHandle) -> String {
     format!("Vesper\n{}", status_line(running, &profile))
 }
 
-/// On Windows the tray icon opens Vesper on a left click and shows the menu on
-/// a right click. On macOS it is a menu bar item: a monochrome template image
-/// that opens its menu on any click, as menu bar items do.
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let mac = cfg!(target_os = "macos");
     let icon = if mac {
@@ -99,7 +93,6 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Rebuilds the menu after profile or Roblox state changes.
 pub fn refresh(app: &AppHandle) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         match build_menu(app) {
@@ -112,7 +105,6 @@ pub fn refresh(app: &AppHandle) {
     }
 }
 
-/// Shows or hides the tray icon (Vesper can leave the tray while Roblox runs).
 pub fn set_shown(app: &AppHandle, shown: bool) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_visible(shown);

@@ -1,46 +1,20 @@
-//! Where Vesper keeps its own files.
-//!
-//! Installed builds on Windows use the standard per-user locations:
-//!   %APPDATA%\Vesper                  settings, profiles, backups (roams with the user)
-//!   %LOCALAPPDATA%\gripe.xan.vesper   logs and caches (machine-specific)
-//!
-//! Local data uses the app identifier rather than "Vesper" because the
-//! per-user installer puts the program itself in %LOCALAPPDATA%\Vesper. The
-//! identifier folder is also where WebView2 keeps its data, and the
-//! uninstaller's "delete app data" option already removes it.
-//!
-//! On macOS Vesper follows Apple's layout:
-//!   ~/Library/Application Support/Vesper   settings, profiles, backups
-//!   ~/Library/Logs/Vesper                  logs
-//!   ~/Library/Caches/gripe.xan.vesper      caches
-//!
-//! Portable builds (Windows) keep everything in a `data` folder next to the
-//! executable. Portable mode is enabled by a file named `portable` beside `Vesper.exe`.
-
 use std::io;
 use std::path::{Path, PathBuf};
 
 pub const APP_DIR_NAME: &str = "Vesper";
-/// Matches `identifier` in tauri.conf.json.
 pub const LOCAL_DIR_NAME: &str = "gripe.xan.vesper";
 pub const PORTABLE_MARKER: &str = "portable";
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
-    /// Settings, profiles and other user configuration.
     pub config: PathBuf,
-    /// Backup history.
     pub backups: PathBuf,
-    /// Structured logs.
     pub logs: PathBuf,
-    /// Re-creatable caches (Roblox CDN responses, verification results).
     pub cache: PathBuf,
-    /// True when running from a portable folder.
     pub portable: bool,
 }
 
 impl AppPaths {
-    /// Resolves paths for the running executable.
     pub fn resolve() -> io::Result<Self> {
         let exe_dir = std::env::current_exe()?
             .parent()
@@ -63,7 +37,6 @@ impl AppPaths {
         }
     }
 
-    /// The macOS layout under the user's home folder.
     pub fn macos(home: &Path) -> Self {
         let library = home.join("Library");
         let config = library.join("Application Support").join(APP_DIR_NAME);
@@ -98,7 +71,6 @@ impl AppPaths {
         }
     }
 
-    /// Creates every directory. Safe to call repeatedly.
     pub fn ensure(&self) -> io::Result<()> {
         for dir in [&self.config, &self.backups, &self.logs, &self.cache] {
             std::fs::create_dir_all(dir)?;
@@ -114,17 +86,14 @@ impl AppPaths {
         self.config.join("profiles.json")
     }
 
-    /// Recently played games (only kept while history is on).
     pub fn history_file(&self) -> PathBuf {
         self.config.join("history.json")
     }
 
-    /// Last known list of Roblox's server cities, for when RoValra can't be reached.
     pub fn datacenters_file(&self) -> PathBuf {
         self.cache.join("datacenters.json")
     }
 
-    /// Records which Roblox files Vesper wrote, so it never removes files it does not own.
     pub fn ownership_file(&self) -> PathBuf {
         self.config.join("applied.json")
     }
@@ -145,8 +114,6 @@ fn env_dir(name: &str) -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{name} is not set")))
 }
 
-/// Writes a file atomically: write to a temporary sibling, flush, then rename over the target.
-/// A crash mid-write leaves the previous file intact instead of a truncated one.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     use std::io::Write;
     let dir = path.parent().ok_or_else(|| io::Error::other("path has no parent directory"))?;
@@ -181,7 +148,6 @@ mod tests {
         assert!(!p.portable);
     }
 
-    /// The uninstaller removes %LOCALAPPDATA%\<identifier>, so they must match.
     #[test]
     fn local_folder_matches_the_app_identifier() {
         let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();

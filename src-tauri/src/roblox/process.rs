@@ -1,12 +1,3 @@
-//! Process enumeration without opening process handles.
-//!
-//! Roblox's anti-cheat reacts to tools that hold handles to the game process,
-//! so Vesper never opens one for monitoring. On Windows,
-//! `NtQuerySystemInformation` returns CPU time and memory for every process in
-//! a single call, the same data Task Manager's process list is built from. On
-//! macOS, `libproc` gives the same facts Activity Monitor shows, without a
-//! task port.
-
 use std::io;
 
 #[cfg(not(target_os = "macos"))]
@@ -17,7 +8,6 @@ pub const INSTALLER_PROCESS: &str = "RobloxPlayerInstaller.exe";
 pub const PLAYER_PROCESS: &str = "RobloxPlayer";
 #[cfg(target_os = "macos")]
 pub const INSTALLER_PROCESS: &str = "RobloxPlayerInstaller";
-/// Vesper's own process name.
 #[cfg(windows)]
 pub const VESPER_PROCESS: &str = "Vesper.exe";
 #[cfg(not(windows))]
@@ -29,17 +19,12 @@ pub struct ProcessSample {
     pub parent_pid: u32,
     pub name: String,
     pub threads: u32,
-    /// Physical memory in use, bytes.
     pub working_set: u64,
-    /// Private committed memory, bytes.
     pub private_bytes: u64,
-    /// User + kernel CPU time, 100 ns units.
     pub cpu_time: u64,
-    /// Process start time as a Windows FILETIME value (100 ns since 1601), on every platform.
     pub create_time: i64,
 }
 
-/// All processes running now.
 pub fn snapshot() -> io::Result<Vec<ProcessSample>> {
     imp::snapshot()
 }
@@ -51,33 +36,25 @@ pub fn named<'a>(all: &'a [ProcessSample], name: &str) -> impl Iterator<Item = &
 
 const UNIX_EPOCH_AS_FILETIME: i64 = 116_444_736_000_000_000;
 
-/// Converts a Windows FILETIME (100 ns since 1601) to `SystemTime`.
 pub fn filetime_to_system(ft: i64) -> Option<std::time::SystemTime> {
     let since_unix = ft.checked_sub(UNIX_EPOCH_AS_FILETIME)?;
     let since_unix = u64::try_from(since_unix).ok()?;
     Some(std::time::UNIX_EPOCH + std::time::Duration::from_nanos(since_unix * 100))
 }
 
-/// When a process started, from a snapshot (no handle needed).
 pub fn start_time(pid: u32) -> Option<std::time::SystemTime> {
     let all = snapshot().ok()?;
     let p = all.iter().find(|p| p.pid == pid)?;
     filetime_to_system(p.create_time)
 }
 
-/// PIDs of running Roblox player processes.
 pub fn roblox_pids() -> Vec<u32> {
     snapshot().map(|all| named(&all, PLAYER_PROCESS).map(|p| p.pid).collect()).unwrap_or_default()
 }
 
-/// Force-quits every Roblox player, as Force Quit (macOS) or End task
-/// (Windows) does, and waits for them to go. Roblox gets no chance to ask
-/// "Leave game?" or hang on the way out. A handle is opened only to end each
-/// process and closed straight away.
 pub fn force_quit_players() -> io::Result<()> {
     use std::time::{Duration, Instant};
     let pids = roblox_pids();
-    // Only the players that were running; try each even if one can't be ended.
     let mut failed = None;
     for pid in &pids {
         if let Err(e) = imp::terminate(*pid) {
@@ -102,13 +79,11 @@ mod imp {
     use super::ProcessSample;
     use std::io;
 
-    /// Ends a Roblox process.
     pub fn terminate(pid: u32) -> io::Result<()> {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
         unsafe {
             let Ok(h) = OpenProcess(PROCESS_TERMINATE, false, pid) else {
-                // Already gone.
                 return Ok(());
             };
             let r = TerminateProcess(h, 1);
@@ -128,8 +103,6 @@ mod imp {
         buffer: *const u16,
     }
 
-    /// x64 layout of SYSTEM_PROCESS_INFORMATION including the fields the
-    /// public header calls `Reserved1` (CPU times live there).
     #[repr(C)]
     struct SystemProcessInfo {
         next_entry_offset: u32,
@@ -169,7 +142,6 @@ mod imp {
     const _: () = assert!(std::mem::offset_of!(SystemProcessInfo, private_page_count) == 200);
 
     pub fn snapshot() -> io::Result<Vec<ProcessSample>> {
-        // u64 storage keeps the buffer 8-byte aligned.
         let mut buf: Vec<u64> = vec![0; 64 * 1024];
         loop {
             let bytes = (buf.len() * 8) as u32;
@@ -178,7 +150,6 @@ mod imp {
                 NtQuerySystemInformation(SystemProcessInformation, buf.as_mut_ptr().cast(), bytes, &mut needed)
             };
             if status.0 == STATUS_INFO_LENGTH_MISMATCH {
-                // Processes can start between calls; leave headroom.
                 buf = vec![0; (needed as usize / 8) + 16 * 1024];
                 continue;
             }
@@ -197,7 +168,6 @@ mod imp {
             if offset + std::mem::size_of::<SystemProcessInfo>() > len {
                 break;
             }
-            // SAFETY: offset is within the buffer the kernel filled, and entries are 8-byte aligned.
             let info = unsafe { &*(base.add(offset) as *const SystemProcessInfo) };
             let name = if info.image_name.buffer.is_null() || info.image_name.length == 0 {
                 if info.unique_process_id == 0 {
@@ -206,7 +176,6 @@ mod imp {
                     "System".to_owned()
                 }
             } else {
-                // SAFETY: the kernel points ImageName into the same buffer.
                 let chars = unsafe {
                     std::slice::from_raw_parts(info.image_name.buffer, (info.image_name.length / 2) as usize)
                 };
@@ -232,7 +201,7 @@ mod imp {
 }
 
 #[cfg(target_os = "macos")]
-#[allow(deprecated)] // libc points Mach calls at the `mach2` crate; these are stable system APIs.
+#[allow(deprecated)]
 mod imp {
     use super::{ProcessSample, UNIX_EPOCH_AS_FILETIME};
     use std::ffi::CStr;
@@ -240,10 +209,8 @@ mod imp {
     use std::mem::{size_of, MaybeUninit};
     use std::sync::LazyLock;
 
-    /// Converts Mach time units (CPU times on Apple silicon) to nanoseconds.
     static TIMEBASE: LazyLock<(u64, u64)> = LazyLock::new(|| {
         let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
-        // SAFETY: plain out-parameter call.
         if unsafe { libc::mach_timebase_info(&mut info) } == 0 && info.denom != 0 {
             (info.numer as u64, info.denom as u64)
         } else {
@@ -251,14 +218,11 @@ mod imp {
         }
     });
 
-    /// Ends a Roblox process.
     pub fn terminate(pid: u32) -> io::Result<()> {
-        // SAFETY: sending a signal to a process id.
         if unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) } == 0 {
             return Ok(());
         }
         let e = io::Error::last_os_error();
-        // Already gone.
         if e.raw_os_error() == Some(libc::ESRCH) {
             Ok(())
         } else {
@@ -267,15 +231,12 @@ mod imp {
     }
 
     pub fn snapshot() -> io::Result<Vec<ProcessSample>> {
-        // SAFETY: a null buffer asks for the number of processes.
         let n = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
         if n <= 0 {
             return Err(io::Error::last_os_error());
         }
-        // Processes can start between calls; leave headroom.
         let mut pids = vec![0 as libc::pid_t; n as usize + 64];
         let bytes = (pids.len() * size_of::<libc::pid_t>()) as libc::c_int;
-        // SAFETY: the buffer holds `bytes` bytes.
         let n = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), bytes) };
         if n < 0 {
             return Err(io::Error::last_os_error());
@@ -284,7 +245,6 @@ mod imp {
         Ok(pids.into_iter().filter(|p| *p > 0).filter_map(sample).collect())
     }
 
-    /// Reads one process. Processes of other users (and ones that just exited) are skipped.
     fn sample(pid: libc::pid_t) -> Option<ProcessSample> {
         let bsd: libc::proc_bsdinfo = pidinfo(pid, libc::PROC_PIDTBSDINFO)?;
         let task: libc::proc_taskinfo = pidinfo(pid, libc::PROC_PIDTASKINFO)?;
@@ -298,7 +258,6 @@ mod imp {
             name,
             threads: task.pti_threadnum.max(0) as u32,
             working_set: task.pti_resident_size,
-            // Activity Monitor's "Memory" column; falls back to resident memory.
             private_bytes: footprint(pid).unwrap_or(task.pti_resident_size),
             cpu_time: (cpu_ns / 100) as u64,
             create_time: started + UNIX_EPOCH_AS_FILETIME,
@@ -308,17 +267,13 @@ mod imp {
     fn pidinfo<T>(pid: libc::pid_t, flavor: libc::c_int) -> Option<T> {
         let mut out = MaybeUninit::<T>::zeroed();
         let size = size_of::<T>() as libc::c_int;
-        // SAFETY: the kernel writes at most `size` bytes into `out`.
         let n = unsafe { libc::proc_pidinfo(pid, flavor, 0, out.as_mut_ptr().cast(), size) };
-        // SAFETY: a full-size answer initialised every field (and zeroed covers padding).
         (n == size).then(|| unsafe { out.assume_init() })
     }
 
     fn footprint(pid: libc::pid_t) -> Option<u64> {
         let mut info = MaybeUninit::<libc::rusage_info_v2>::zeroed();
-        // SAFETY: RUSAGE_INFO_V2 fills a `rusage_info_v2`.
         let r = unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, info.as_mut_ptr().cast()) };
-        // SAFETY: success means the struct was written.
         (r == 0).then(|| unsafe { info.assume_init() }.ri_phys_footprint)
     }
 
@@ -351,7 +306,6 @@ mod tests {
         let me = all.iter().find(|p| p.pid == std::process::id()).expect("current process listed");
         let exe = std::env::current_exe().unwrap();
         let file = exe.file_name().unwrap().to_string_lossy().into_owned();
-        // macOS keeps up to 32 characters of a process name.
         assert!(file.to_lowercase().starts_with(&me.name.to_lowercase()), "{file} vs {}", me.name);
         assert!(me.working_set > 1024 * 1024, "uses at least 1 MB");
         assert!(me.threads >= 1);

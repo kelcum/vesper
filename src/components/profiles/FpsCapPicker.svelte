@@ -11,7 +11,6 @@
   let { value, displayHz, onchange }: Props = $props();
 
   let custom = $state('');
-  // Mirror a custom (non-preset) limit into the field, including when the profile changes.
   $effect(() => {
     custom = value?.mode === 'fixed' && !FPS_PRESETS.includes(value.value as never) ? String(value.value) : '';
   });

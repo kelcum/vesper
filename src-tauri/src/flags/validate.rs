@@ -1,9 +1,3 @@
-//! Validation of a set of flags before it is saved or applied.
-//!
-//! Errors block applying (malformed names or values, contradictory graphics
-//! API choices). Warnings explain things that will work but probably not as
-//! intended (a flag Roblox ignores, a value outside documented options).
-
 use super::catalog::{Catalog, FlagStatus, InputSpec};
 use super::model::{normalize_value, validate_name, FlagSet};
 use serde::Serialize;
@@ -16,7 +10,6 @@ pub enum Severity {
     Error,
 }
 
-/// A one-click resolution the UI can offer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Fix {
@@ -49,7 +42,6 @@ pub fn has_errors(issues: &[Issue]) -> bool {
     issues.iter().any(|i| i.severity == Severity::Error)
 }
 
-/// Returns the set with every value normalised, or the first error per flag.
 pub fn normalize(flags: &FlagSet) -> Result<FlagSet, Vec<Issue>> {
     let mut out = FlagSet::new();
     let mut errors = Vec::new();
@@ -71,7 +63,6 @@ pub fn normalize(flags: &FlagSet) -> Result<FlagSet, Vec<Issue>> {
     }
 }
 
-/// Checks a flag set against syntax rules and the catalog.
 pub fn validate(flags: &FlagSet, catalog: &Catalog) -> Vec<Issue> {
     let normalized = match normalize(flags) {
         Ok(n) => n,
@@ -129,7 +120,6 @@ pub fn validate(flags: &FlagSet, catalog: &Catalog) -> Vec<Issue> {
         }
 
         for rel in &info.conflicts {
-            // Report each pair once, from the alphabetically first flag.
             if value == &rel.when && normalized.get(&rel.flag) == Some(&rel.when) && name.as_str() < rel.flag.as_str() {
                 issues.push(
                     Issue::new(

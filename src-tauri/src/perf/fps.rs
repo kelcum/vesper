@@ -1,22 +1,7 @@
-//! Frame rate and frame timing from Direct3D present events.
-//!
-//! Vesper starts a real-time ETW session for the `Microsoft-Windows-DXGI`
-//! provider and counts `Present_Start` events (ID 42) per process, the same
-//! signal PresentMon builds on. Nothing is injected into Roblox and no handle
-//! to it is opened.
-//!
-//! Windows only lets administrators and members of the "Performance Log
-//! Users" group start trace sessions. Without that, Vesper reports that the
-//! counter needs permission instead of guessing a number.
-//!
-//! Direct3D 11 (Roblox's default on Windows) presents through DXGI. Vulkan
-//! and OpenGL modes may produce no events; the UI says so.
-
 use serde::Serialize;
 #[cfg(any(windows, test))]
 use std::collections::{HashMap, VecDeque};
 
-/// Microsoft-Windows-DXGI provider {CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}.
 pub const DXGI_PROVIDER: u128 = 0xCA11C036_0102_4A2D_A6AD_F03CFED5D3C9;
 pub const PRESENT_START_ID: u16 = 42;
 const KEEP_SECONDS: f64 = 5.0;
@@ -33,18 +18,14 @@ pub enum FpsStatus {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameStats {
-    /// Presents in the last second.
     pub fps: f64,
     pub frame_time_avg_ms: f64,
-    /// 99th percentile frame time over the last few seconds.
     pub frame_time_p99_ms: f64,
     pub frames: usize,
 }
 
-/// Computes statistics from present timestamps (seconds, ascending).
 pub fn stats(timestamps: &[f64], now: f64) -> Option<FrameStats> {
     let recent: Vec<f64> = timestamps.iter().copied().filter(|t| *t > now - KEEP_SECONDS && *t <= now + 0.5).collect();
-    // A process that hasn't presented for over a second isn't rendering (minimised, loading).
     if recent.len() < 2 || now - recent[recent.len() - 1] > 1.0 {
         return None;
     }
@@ -73,14 +54,12 @@ impl Presents {
         while q.front().is_some_and(|f| *f < t - KEEP_SECONDS) {
             q.pop_front();
         }
-        // Forget processes that stopped presenting a while ago.
         if self.by_pid.len() > 64 {
             self.by_pid.retain(|_, q| q.back().is_some_and(|b| *b > t - KEEP_SECONDS));
         }
     }
 }
 
-/// Current time in seconds on the ETW event clock (FILETIME epoch).
 pub fn event_clock_now() -> f64 {
     let unix =
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0);
@@ -107,7 +86,6 @@ mod imp {
         s.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
-    /// EVENT_TRACE_PROPERTIES followed by room for the session name, 8-byte aligned.
     struct Props {
         buf: Vec<u64>,
     }
@@ -120,7 +98,7 @@ mod imp {
             let props = p.get();
             props.Wnode.BufferSize = total as u32;
             props.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-            props.Wnode.ClientContext = 1; // QPC clock
+            props.Wnode.ClientContext = 1;
             props.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
             props.LoggerNameOffset = header as u32;
             p
@@ -145,7 +123,6 @@ mod imp {
             return;
         }
         let shared = &*(r.UserContext as *const Mutex<Presents>);
-        // Timestamps are delivered as FILETIME (100 ns since 1601).
         let t = r.EventHeader.TimeStamp as f64 / 10_000_000.0;
         if let Ok(mut p) = shared.lock() {
             p.push(r.EventHeader.ProcessId, t);
@@ -165,7 +142,6 @@ mod imp {
             let mut props = Props::new();
             let mut status = unsafe { StartTraceW(&mut control, PCWSTR(name.as_ptr()), props.get()) };
             if status == ERROR_ALREADY_EXISTS {
-                // Left over from a previous run that didn't shut down cleanly.
                 stop_session(CONTROLTRACE_HANDLE::default());
                 props = Props::new();
                 status = unsafe { StartTraceW(&mut control, PCWSTR(name.as_ptr()), props.get()) };
@@ -221,7 +197,6 @@ mod imp {
             let thread = std::thread::Builder::new()
                 .name("vesper-fps".into())
                 .spawn(move || {
-                    // Keep the name buffer alive for the life of the trace.
                     let _keep = logger_name;
                     unsafe {
                         let _ = ProcessTrace(&[trace], None, None);
@@ -242,7 +217,6 @@ mod imp {
             stats(&v, event_clock_now())
         }
 
-        /// True if any process presented recently (used to tell "no events" from "not rendering").
         pub fn any_activity(&self) -> bool {
             let now = event_clock_now();
             self.shared
@@ -307,7 +281,6 @@ mod tests {
     #[test]
     fn stutter_shows_in_p99_not_average() {
         let mut ts = steady(144.0, 3.0, 100.0);
-        // Six 50 ms hitches: about 1.4% of frames, so they reach the 99th percentile.
         for k in [60usize, 120, 180, 250, 320, 380] {
             let shift = 0.05 - 1.0 / 144.0;
             for t in ts.iter_mut().skip(k) {
@@ -342,7 +315,6 @@ mod tests {
         assert!(p.by_pid.len() < 100, "stale processes are forgotten");
     }
 
-    /// Starting a trace needs elevation; without it the honest answer is NeedsPermission.
     #[cfg(windows)]
     #[test]
     fn tracer_starts_or_reports_permission() {

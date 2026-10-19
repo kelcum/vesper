@@ -1,9 +1,3 @@
-//! Errors as the user sees them.
-//!
-//! Commands never surface raw error strings. Every failure becomes a
-//! [`Problem`]: what happened, the likely reason, what to do next, and
-//! optional technical details (redacted) behind a "Copy details" button.
-
 use crate::redact::redact;
 use serde::Serialize;
 
@@ -20,7 +14,6 @@ pub enum ProblemAction {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Problem {
-    /// Stable identifier, e.g. `roblox.not_installed`. Useful in bug reports.
     pub code: String,
     pub title: String,
     pub what: String,
@@ -70,7 +63,6 @@ impl Problem {
         self
     }
 
-    /// Generic fallback for unexpected I/O failures.
     pub fn io(context: &str, err: &std::io::Error) -> Self {
         let why = match err.kind() {
             std::io::ErrorKind::PermissionDenied if cfg!(target_os = "macos") => {

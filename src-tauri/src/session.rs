@@ -1,8 +1,3 @@
-//! One launch of Roblox, from preparing files to confirming what Roblox accepted.
-//!
-//! Runs on a background thread and reports progress through `launch://status`
-//! events, so the window never blocks.
-
 use crate::config::{AfterLaunch, FlagMode, LastLaunch, ServerPick};
 use crate::error::{Problem, ProblemAction};
 use crate::flags::apply;
@@ -26,12 +21,10 @@ const UPDATE_TIMEOUT: Duration = Duration::from_secs(300);
 const VERIFY_TIMEOUT: Duration = Duration::from_secs(60);
 const PICK_TIMEOUT: Duration = Duration::from_secs(25);
 
-/// Starts a launch in the background. Returns an error only if one is already running.
 pub fn begin(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
     start(app, target, false)
 }
 
-/// Closes Roblox (it can only run once), then launches `target`.
 pub fn begin_restart(app: AppHandle, target: LaunchTarget) -> Result<(), Problem> {
     start(app, target, true)
 }
@@ -65,13 +58,11 @@ fn start(app: AppHandle, target: LaunchTarget, restart: bool) -> Result<(), Prob
     Ok(())
 }
 
-/// Force-quits the running Roblox so a new launch can take its place.
 fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
     let state = app.state::<AppState>();
     if process::roblox_pids().is_empty() {
         return Ok(());
     }
-    // Vesper shouldn't come back on screen for this close.
     state.hidden_for_roblox.store(false, Ordering::Relaxed);
     if let Err(e) = process::force_quit_players() {
         return Err(Problem::new("roblox.wont_close", "Roblox didn't close")
@@ -90,14 +81,11 @@ fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
             .action(ProblemAction::Retry));
     }
     log::info!("Force-quit Roblox for a restart");
-    // Everything that follows Roblox closing (game status, history, shaders) happens now.
     crate::state::roblox_seen(app, &[]);
-    // Give the system a moment to release Roblox's single-instance lock.
     std::thread::sleep(Duration::from_millis(1000));
     Ok(())
 }
 
-/// For a game launch with server picking on, finds a server to join.
 fn choose_server(app: &AppHandle, target: &LaunchTarget) -> LaunchTarget {
     let LaunchTarget::Experience { place_id, game_instance_id: None, link_code: None, launch_data } = target else {
         return target.clone();
@@ -176,7 +164,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     let settings = state.settings();
     let profile = lock(&state.profiles).active().clone();
     if !process::roblox_pids().is_empty() {
-        // A second copy would only hand its link to the open one, or nothing at all.
         return Err(Problem::new("roblox.already_running", "Roblox is already open")
             .what("Roblox runs one copy at a time, so a second launch wouldn't start anything.")
             .why("Roblox keeps a single window open.")
@@ -184,7 +171,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     }
     let launched_at = SystemTime::now();
 
-    // 1. Fast Flags
     let mut expected = FlagSet::new();
     if settings.roblox.flag_mode != FlagMode::Off {
         step(app, "Applying Fast Flags");
@@ -229,7 +215,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 2. Customisations (cursor, emote wheel, font, sounds). Roblox reads them at startup.
     if let Some(r) = state.apply_mods(&install.dir) {
         if !r.missing.is_empty() {
             lock(&state.notices).push(format!(
@@ -242,7 +227,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 3. Frame-rate limit (Roblox's own setting).
     if settings.roblox.apply_fps_cap {
         if let Some(cap) = profile.fps_cap {
             step(app, "Setting the frame-rate limit");
@@ -280,12 +264,9 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
         }
     }
 
-    // 4. Pick a server, when asked to.
     let picked = choose_server(app, target);
 
-    // 5. Start Roblox.
     state.set_launch(app, LaunchStatus::Starting);
-    // If Roblox updates itself during this launch, carry the flags into the new version.
     let has_mods = *lock(&state.mods) != crate::mods::ModsConfig::default();
     let temp_watch = (settings.roblox.flag_mode != FlagMode::KeepApplied && (!expected.is_empty() || has_mods))
         .then(|| {
@@ -321,7 +302,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
             .push(format!("Roblox's priority wasn't changed ({err}). Roblox started at normal priority."));
     }
 
-    // 6. Wait for the player window process (Roblox may update itself first).
     let pid = wait_for_player(app, spawned.pid)?;
     crate::state::roblox_seen(app, &[pid]);
     state.set_launch(app, LaunchStatus::Running { pid });
@@ -329,9 +309,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     crate::tray::refresh(app);
     after_launch(app, settings.general.after_launch);
 
-    // 7. Confirm with Roblox's own log. Read the log of the client that is
-    // actually running: if Roblox updated itself, the first client's short
-    // log (written before it handed off to the updater) must be ignored.
     let since = process::start_time(pid).map_or(launched_at, |t| t.max(launched_at));
     let version = if settings.roblox.verify_after_launch { verify(app, since, &expected) } else { None };
     drop(temp_watch);
@@ -340,7 +317,6 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     Ok(())
 }
 
-/// macOS's App Management protection stops apps changing other apps unless allowed.
 fn mac_app_blocked(e: &std::io::Error) -> Problem {
     Problem::new("roblox.mac_app_management", "macOS blocked Vesper from changing Roblox")
         .what("Vesper couldn't write Fast Flags into Roblox.app.")
@@ -400,8 +376,6 @@ fn closed_immediately() -> Problem {
         .action(ProblemAction::Retry)
 }
 
-/// Waits for Roblox's player. `spawned` is 0 when macOS started Roblox for
-/// Vesper, so any player that appears (and stays) is the one.
 fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
     let state = app.state::<AppState>();
     let started = Instant::now();
@@ -426,12 +400,10 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
                 _ => {}
             }
         }
-        // Give the client a moment so a crash on startup is caught here.
         if !updating && seen_spawned && players.contains(&spawned) && started.elapsed() > Duration::from_secs(3) {
             return Ok(spawned);
         }
         if updating {
-            // On macOS the old player is still listed while it hands off, so wait for the installer to finish.
             if let Some(p) = players.iter().copied().find(|p| *p != spawned && (direct || !installer_running(&all))) {
                 return Ok(p);
             }
@@ -458,7 +430,6 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
         }
         let spawned_gone = !players.contains(&spawned);
         if direct && spawned_gone && !installer && !updating && started.elapsed() > Duration::from_secs(2) {
-            // The spawned process handed off to another one.
             if let Some(p) = players.first() {
                 return Ok(*p);
             }
@@ -484,7 +455,6 @@ fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
         let hidden = match behaviour {
             AfterLaunch::Stay => false,
             AfterLaunch::Minimize => {
-                // "Minimize to the taskbar" keeps Vesper there; only "Hide in the tray" leaves it.
                 state.minimized_for_roblox.store(true, Ordering::Relaxed);
                 w.minimize().is_ok()
             }
@@ -492,7 +462,6 @@ fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
             AfterLaunch::Hidden => {
                 let hidden = w.hide().is_ok();
                 if hidden {
-                    // The tray icon comes back when Roblox closes or Vesper is opened again.
                     crate::tray::set_shown(app, false);
                 }
                 hidden
@@ -504,7 +473,6 @@ fn after_launch(app: &AppHandle, behaviour: AfterLaunch) {
     }
 }
 
-/// Reads Roblox's log until it has reported on the flags, then records the verdicts.
 fn verify(app: &AppHandle, launched_at: SystemTime, expected: &FlagSet) -> Option<String> {
     let state = app.state::<AppState>();
     let dir = state.env.roblox_logs();

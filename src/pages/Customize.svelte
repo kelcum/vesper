@@ -39,7 +39,6 @@
   const thumb = (name: string) => thumbs[`../assets/mods/${name}.png`];
 
   let view = $state<ModsView | null>(null);
-  // The chosen font, loaded into the page so the card can show text in it.
   let fontFamily = $state<string | null>(null);
   let fontLoads = 0;
   $effect(() => {
@@ -65,7 +64,6 @@
   let cursorScale = $state(100);
   let wheelDim = $state(30);
   let wheelDividers = $state(true);
-  /** Where the preview cursor is drawn, in px inside the scene; null = centred. */
   let tryAt = $state<{ x: number; y: number } | null>(null);
 
   const COLOURS = [
@@ -81,7 +79,6 @@
 
   onMount(load);
 
-  // ------------------------------------------------ sky
   const SKY_ART: Record<string, string> = {
     midnight: 'linear-gradient(#04050d, #111739 60%, #1d2550)',
     sunset: 'linear-gradient(#2c2f6b, #d8667a 55%, #ffa05a)',
@@ -108,7 +105,6 @@
     if (faces.length) run('sky', () => api.modsSetSky({ faces }));
   }
 
-  // ------------------------------------------------ shaders
   let shaderLooks = $state<Option[]>([]);
   onMount(async () => {
     const info = await api.shadersInfo().catch(() => null);
@@ -118,7 +114,6 @@
     }
   });
   const shaders = $derived(app.settings.shaders);
-  /** Sliders work in whole numbers; the settings keep the shader's units. */
   const SLIDERS: {
     key: keyof ShaderParams;
     label: string;
@@ -162,12 +157,10 @@
       case 'failed':
         return { tone: 'bad' as const, label: "Couldn't start" };
       default:
-        // They run inside games only, not on Roblox's home screen.
         if (!app.robloxRunning) return { tone: 'info' as const, label: 'Waiting for Roblox' };
         return { tone: 'info' as const, label: app.nowPlaying ? 'Starting…' : 'Waiting for a game' };
     }
   });
-  /** A rough stand-in for the grade, using the browser's own filters, for the preview. */
   const previewFilter = $derived.by(() => {
     const p = shaders.params;
     const warm = Math.max(p.temperature, 0);
@@ -332,7 +325,6 @@
 {/if}
 
 <div class="grid">
-  <!-- Cursor -->
   <Card title="Cursor" subtitle="The arrow you aim with in game" icon={MousePointer2}>
     {#snippet actions()}
       {#if app.install}<Button
@@ -442,7 +434,6 @@
     </p>
   </Card>
 
-  <!-- Emote wheel -->
   <Card title="Emote wheel" subtitle="The radial menu on the period (.) key" icon={LifeBuoy}>
     {#snippet actions()}
       {#if app.install}<Button
@@ -536,7 +527,6 @@
     </p>
   </Card>
 
-  <!-- Font -->
   <Card title="Font" subtitle="Replaces the text font across Roblox's interface" icon={Type}>
     {#snippet actions()}
       {#if app.install}<Button
@@ -596,7 +586,6 @@
     </p>
   </Card>
 
-  <!-- Sky -->
   <Card title="Sky" subtitle="The skybox in games that don't set their own" icon={CloudSun}>
     {#snippet actions()}
       {#if app.install}<Button
@@ -662,7 +651,6 @@
     </p>
   </Card>
 
-  <!-- Death sound -->
   <Card title="Death sound" subtitle="Plays when your character resets or dies" icon={Volume2}>
     {#snippet actions()}
       {#if app.install}<Button
@@ -692,7 +680,6 @@
     <p class="faint xs">.ogg works best. Games with their own death sounds keep them.</p>
   </Card>
 
-  <!-- Window background -->
   <Card title="Vesper background" subtitle="An image behind Vesper's window" icon={ImageIcon}>
     {#snippet actions()}
       {#if app.settings.appearance.background}
@@ -744,7 +731,6 @@
     </p>
   </Card>
 
-  <!-- Custom files -->
   <Card title="Custom files" subtitle="Anything else, in Roblox's own folder layout" icon={FolderTree}>
     {#snippet actions()}
       <Toggle

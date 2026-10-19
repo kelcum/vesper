@@ -1,17 +1,3 @@
-// Stages a release on xan.gripe/vesper, in a local clone of the GitHub Pages repository.
-//
-//   gh release download v0.1.0 -D release-files
-//   node scripts/site/publish.mjs release-files ../kelcum.github.io [--beta] [--repo-public]
-//
-// - checks every file against SHA256SUMS.txt and the manifest against the installer
-//   (and the macOS update archive, when the release has a Mac build)
-// - stable: copies the installer, portable zip and Mac files to download/, marks the page released
-//   (website/vesper/release.json), rebuilds it, and writes updates/latest.json and beta.json
-// - --beta: only writes updates/beta.json; the page keeps offering the stable release
-// - --repo-public: adds the GitHub links to the page (only once the repository is public)
-//
-// It never commits or pushes. Review the Pages clone, then push it yourself.
-
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -38,7 +24,6 @@ const macDmg = `Vesper_${version}_universal.dmg`;
 const macUpdate = `Vesper_${version}_universal.app.tar.gz`;
 const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 
-// 1. Verify the release files.
 if (!existsSync(join(pages, '.git'))) fail(`${pages} isn't a git clone of the Pages repository`);
 for (const f of [installer, `${installer}.sig`, 'latest.json', 'SHA256SUMS.txt']) {
   if (!existsSync(join(from, f))) fail(`${f} is missing from ${from}`);
@@ -63,7 +48,6 @@ if (!target?.url?.endsWith(`/download/${encodeURIComponent(installer)}`))
 if (target.signature !== readFileSync(join(from, `${installer}.sig`), 'utf8').trim()) {
   fail(`latest.json's signature doesn't match ${installer}.sig`);
 }
-// Mac updates must point at an archive this release really has.
 const macTargets = ['darwin-aarch64', 'darwin-x86_64'].map((p) => manifest.platforms?.[p]).filter(Boolean);
 const hasMac = macTargets.length > 0;
 if (hasMac) {
@@ -79,7 +63,6 @@ if (hasMac) {
   }
 }
 
-// 2. Stage.
 const out = join(pages, 'vesper');
 mkdirSync(join(out, 'updates'), { recursive: true });
 const manifestText = JSON.stringify(manifest, null, 2) + '\n';
@@ -102,11 +85,9 @@ if (flags.has('--beta')) {
   Object.assign(release, {
     status: 'released',
     version,
-    // The publisher's local date (toISOString would give the UTC one).
     date: new Date().toLocaleDateString('en-CA'),
     installer: entry(installer),
     portable: existsSync(join(from, portable)) ? entry(portable) : null,
-    // The Mac disk image is offered on the page; the archive is what Vesper's updater downloads.
     mac: hasMac ? entry(macDmg) : null,
     macUpdate: hasMac ? entry(macUpdate) : null,
     repoPublic: flags.has('--repo-public'),

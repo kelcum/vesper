@@ -1,8 +1,3 @@
-//! The text behind "Copy diagnostics".
-//!
-//! Built from a plain snapshot so it can be tested, and passed through
-//! redaction line by line: no user names, cookies, tokens or launch tickets.
-
 use crate::flags::model::FlagSet;
 use crate::flags::verification::LaunchReport;
 use crate::logging::LogEntry;
@@ -64,7 +59,6 @@ pub fn render(s: &Snapshot) -> String {
                 "Roblox      {} ({}){}",
                 r.version.as_deref().unwrap_or("unknown version"),
                 r.version_hash,
-                // macOS has no registration to compare against.
                 if r.registered || cfg!(target_os = "macos") { "" } else { " · not the registered install" }
             );
             let _ = writeln!(o, "Source      {}", r.source);

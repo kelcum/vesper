@@ -11,7 +11,6 @@
 
   interface Props {
     now: NowPlaying;
-    /** Off where a Restart and rejoin button is already next to the card. */
     rejoin?: boolean;
   }
   let { now, rejoin = true }: Props = $props();
@@ -74,7 +73,6 @@
 </div>
 
 <style>
-  /* The card sits in columns of different widths, so it follows its own width, not the window's. */
   .wrap {
     container-type: inline-size;
   }
@@ -121,7 +119,6 @@
     display: flex;
     gap: var(--space-2);
   }
-  /* Too narrow for one line: the buttons go in a row under the game. */
   @container (max-width: 640px) {
     .now {
       grid-template-columns: auto minmax(0, 1fr);

@@ -1,12 +1,6 @@
-//! Fast Flag names and values.
-//!
-//! Roblox infers a flag's type from its name prefix and stores every value
-//! as a string in ClientAppSettings.json ("True", "250", "text").
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Flags as written to ClientAppSettings.json: name → string value.
 pub type FlagSet = BTreeMap<String, String>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,10 +14,6 @@ pub enum ValueKind {
 pub const MAX_NAME_LEN: usize = 128;
 pub const MAX_STRING_LEN: usize = 1024;
 
-/// Determines the value type from the flag name prefix.
-///
-/// Prefixes: `FFlag`/`DFFlag`/`SFFlag` (bool), `FInt`/`DFInt`/`FLog`/`DFLog` (int),
-/// `FString`/`DFString` (string).
 pub fn kind_of(name: &str) -> Option<ValueKind> {
     let rest = name.strip_prefix("DF").or_else(|| name.strip_prefix("SF")).or_else(|| name.strip_prefix('F'))?;
     let (kind, suffix) = if let Some(s) = rest.strip_prefix("Flag") {
@@ -38,7 +28,6 @@ pub fn kind_of(name: &str) -> Option<ValueKind> {
     (!suffix.is_empty()).then_some(kind)
 }
 
-/// Checks a flag name and returns its value type.
 pub fn validate_name(name: &str) -> Result<ValueKind, String> {
     if name.is_empty() {
         return Err("Flag name is empty.".into());
@@ -53,7 +42,6 @@ pub fn validate_name(name: &str) -> Result<ValueKind, String> {
         .ok_or_else(|| "Flag names start with FFlag, DFFlag, FInt, DFInt, FString, DFString, FLog or DFLog.".into())
 }
 
-/// Normalises a value for its type, e.g. `true` → `True`, ` 042 ` → `42`.
 pub fn normalize_value(kind: ValueKind, raw: &str) -> Result<String, String> {
     let v = raw.trim();
     match kind {
@@ -80,7 +68,6 @@ pub fn normalize_value(kind: ValueKind, raw: &str) -> Result<String, String> {
     }
 }
 
-/// Converts any JSON scalar (as found in imported files) to Roblox's string form.
 pub fn json_to_flag_string(v: &serde_json::Value) -> Option<String> {
     match v {
         serde_json::Value::String(s) => Some(s.clone()),

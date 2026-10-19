@@ -1,14 +1,5 @@
-//! GPU utilisation and memory from Windows' GPU performance counters.
-//!
-//! These are the counters Task Manager reads (`GPU Engine`, `GPU Process
-//! Memory`). They come from the graphics kernel, so no handle to Roblox
-//! is ever opened.
-
 use std::collections::HashMap;
 
-/// Utilisation per process and for the whole GPU, as Task Manager computes it:
-/// a process's figure is its busiest engine type; the system figure is the
-/// busiest engine type summed across processes.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct GpuSample {
     pub system_percent: Option<f64>,
@@ -16,7 +7,6 @@ pub struct GpuSample {
     pub per_pid_dedicated: HashMap<u32, u64>,
 }
 
-/// Parses `pid_1234_luid_0x0_0x1_phys_0_eng_3_engtype_3D` into (pid, engine type).
 pub fn parse_engine_instance(name: &str) -> Option<(u32, String)> {
     let pid = name.strip_prefix("pid_")?.split('_').next()?.parse().ok()?;
     let engtype = name.rsplit_once("engtype_").map(|(_, t)| t.to_owned()).unwrap_or_default();
@@ -68,7 +58,6 @@ mod imp {
         memory: Option<PDH_HCOUNTER>,
     }
 
-    // PDH handles may be used from any thread; access is serialised by the monitor.
     unsafe impl Send for GpuCounters {}
 
     impl GpuCounters {
@@ -89,7 +78,6 @@ mod imp {
                 let mut mem = PDH_HCOUNTER::default();
                 let mem_path = HSTRING::from(r"\GPU Process Memory(*)\Dedicated Usage");
                 let memory = (PdhAddEnglishCounterW(query, &mem_path, 0, &mut mem) == 0).then_some(mem);
-                // Rate counters need a baseline sample.
                 PdhCollectQueryData(query);
                 Ok(Self { query, engine, memory })
             }
@@ -122,7 +110,6 @@ mod imp {
         if s != PDH_MORE_DATA || size == 0 {
             return Vec::new();
         }
-        // u64 storage for alignment; the buffer holds items followed by their names.
         let mut buf: Vec<u64> = vec![0; (size as usize).div_ceil(8)];
         let items = buf.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W;
         if PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &mut size, &mut count, Some(items)) != 0 {
