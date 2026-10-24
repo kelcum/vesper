@@ -24,7 +24,7 @@
     "site:build": "node scripts/site/build.mjs"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.55.0",
+    "@lucide/svelte": "^1.60.0",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-autostart": "^2.7.0",
     "@tauri-apps/plugin-dialog": "^2.8.1",
