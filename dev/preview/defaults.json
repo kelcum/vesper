@@ -136,6 +136,7 @@
       "checkRobloxUpdates": true,
       "flagMode": "applyOnLaunch",
       "installDir": null,
+      "pinnedBuild": null,
       "verifyAfterLaunch": true
     },
     "schema": 1,

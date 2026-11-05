@@ -1,6 +1,6 @@
 [package]
 name = "vesper"
-version = "0.3.4"
+version = "0.3.5"
 description = "A calm, honest Roblox launcher for Windows and macOS."
 authors = ["The Vesper Authors"]
 license = "MIT"
@@ -42,6 +42,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 base64 = "0.22"
 tokio = { version = "1", features = ["sync", "time", "rt", "macros", "net"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "system-proxy", "charset", "http2"] }
+zip = { version = "9.3.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+md-5 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 windows-registry = "0.6"

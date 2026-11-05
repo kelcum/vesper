@@ -3,6 +3,7 @@
     ArrowRight,
     CircleCheck,
     FolderOpen,
+    History,
     Play,
     RefreshCw,
     RotateCw,
@@ -16,6 +17,7 @@
   import Card from '../components/ui/Card.svelte';
   import NowPlaying from '../components/games/NowPlaying.svelte';
   import ServerPicker from '../components/games/ServerPicker.svelte';
+  import VersionPicker from '../components/games/VersionPicker.svelte';
   import ProblemView from '../components/ui/ProblemView.svelte';
   import Select from '../components/ui/Select.svelte';
   import Sparkline from '../components/ui/Sparkline.svelte';
@@ -39,6 +41,7 @@
   let parsed = $state<LaunchTarget | null>(null);
   let parseError = $state<string | null>(null);
   let latest = $state<LatestVersion | null>(app.boot?.latestRoblox ?? null);
+  let versionsOpen = $state(false);
 
   onMount(() => {
     api.perfWatch('home', true);
@@ -74,6 +77,7 @@
   const busy = $derived(['preparing', 'starting', 'updating'].includes(app.launch.state));
   const install = $derived(app.install);
   const outdated = $derived(!!(install?.version && latest && compareVersions(latest.version, install.version) > 0));
+  const pinned = $derived(!!app.settings.roblox.pinnedBuild);
   const profile = $derived(app.activeProfile);
   const flagCount = $derived(profile ? Object.keys(profile.flags).length : 0);
   const report = $derived(app.lastReport);
@@ -211,9 +215,22 @@
   </div>
 </section>
 
+<VersionPicker bind:open={versionsOpen} />
+
 <div class="grid">
-  <Card title="Roblox" subtitle={install ? sourceLabel(install.source) : 'Not detected'}>
+  <Card
+    title="Roblox"
+    subtitle={pinned ? 'Older version, kept by Vesper' : install ? sourceLabel(install.source) : 'Not detected'}
+  >
     {#snippet actions()}
+      {#if install && !isMac}<Button
+          size="sm"
+          variant="ghost"
+          icon={History}
+          label="Change Roblox version"
+          title="Change Roblox version"
+          onclick={() => (versionsOpen = true)}
+        />{/if}
       <Button
         size="sm"
         variant="ghost"
@@ -236,7 +253,10 @@
         <span>Version</span><span class="mono">{install.version ?? 'unknown'}</span>
         <span>Status</span>
         <span>
-          {#if !latest}<span class="faint">Not checked</span>
+          {#if pinned}<Badge tone="warn" title="Vesper launches this version until you go back to latest."
+              >Older version</Badge
+            >
+          {:else if !latest}<span class="faint">Not checked</span>
           {:else if outdated}<Badge tone="warn" title="Roblox updates itself when it next starts."
               >Update available · {minorVersion(latest.version)}</Badge
             >
@@ -245,6 +265,19 @@
         <span>Last launch</span>
         <span>{relativeTime(app.settings.lastLaunch?.at)}</span>
       </div>
+      {#if pinned}
+        <p class="note">
+          {#if app.buildIssue?.kind === 'refused'}
+            Roblox refused {app.buildIssue.version} when joining (error 280), so it's too old.
+          {:else if app.buildIssue?.kind === 'blankApp'}
+            Roblox {app.buildIssue.version} can't open its app, so it shows a blank window. It's too old.
+          {:else}
+            If Roblox says it's out of date (error 280), this version is too old.
+          {/if}
+          <button class="link small" onclick={() => (versionsOpen = true)}>Pick a newer one or go back to latest</button
+          >
+        </p>
+      {/if}
       {#if app.detection.protocol && app.detection.protocol.owner !== 'Roblox' && app.detection.protocol.owner !== 'Vesper'}
         <p class="note">
           Game links from the website open in {app.detection.protocol.owner}. Launch from Vesper to use your profile.

@@ -54,6 +54,7 @@ export interface Settings {
   performance: { monitoring: boolean; sampleMs: number; fpsCounter: boolean };
   roblox: {
     installDir: string | null;
+    pinnedBuild: string | null;
     flagMode: FlagMode;
     applyFpsCap: boolean;
     verifyAfterLaunch: boolean;
@@ -461,3 +462,27 @@ export interface LogEntry {
   area: string;
   msg: string;
 }
+
+export interface RobloxBuild {
+  version: string;
+  hash: string;
+  released: string | null;
+  versionsBack: number;
+  tooOld: boolean;
+}
+
+export interface BuildIssue {
+  version: string;
+  kind: 'refused' | 'blankApp';
+}
+
+export interface RobloxBuildList {
+  builds: RobloxBuild[];
+  base: string | null;
+  partial: boolean;
+}
+
+export type BuildStatus =
+  | { state: 'idle' }
+  | { state: 'working'; version: string; hash: string; done: number; total: number }
+  | { state: 'failed'; problem: Problem };

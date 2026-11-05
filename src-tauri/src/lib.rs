@@ -92,6 +92,8 @@ pub fn run() {
                 playing::start(&handle);
             }
             state::spawn_roblox_watcher(handle.clone());
+            let sweeper = handle.clone();
+            std::thread::spawn(move || roblox::builds::sweep(&sweeper.state::<AppState>()));
             fit_window_to_screen(&handle);
 
             let bg = handle.clone();
@@ -155,6 +157,13 @@ pub fn run() {
             commands::shaders_preset,
             commands::servers_scan,
             commands::roblox_latest,
+            roblox::builds::builds_list,
+            roblox::builds::builds_status,
+            roblox::builds::builds_issue,
+            roblox::builds::builds_install,
+            roblox::builds::builds_cancel,
+            roblox::builds::builds_dismiss,
+            roblox::builds::builds_use_latest,
             commands::flags_validate,
             commands::flags_published,
             commands::flags_installed,
@@ -210,6 +219,7 @@ pub fn run() {
         .run(|app, event| match event {
             tauri::RunEvent::Exit => {
                 let state = app.state::<AppState>();
+                state.builds.cancel();
                 lock(&state.monitor).handle = None;
                 lock(&state.shade).take();
                 if let Some(p) = lock(&state.presence).take() {

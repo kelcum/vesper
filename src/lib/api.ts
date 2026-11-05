@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   BackupInfo,
   Bootstrap,
+  BuildIssue,
+  BuildStatus,
   CleanupSummary,
   Detection,
   FlagSet,
@@ -18,6 +20,7 @@ import type {
   ProfileStore,
   PublishedValues,
   RestoreOutcome,
+  RobloxBuildList,
   Settings,
   SettingsPatch,
   SystemInfo,
@@ -88,6 +91,13 @@ export const api = {
   shadersPreset: (id: string) => call<ShaderParams>('shaders_preset', { id }),
 
   robloxLatest: (refresh = false) => call<LatestVersion | null>('roblox_latest', { refresh }),
+  buildsList: (refresh = false) => call<RobloxBuildList>('builds_list', { refresh }),
+  buildsStatus: () => call<BuildStatus>('builds_status'),
+  buildsIssue: () => call<BuildIssue | null>('builds_issue'),
+  buildsInstall: (hash: string, version: string) => call<void>('builds_install', { hash, version }),
+  buildsCancel: () => call<void>('builds_cancel'),
+  buildsDismiss: () => call<void>('builds_dismiss'),
+  buildsUseLatest: () => call<Settings>('builds_use_latest'),
 
   flagsValidate: (flags: FlagSet) => call<Issue[]>('flags_validate', { flags }),
   flagsPublished: (refresh = false) => call<PublishedValues | null>('flags_published', { refresh }),

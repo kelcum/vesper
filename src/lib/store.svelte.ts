@@ -3,6 +3,8 @@ import { api, toProblem } from './api';
 import { applyAppearance } from './appearance';
 import type {
   Bootstrap,
+  BuildIssue,
+  BuildStatus,
   Detection,
   History,
   LaunchReport,
@@ -54,6 +56,8 @@ class AppStore {
   player = $state<Player | null>(null);
   history = $state<History>({ visits: [] });
   shaders = $state<ShaderStatus>({ state: 'off' });
+  builds = $state<BuildStatus>({ state: 'idle' });
+  buildIssue = $state<BuildIssue | null>(null);
 
   page = $state<PageId>('home');
   settingsSection = $state<string | null>(null);
@@ -80,10 +84,12 @@ class AppStore {
       const b = await api.bootstrap();
       this.applyBoot(b);
       await this.subscribe();
-      const [playing, history, shaders] = await Promise.all([
+      const [playing, history, shaders, builds, buildIssue] = await Promise.all([
         api.playingGet().catch(() => null),
         api.historyGet().catch(() => null),
         api.shadersInfo().catch(() => null),
+        api.buildsStatus().catch(() => null),
+        api.buildsIssue().catch(() => null),
       ]);
       if (playing) {
         this.nowPlaying = playing.now;
@@ -91,6 +97,8 @@ class AppStore {
       }
       if (history) this.history = history;
       if (shaders) this.shaders = shaders.status;
+      if (builds) this.builds = builds;
+      this.buildIssue = buildIssue;
       await applyAppearance(this.settings.appearance);
       this.ready = true;
       for (const n of b.notices) this.toast(n, 'info');
@@ -137,6 +145,8 @@ class AppStore {
       listen<Player | null>('roblox://player', (e) => (this.player = e.payload)),
       listen<History>('history://changed', (e) => (this.history = e.payload)),
       listen<ShaderStatus>('shaders://status', (e) => (this.shaders = e.payload)),
+      listen<BuildStatus>('builds://status', (e) => this.onBuilds(e.payload)),
+      listen<BuildIssue | null>('builds://issue', (e) => (this.buildIssue = e.payload)),
       listen<string>('app://navigate', (e) => this.go(e.payload as PageId)),
     ]);
   }
@@ -150,6 +160,14 @@ class AppStore {
         .noticesTake()
         .then((ns) => ns.forEach((n) => this.toast(n, 'info')))
         .catch(() => {});
+    }
+  }
+
+  onBuilds(s: BuildStatus) {
+    const previous = this.builds;
+    this.builds = s;
+    if (previous.state === 'working' && s.state === 'idle' && this.settings.roblox.pinnedBuild === previous.hash) {
+      this.toast(`Roblox ${previous.version} is ready. Vesper will launch it from now on.`, 'ok');
     }
   }
 

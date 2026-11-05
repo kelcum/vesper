@@ -41,6 +41,12 @@ can't measure something.
   opens. Already playing? *Restart and rejoin* force-quits Roblox and puts
   you back in the same server. While Roblox runs, Vesper can stay, minimize, hide in the tray or
   leave the taskbar and tray completely.
+- **Older Roblox versions** (Windows): pick a version from one to several
+  releases back on Home. It's downloaded from Roblox, kept in Vesper's own folder
+  and launched from Vesper, so your normal Roblox install isn't changed and you
+  can go back any time. Roblox only lets recent versions join games, so Vesper
+  tells you when one is too old (error 280 or a blank window) and marks it and
+  older ones as too old.
 - **Now playing and Recent games**: the game and server you're in (with the
   server's city, if you turn that on), and a list of earlier games and servers
   to join again. Kept only on your computer; turn it off or clear it any time.
@@ -196,6 +202,10 @@ If Discord is closed, Vesper waits quietly and connects when Discord opens.
 - On a Mac, when a customised Roblox file isn't Roblox's own, Vesper reads
   Roblox's own copy of that file from Roblox's public download
   (`setup.rbxcdn.com`), also anonymously.
+- When you open the version picker on Home, Vesper reads the list of past Roblox
+  versions from a public GitHub project (`api.github.com` and
+  `raw.githubusercontent.com`) and checks them on `setup.rbxcdn.com`. If you pick
+  one, it's downloaded from `setup.rbxcdn.com`. All of this is anonymous.
 - Discord Rich Presence talks to the Discord app on your computer, only when enabled.
 - Logs and diagnostics remove your Windows or macOS user name and anything that
   looks like a secret before they're written.

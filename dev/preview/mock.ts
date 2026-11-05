@@ -325,6 +325,72 @@ const handlers: Record<string, (args: any) => unknown> = {
   settings_update: ({ patch }) => merge(settings, patch),
   roblox_detect: () => detection,
   roblox_latest: () => bootstrap().latestRoblox,
+  builds_status: () => ({ state: 'idle' }),
+  builds_issue: () => null,
+  builds_install: ({ hash, version: picked }) => {
+    const total = 238_000_000;
+    let done = 0;
+    emit('builds://status', { state: 'working', version: picked, hash, done, total });
+    const timer = setInterval(() => {
+      done = Math.min(total, done + 40_000_000);
+      if (done < total) {
+        emit('builds://status', { state: 'working', version: picked, hash, done, total });
+        return;
+      }
+      clearInterval(timer);
+      merge(settings, { roblox: { pinnedBuild: hash, installDir: `C:\\Vesper\\${hash}` } });
+      emit('settings://changed', settings);
+      emit('builds://status', { state: 'idle' });
+    }, 900);
+  },
+  builds_cancel: () => emit('builds://status', { state: 'idle' }),
+  builds_dismiss: () => emit('builds://status', { state: 'idle' }),
+  builds_use_latest: () => {
+    merge(settings, { roblox: { pinnedBuild: null, installDir: null } });
+    emit('settings://changed', settings);
+    return settings;
+  },
+  builds_list: () => ({
+    base: version,
+    partial: false,
+    builds: [
+      {
+        version: '0.741.0.7411058',
+        hash: 'version-02c37bc51a384b8f',
+        released: minutesAgo(9360),
+        versionsBack: 1,
+        tooOld: false,
+      },
+      {
+        version: '0.740.0.7400927',
+        hash: 'version-2366ba214ec740ca',
+        released: minutesAgo(21600),
+        versionsBack: 2,
+        tooOld: false,
+      },
+      {
+        version: '0.739.0.7390687',
+        hash: 'version-4310300497aa4917',
+        released: minutesAgo(30240),
+        versionsBack: 3,
+        tooOld: false,
+      },
+      {
+        version: '0.738.0.7381397',
+        hash: 'version-c5aecda2245e4fae',
+        released: minutesAgo(38880),
+        versionsBack: 4,
+        tooOld: true,
+      },
+      {
+        version: '0.737.0.7371584',
+        hash: 'version-e7d81637d42c4b23',
+        released: minutesAgo(49680),
+        versionsBack: 5,
+        tooOld: true,
+      },
+    ],
+  }),
   flags_validate: () => [],
   flags_published: () => published,
   flags_installed: () => ({

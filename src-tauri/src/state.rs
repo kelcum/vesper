@@ -35,6 +35,8 @@ pub mod events {
     pub const PLAYER: &str = "roblox://player";
     pub const HISTORY: &str = "history://changed";
     pub const SHADERS: &str = "shaders://status";
+    pub const BUILDS: &str = "builds://status";
+    pub const BUILD_ISSUE: &str = "builds://issue";
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -96,6 +98,7 @@ pub struct AppState {
     pub server_cache: crate::servers::ServerCache,
     pub shade: Mutex<Option<crate::shade::Overlay>>,
     pub shade_status: Mutex<crate::shade::ShaderStatus>,
+    pub builds: crate::roblox::builds::BuildsState,
     pub roblox_running: AtomicBool,
     pub hidden_for_roblox: AtomicBool,
     pub minimized_for_roblox: AtomicBool,
@@ -119,7 +122,8 @@ impl AppState {
         if loaded.recovered_from.is_some() {
             notices.push("Your settings file couldn't be read, so Vesper started with defaults. The old file was kept next to the new one.".to_owned());
         }
-        let settings = loaded.settings;
+        let mut settings = loaded.settings;
+        crate::roblox::builds::forget_missing(&mut settings);
         let profiles = ProfileStore::load(&paths.profiles_file());
         let ownership = Ownership::load(&paths.ownership_file());
         let verification = VerificationStore::load(&paths.verification_file());
@@ -159,6 +163,7 @@ impl AppState {
             server_cache: Default::default(),
             shade: Mutex::new(None),
             shade_status: Mutex::new(crate::shade::ShaderStatus::Off),
+            builds: Default::default(),
             roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
             hidden_for_roblox: AtomicBool::new(false),
             minimized_for_roblox: AtomicBool::new(false),

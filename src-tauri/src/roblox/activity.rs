@@ -23,6 +23,9 @@ static UDMUX: LazyLock<Regex> =
 const PRIVATE_MARKER: &str = "GameJoinUtil::joinGamePostPrivateServer";
 const RESERVED_MARKER: &str = "GameJoinUtil::initiateTeleportToReservedServer";
 const LEAVE_MARKER: &str = "[FLog::SingleSurfaceApp] leaveUGCGameInternal";
+const REFUSED_MARKER: &str = "Disconnect reason received: 280";
+const BROKEN_APP_MARKER: &str = "is not a valid Service name";
+const ROBLOX_SCRIPT_MARKER: &str = "[Roblox][CorePackages";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +64,8 @@ pub enum Change {
     Joined,
     Updated,
     Left,
+    RefusedTooOld,
+    AppBroken,
 }
 
 #[derive(Debug, Default)]
@@ -91,6 +96,12 @@ impl Tracker {
     }
 
     fn read(&mut self, line: &str) -> Option<Change> {
+        if line.contains(REFUSED_MARKER) {
+            return Some(Change::RefusedTooOld);
+        }
+        if line.contains(BROKEN_APP_MARKER) && line.contains(ROBLOX_SCRIPT_MARKER) {
+            return Some(Change::AppBroken);
+        }
         if line.contains(PRIVATE_MARKER) {
             self.next_kind = ServerKind::Private;
             return None;
@@ -305,6 +316,25 @@ mod tests {
         );
         assert!(t.current.is_none());
         assert_eq!(t.feed("2026-10-17T01:00:10.000Z,9,1,6 [FLog::SingleSurfaceApp] leaveUGCGameInternal"), None);
+    }
+
+    #[test]
+    fn notices_when_roblox_refuses_or_breaks() {
+        let mut t = Tracker::default();
+        assert_eq!(
+            t.feed("2026-11-05T02:27:32.100Z,6.5,1,6 [FLog::Network] Disconnect reason received: 280"),
+            Some(Change::RefusedTooOld)
+        );
+        assert_eq!(t.feed("2026-11-05T02:27:32.100Z,6.5,1,6 [FLog::Network] Disconnect reason received: 277"), None);
+        assert_eq!(
+            t.feed("2026-11-05T02:19:04.557Z,1.5,1,6,Error [FLog::CreatorError] Error: [Roblox][CorePackages.LuauForgeChunks.bundled] 'FriendsCallingService' is not a valid Service name"),
+            Some(Change::AppBroken)
+        );
+        assert_eq!(
+            t.feed("2026-11-05T02:19:04.557Z,1.5,1,6,Error [FLog::CreatorError] Error: [Game][Script] 'Nope' is not a valid Service name"),
+            None,
+            "a game's own scripts don't count"
+        );
     }
 
     #[test]

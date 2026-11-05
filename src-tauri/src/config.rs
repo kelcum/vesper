@@ -162,6 +162,7 @@ impl Default for Performance {
 #[serde(rename_all = "camelCase", default)]
 pub struct RobloxSettings {
     pub install_dir: Option<PathBuf>,
+    pub pinned_build: Option<String>,
     pub flag_mode: FlagMode,
     pub apply_fps_cap: bool,
     pub verify_after_launch: bool,
@@ -172,6 +173,7 @@ impl Default for RobloxSettings {
     fn default() -> Self {
         Self {
             install_dir: None,
+            pinned_build: None,
             flag_mode: FlagMode::ApplyOnLaunch,
             apply_fps_cap: true,
             verify_after_launch: true,
@@ -357,6 +359,12 @@ impl Settings {
         }
         if !["error", "warn", "info", "debug", "trace"].contains(&self.advanced.log_level.as_str()) {
             self.advanced.log_level = "info".into();
+        }
+        let pin_matches = self.roblox.pinned_build.as_deref().is_some_and(|hash| {
+            self.roblox.install_dir.as_deref().and_then(Path::file_name).is_some_and(|name| name == hash)
+        });
+        if !pin_matches {
+            self.roblox.pinned_build = None;
         }
         if let Some(dir) = &self.roblox.install_dir {
             if !dir.is_absolute() {

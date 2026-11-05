@@ -115,6 +115,11 @@ fn fill_history(app: &AppHandle, a: &Activity) {
 }
 
 fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
+    match change {
+        Change::RefusedTooOld => return crate::roblox::builds::note_refused(app),
+        Change::AppBroken => return crate::roblox::builds::note_blank_app(app),
+        _ => {}
+    }
     let state = app.state::<AppState>();
     let at = tracker.at.unwrap_or_else(chrono::Utc::now);
     let previous = lock(&state.activity).clone();
@@ -145,7 +150,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
                 emit_history(app);
             }
         }
-        Change::Updated => {}
+        Change::Updated | Change::RefusedTooOld | Change::AppBroken => {}
     }
     if let Some(a) = lock(&state.activity).clone() {
         fill_history(app, &a);

@@ -6,6 +6,18 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-05
+
+### Added
+
+- Older Roblox versions on Windows: a button on Home's Roblox card lists versions
+  from one to several releases back. The one you pick is downloaded from Roblox,
+  checked against Roblox's own checksums, kept in Vesper's folder and launched
+  from Vesper, without changing your normal Roblox install. Going back to latest
+  takes one click and removes the older copy. Roblox only lets recent versions
+  join games. When it refuses one (error 280) or one opens to a blank window,
+  Home says so, and the picker marks refused versions and older ones as too old.
+
 ## [0.3.4] - 2026-10-18
 
 ### Added

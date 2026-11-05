@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod builds;
 pub mod cdn;
 pub mod deeplink;
 pub mod detect;

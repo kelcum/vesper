@@ -360,7 +360,29 @@
               Vesper measures your ping to every Roblox region and only joins servers that are open right now.
             </p>
           </article>
-          <article class="card glass span-6 reveal">
+          <article class="card glass span-3 reveal">
+            <div class="icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </div>
+            <h3>Older Roblox versions</h3>
+            <p>
+              A Roblox update got in your way? Go back one version or a few, downloaded from Roblox and kept apart from
+              your normal install, with one click back to the latest. Roblox only lets recent versions join games, and
+              Vesper tells you when one is too old. Windows only.
+            </p>
+          </article>
+          <article class="card glass span-3 reveal">
             <div class="icon">
               <svg
                 viewBox="0 0 24 24"
@@ -762,6 +784,16 @@
           </button>
           <button
             role="tab"
+            id="t-versions"
+            aria-controls="s-versions"
+            aria-selected="false"
+            tabindex="-1"
+            data-caption="Roblox version: go back one version or a few on Windows, and back to the latest in one click. Vesper marks the ones Roblox has refused as too old."
+          >
+            Versions
+          </button>
+          <button
+            role="tab"
             id="t-settings"
             aria-controls="s-settings"
             aria-selected="false"
@@ -853,6 +885,14 @@
               height="760"
               loading="lazy"
               alt="Server settings with ping to every region."
+            />
+            <img
+              id="s-versions"
+              src="shots/versions.webp"
+              width="1180"
+              height="760"
+              loading="lazy"
+              alt="The Roblox version picker with older versions to choose from."
             />
             <img
               id="s-settings"
