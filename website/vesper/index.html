@@ -92,7 +92,7 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <a class="btn btn-primary" href="download/Vesper_0.3.4_x64-setup.exe" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.5_x64-setup.exe" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -108,7 +108,7 @@
             </svg>
             Download for Windows</a
           >
-          <a class="btn btn-primary" href="download/Vesper_0.3.4_universal.dmg" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.5_universal.dmg" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -129,7 +129,7 @@
         </div>
         <!-- build:hero-meta -->
         <p class="cta-meta reveal">
-          Version 0.3.4 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
+          Version 0.3.5 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
         </p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
@@ -953,7 +953,7 @@
             </p>
             <!-- build:download -->
             <div class="cta">
-              <a class="btn btn-primary" href="download/Vesper_0.3.4_x64-setup.exe" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.5_x64-setup.exe" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -969,7 +969,7 @@
                 </svg>
                 Download for Windows</a
               >
-              <a class="btn btn-primary" href="download/Vesper_0.3.4_universal.dmg" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.5_universal.dmg" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -987,64 +987,35 @@
               >
             </div>
             <ul class="facts">
-              <li><b>4.4 MB</b> installer, released 2026-10-18, no administrator rights needed</li>
+              <li><b>4.5 MB</b> installer, released 2026-11-05, no administrator rights needed</li>
               <li>
                 <b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your
                 settings stay.
               </li>
               <li>
                 <b>Portable:</b>
-                <a href="download/Vesper_0.3.4_x64-portable.zip" download>Vesper_0.3.4_x64-portable.zip</a> (5.7 MB),
+                <a href="download/Vesper_0.3.5_x64-portable.zip" download>Vesper_0.3.5_x64-portable.zip</a> (5.9 MB),
                 keeps everything in a folder next to Vesper.exe
               </li>
-              <li><b>SHA-256</b> <code>fc7e375ea0d5bce745c6adad653cd77a264012f71c7d53a3092e56647b4fc1ac</code></li>
+              <li><b>SHA-256</b> <code>4864f8bcb0b1ef1de23c4c7da50af2d618be5dd71069deb7aa4bf459b3185039</code></li>
               <li>
                 <b>macOS:</b>
-                <a href="download/Vesper_0.3.4_universal.dmg" download>Vesper_0.3.4_universal.dmg</a> (10.5 MB), macOS
+                <a href="download/Vesper_0.3.5_universal.dmg" download>Vesper_0.3.5_universal.dmg</a> (10.7 MB), macOS
                 11 or later, Apple silicon and Intel. SHA-256
-                <code>69f8b3d07859dbc37b49d6b5032d1ab892ba4df3d06dcaa71c9f8379a4285fcf</code>
+                <code>30e1364d35ec815dbbd13602174a6c9283d18de1f86fda7a8a2fba480fd1bb35</code>
               </li>
             </ul>
             <details>
-              <summary>What's new in 0.3.4</summary>
+              <summary>What's new in 0.3.5</summary>
               <h3>Added</h3>
               <ul>
                 <li>
-                  A folder button on each Customize card shows that customisation&#39;s files in Roblox&#39;s folder, in
-                  Finder or File Explorer.
-                </li>
-              </ul>
-              <h3>Changed</h3>
-              <ul>
-                <li>
-                  Restart and rejoin force-quits Roblox instead of asking it to close, so Roblox can&#39;t hang or ask
-                  “Leave game?” on the way out.
-                </li>
-                <li>
-                  While a customisation is on, its files are Vesper&#39;s: if another program changes one, Vesper writes
-                  it again instead of leaving it alone.
-                </li>
-                <li>
-                  macOS: before applying customisations, Vesper puts back Roblox&#39;s own copy of anything another tool
-                  or an older customisation left in Roblox&#39;s cursor, emote wheel, font, death sound and sky files.
-                  It checks each file against Roblox.app&#39;s code signature and, when one isn&#39;t Roblox&#39;s,
-                  reads just that file from Roblox&#39;s own download.
-                </li>
-              </ul>
-              <h3>Fixed</h3>
-              <ul>
-                <li>
-                  macOS: Now playing and Discord show the game&#39;s name and icon. Roblox&#39;s Mac log doesn&#39;t
-                  always say which game a place belongs to, so Vesper looks it up.
-                </li>
-                <li>
-                  Changing the cursor changes the Shift Lock cursor too. Turn off “Use it for Shift Lock too” to keep
-                  Roblox&#39;s crosshair.
-                </li>
-                <li>
-                  Home: the Now playing card no longer touches the server picker, and its buttons stay on one line, or
-                  move under the game when there isn&#39;t room. Its Rejoin button is gone from Home, where Restart and
-                  rejoin does the same.
+                  Older Roblox versions on Windows: a button on Home&#39;s Roblox card lists versions from one to
+                  several releases back. The one you pick is downloaded from Roblox, checked against Roblox&#39;s own
+                  checksums, kept in Vesper&#39;s folder and launched from Vesper, without changing your normal Roblox
+                  install. Going back to latest takes one click and removes the older copy. Roblox only lets recent
+                  versions join games. When it refuses one (error 280) or one opens to a blank window, Home says so, and
+                  the picker marks refused versions and older ones as too old.
                 </li>
               </ul>
             </details>
