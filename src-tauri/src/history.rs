@@ -202,7 +202,7 @@ mod tests {
     fn the_menu_lists_named_games_once() {
         let mut h = History::default();
         for (place, job) in [(1, "a"), (1, "b"), (2, "c"), (3, "d")] {
-            h.joined(&act(place, job));
+            h.joined(&Activity { universe_id: Some(place * 10), ..act(place, job) });
         }
         h.update("a", |v| v.name = Some("First".into()));
         h.update("b", |v| v.name = Some("First".into()));
