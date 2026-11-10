@@ -21,5 +21,6 @@
     ; settings, profiles and backups live here.
     SetShellVarContext current
     RmDir /r "$APPDATA\Vesper"
+    RmDir /r "$APPDATA\gripe.xan.vesper"
   ${EndIf}
 !macroend
