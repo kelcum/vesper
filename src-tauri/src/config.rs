@@ -2,6 +2,7 @@ use crate::paths::write_atomic;
 pub use crate::servers::ServerPick;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -228,6 +229,7 @@ pub struct ShaderSettings {
     pub enabled: bool,
     pub preset: Option<String>,
     pub params: crate::shade::ShaderParams,
+    pub hotkey: Option<String>,
 }
 
 impl Default for ShaderSettings {
@@ -236,6 +238,7 @@ impl Default for ShaderSettings {
             enabled: false,
             preset: Some("cinematic".into()),
             params: crate::shade::preset("cinematic").unwrap_or_default(),
+            hotkey: None,
         }
     }
 }
@@ -245,12 +248,28 @@ impl Default for ShaderSettings {
 pub struct GamesSettings {
     pub history: bool,
     pub locate_servers: bool,
+    pub profiles: BTreeMap<String, String>,
 }
 
 impl Default for GamesSettings {
     fn default() -> Self {
-        Self { history: true, locate_servers: false }
+        Self { history: true, locate_servers: false, profiles: BTreeMap::new() }
     }
+}
+
+impl GamesSettings {
+    pub fn profile_for(&self, place_id: u64, universe_id: Option<u64>) -> Option<&str> {
+        universe_id
+            .and_then(|u| self.profiles.get(&format!("universe:{u}")))
+            .or_else(|| self.profiles.get(&format!("place:{place_id}")))
+            .map(String::as_str)
+    }
+}
+
+pub fn valid_game_key(key: &str) -> bool {
+    key.strip_prefix("universe:")
+        .or_else(|| key.strip_prefix("place:"))
+        .is_some_and(|id| !id.is_empty() && id.len() <= 20 && id.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -351,6 +370,10 @@ impl Settings {
         if self.shaders.preset.as_deref().is_some_and(|p| crate::shade::preset(p).is_none()) {
             self.shaders.preset = None;
         }
+        if self.shaders.hotkey.as_deref().is_some_and(|h| h.trim().is_empty() || h.len() > 60) {
+            self.shaders.hotkey = None;
+        }
+        self.games.profiles.retain(|k, v| valid_game_key(k) && !v.is_empty() && v.len() <= 80);
         let region = &self.servers.region;
         let valid_region = crate::servers::REGIONS.iter().any(|r| r.id == region)
             || (region.starts_with("city:") && region.len() <= 80 && region.matches(':').count() == 2);

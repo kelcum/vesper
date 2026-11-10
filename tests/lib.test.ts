@@ -10,6 +10,8 @@ import {
   verificationBadge,
 } from '../src/lib/flags';
 import { bytes, compareVersions, fpsCapLabel, minorVersion, percent, relativeTime } from '../src/lib/format';
+import { gameKey, hotkeyLabel, matchesQuery, profileForGame, totalsByGame } from '../src/lib/games';
+import type { Visit } from '../src/lib/types';
 import type { Catalog } from '../src/lib/types';
 
 const catalog = catalogJson as unknown as Catalog;
@@ -120,5 +122,67 @@ describe('flag values', () => {
     expect(parseFlagJson('{"FFlagA": true, "FIntB": 3}')).toEqual({ flags: { FFlagA: 'True', FIntB: '3' } });
     expect(parseFlagJson('[1]').error).toBeTruthy();
     expect(parseFlagJson('{oops').error).toBeTruthy();
+  });
+});
+
+describe('games', () => {
+  const visit = (over: Partial<Visit>): Visit => ({
+    placeId: 1,
+    universeId: 10,
+    jobId: 'job',
+    kind: 'public',
+    name: 'Skyline Obby',
+    creator: 'Nimbus',
+    iconUrl: null,
+    location: 'Amsterdam, NL',
+    joinedAt: '2026-11-09T10:00:00Z',
+    leftAt: '2026-11-09T10:30:00Z',
+    pinned: false,
+    ...over,
+  });
+
+  it('keys games by universe when known, place otherwise', () => {
+    expect(gameKey(5, 7)).toBe('universe:7');
+    expect(gameKey(5, null)).toBe('place:5');
+    const settings = {
+      games: { history: true, locateServers: false, profiles: { 'universe:7': 'a', 'place:9': 'b' } },
+    };
+    expect(profileForGame(settings, 5, 7)).toBe('a');
+    expect(profileForGame(settings, 9, null)).toBe('b');
+    expect(profileForGame(settings, 9, 123)).toBe('b');
+    expect(profileForGame(settings, 1, 2)).toBeNull();
+  });
+
+  it('adds up time per game and sorts by it', () => {
+    const now = new Date('2026-11-09T12:00:00Z');
+    const totals = totalsByGame(
+      [
+        visit({ jobId: 'a' }),
+        visit({ jobId: 'b', joinedAt: '2026-11-09T11:00:00Z', leftAt: null }),
+        visit({ jobId: 'c', placeId: 2, universeId: 20, name: 'Harbor Heist', leftAt: '2026-11-09T10:05:00Z' }),
+      ],
+      now,
+    );
+    expect(totals.map((t) => t.name)).toEqual(['Skyline Obby', 'Harbor Heist']);
+    expect(totals[0].totalMs).toBe(90 * 60_000);
+    expect(totals[0].visits).toBe(2);
+    expect(totals[1].totalMs).toBe(5 * 60_000);
+  });
+
+  it('searches names, creators, places and locations', () => {
+    const v = visit({});
+    expect(matchesQuery(v, '')).toBe(true);
+    expect(matchesQuery(v, 'skyline')).toBe(true);
+    expect(matchesQuery(v, 'NIMBUS')).toBe(true);
+    expect(matchesQuery(v, 'amster')).toBe(true);
+    expect(matchesQuery(v, '1')).toBe(true);
+    expect(matchesQuery(v, 'heist')).toBe(false);
+  });
+
+  it('shows hotkeys in plain words', () => {
+    expect(hotkeyLabel(null)).toBe('None');
+    expect(hotkeyLabel('Ctrl+Alt+KeyS')).toBe('Ctrl + Alt + S');
+    expect(hotkeyLabel('CmdOrCtrl+Shift+Digit1')).toBe('Ctrl + Shift + 1');
+    expect(hotkeyLabel('Super+F8')).toBe('Win + F8');
   });
 });

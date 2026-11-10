@@ -6,6 +6,39 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-11-10
+
+### Added
+
+- Recent games: pin a game to the top, search the list, and a Most played
+  card with your total time per game.
+- A profile for each game: pick one from Recent or Now playing and Vesper
+  launches that game with it, leaving your active profile alone.
+- When Roblox closes while you're in a game without leaving it first, Home says
+  so and offers to rejoin the server.
+- The tray menu lists your recent games, so you can jump back in from there.
+- A hotkey for shaders, set in Customize, that works while Roblox has the focus.
+- The Roblox version picker on macOS. It downloads Roblox's Mac app from Roblox
+  and checks Apple's signature on it. Not yet tried on a real Mac.
+- Vesper remembers its window size and position.
+- A code signing policy, in preparation for signed Windows releases through
+  SignPath Foundation.
+
+### Changed
+
+- Roblox now starts a helper in the tray at login. Vesper no longer treats it
+  as Roblox running: Home keeps its Launch button, Discord doesn't say
+  "Playing Roblox", and launching from Vesper ends the idle helper first so
+  your flags apply to a fresh Roblox.
+- Uninstalling removes any older Roblox versions Vesper kept, without needing
+  "Delete the application data".
+- Updated dependencies: Tauri plugins, tokio, serde_json, Lucide icons and
+  svelte-check.
+
+### Fixed
+
+- SECURITY.md named 0.1.x as the supported version.
+
 ## [0.3.5] - 2026-11-05
 
 ### Added

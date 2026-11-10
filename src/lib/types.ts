@@ -70,8 +70,8 @@ export interface Settings {
     profileButton: boolean;
   };
   servers: { pick: ServerPick; region: string };
-  games: { history: boolean; locateServers: boolean };
-  shaders: { enabled: boolean; preset: string | null; params: ShaderParams };
+  games: { history: boolean; locateServers: boolean; profiles: Record<string, string> };
+  shaders: { enabled: boolean; preset: string | null; params: ShaderParams; hotkey: string | null };
   updates: { autoCheck: boolean; channel: UpdateChannel };
   advanced: { logLevel: string };
   lastLaunch: { at: string; robloxVersion: string | null; profile: string; target: string; outcome: string } | null;
@@ -418,9 +418,21 @@ export interface Visit {
   location: string | null;
   joinedAt: string;
   leftAt: string | null;
+  pinned: boolean;
 }
 export interface History {
   visits: Visit[];
+}
+export interface GameEnd {
+  placeId: number;
+  universeId: number | null;
+  jobId: string;
+  kind: ServerKind;
+  name: string | null;
+  iconUrl: string | null;
+  joinUrl: string | null;
+  playedSecs: number;
+  at: string;
 }
 export interface CityPing {
   key: string;

@@ -6,6 +6,7 @@ import type {
   BuildIssue,
   BuildStatus,
   Detection,
+  GameEnd,
   History,
   LaunchReport,
   NowPlaying,
@@ -55,6 +56,7 @@ class AppStore {
   nowPlaying = $state<NowPlaying | null>(null);
   player = $state<Player | null>(null);
   history = $state<History>({ visits: [] });
+  ended = $state<GameEnd | null>(null);
   shaders = $state<ShaderStatus>({ state: 'off' });
   builds = $state<BuildStatus>({ state: 'idle' });
   buildIssue = $state<BuildIssue | null>(null);
@@ -94,6 +96,7 @@ class AppStore {
       if (playing) {
         this.nowPlaying = playing.now;
         this.player = playing.player;
+        this.ended = playing.ended ?? null;
       }
       if (history) this.history = history;
       if (shaders) this.shaders = shaders.status;
@@ -144,6 +147,7 @@ class AppStore {
       listen<NowPlaying | null>('roblox://activity', (e) => (this.nowPlaying = e.payload)),
       listen<Player | null>('roblox://player', (e) => (this.player = e.payload)),
       listen<History>('history://changed', (e) => (this.history = e.payload)),
+      listen<GameEnd | null>('roblox://ended', (e) => this.onEnded(e.payload)),
       listen<ShaderStatus>('shaders://status', (e) => (this.shaders = e.payload)),
       listen<BuildStatus>('builds://status', (e) => this.onBuilds(e.payload)),
       listen<BuildIssue | null>('builds://issue', (e) => (this.buildIssue = e.payload)),
@@ -189,6 +193,11 @@ class AppStore {
     } else if (r.accepted.length) {
       this.toast(`Roblox accepted all ${r.accepted.length} flag${r.accepted.length === 1 ? '' : 's'}.`, 'ok');
     }
+  }
+
+  onEnded(e: GameEnd | null) {
+    this.ended = e;
+    if (e) this.toast(`Roblox closed while you were in ${e.name ?? 'a game'}.`, 'warn');
   }
 
   onCloseRequested() {

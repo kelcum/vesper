@@ -40,6 +40,20 @@ pub fn now_playing(state: &AppState) -> Option<NowPlaying> {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GameEnd {
+    pub place_id: u64,
+    pub universe_id: Option<u64>,
+    pub job_id: String,
+    pub kind: ServerKind,
+    pub name: Option<String>,
+    pub icon_url: Option<String>,
+    pub join_url: Option<String>,
+    pub played_secs: i64,
+    pub at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Player {
     pub id: u64,
     pub info: Option<UserInfo>,
@@ -78,6 +92,7 @@ fn emit(app: &AppHandle) {
 fn emit_history(app: &AppHandle) {
     let state = app.state::<AppState>();
     let _ = app.emit(events::HISTORY, &*lock(&state.history));
+    crate::tray::refresh(app);
 }
 
 fn save_history(state: &AppState) {
@@ -118,6 +133,7 @@ fn on_change(app: &AppHandle, change: Change, tracker: &Tracker) {
     match change {
         Change::RefusedTooOld => return crate::roblox::builds::note_refused(app),
         Change::AppBroken => return crate::roblox::builds::note_blank_app(app),
+        Change::Joined => dismiss_end(app),
         _ => {}
     }
     let state = app.state::<AppState>();
@@ -264,12 +280,37 @@ pub fn start(app: &AppHandle) {
 pub fn stop(app: &AppHandle) {
     let state = app.state::<AppState>();
     lock(&state.activity_watch).take();
-    let had = lock(&state.activity).take().is_some();
-    lock(&state.history).close_all(chrono::Utc::now());
-    if had {
+    let now = chrono::Utc::now();
+    let had = lock(&state.activity).take();
+    lock(&state.history).close_all(now);
+    if let Some(a) = &had {
         save_history(&state);
         emit_history(app);
+        if !state.closing_roblox.load(std::sync::atomic::Ordering::Relaxed) {
+            let game = a.universe_id.and_then(|u| lock(&state.games).get(&u).cloned());
+            let end = GameEnd {
+                place_id: a.place_id,
+                universe_id: a.universe_id,
+                job_id: a.job_id.clone(),
+                kind: a.kind,
+                name: game.as_ref().map(|g| g.name.clone()),
+                icon_url: game.and_then(|g| g.icon_url),
+                join_url: a.join_url(),
+                played_secs: (now - a.joined_at).num_seconds().max(0),
+                at: now,
+            };
+            log::info!("Roblox closed while in place {} without leaving the game first", a.place_id);
+            *lock(&state.ended) = Some(end.clone());
+            let _ = app.emit(events::ENDED, &end);
+        }
     }
     emit(app);
     state.sync_shaders(app);
+}
+
+pub fn dismiss_end(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if lock(&state.ended).take().is_some() {
+        let _ = app.emit(events::ENDED, None::<GameEnd>);
+    }
 }

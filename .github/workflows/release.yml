@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -69,14 +70,45 @@ jobs:
       - name: Build installer
         run: npx tauri build --bundles nsis
 
+      - name: Stage files for signing
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          New-Item -ItemType Directory -Force unsigned | Out-Null
+          Copy-Item "src-tauri/target/release/bundle/nsis/Vesper_${v}_x64-setup.exe" unsigned/
+          Copy-Item src-tauri/target/release/Vesper.exe unsigned/
+
+      - uses: actions/upload-artifact@v7
+        id: unsigned
+        with:
+          name: unsigned
+          path: unsigned/
+
+      - name: Sign with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: vesper
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
       - name: Collect release files
         shell: pwsh
         run: |
           $v = "${{ needs.version.outputs.version }}"
+          $source = if (Test-Path "signed/Vesper_${v}_x64-setup.exe") { "signed" } else { "unsigned" }
           New-Item -ItemType Directory -Force release, portable | Out-Null
-          $setup = "src-tauri/target/release/bundle/nsis/Vesper_${v}_x64-setup.exe"
-          Copy-Item $setup, "$setup.sig" release/
-          Copy-Item src-tauri/target/release/Vesper.exe portable/
+          Copy-Item "$source/Vesper_${v}_x64-setup.exe" release/
+          if ($source -eq "signed") {
+            npx tauri signer sign -k "$env:TAURI_SIGNING_PRIVATE_KEY" -p "$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD" "release/Vesper_${v}_x64-setup.exe"
+          } else {
+            Copy-Item "src-tauri/target/release/bundle/nsis/Vesper_${v}_x64-setup.exe.sig" release/
+          }
+          Copy-Item "$source/Vesper.exe" portable/
           Copy-Item LICENSE portable/LICENSE.txt
           New-Item -ItemType File portable/portable | Out-Null
           Compress-Archive -Path portable/* -DestinationPath "release/Vesper_${v}_x64-portable.zip"
@@ -140,7 +172,7 @@ jobs:
         with:
           node-version: 24
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: release
           merge-multiple: true

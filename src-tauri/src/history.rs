@@ -19,6 +19,8 @@ pub struct Visit {
     pub location: Option<String>,
     pub joined_at: DateTime<Utc>,
     pub left_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 impl Visit {
@@ -34,6 +36,7 @@ impl Visit {
             location: None,
             joined_at: a.joined_at,
             left_at: None,
+            pinned: false,
         }
     }
 }
@@ -63,7 +66,26 @@ impl History {
         } else {
             self.visits.insert(0, Visit::from_activity(a));
         }
-        self.visits.truncate(MAX_VISITS);
+        self.trim();
+    }
+
+    fn trim(&mut self) {
+        let mut unpinned = 0;
+        self.visits.retain(|v| {
+            if v.pinned {
+                return true;
+            }
+            unpinned += 1;
+            unpinned <= MAX_VISITS
+        });
+    }
+
+    pub fn set_pinned(&mut self, job_id: &str, pinned: bool) -> bool {
+        self.update(job_id, |v| v.pinned = pinned)
+    }
+
+    pub fn pinned(&self) -> impl Iterator<Item = &Visit> {
+        self.visits.iter().filter(|v| v.pinned)
     }
 
     pub fn update(&mut self, job_id: &str, f: impl FnOnce(&mut Visit)) -> bool {
@@ -93,6 +115,24 @@ impl History {
 
     pub fn remove(&mut self, job_id: &str) {
         self.visits.retain(|v| v.job_id != job_id);
+    }
+
+    pub fn recent_for_menu(&self, limit: usize) -> Vec<&Visit> {
+        let mut seen = Vec::new();
+        self.visits
+            .iter()
+            .filter(|v| v.name.is_some())
+            .filter(|v| {
+                let key = v.universe_id.map_or(v.place_id, |u| u);
+                if seen.contains(&key) {
+                    false
+                } else {
+                    seen.push(key);
+                    true
+                }
+            })
+            .take(limit)
+            .collect()
     }
 }
 
@@ -138,6 +178,37 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(!text.contains("128.116"), "addresses aren't stored");
         assert_eq!(History::load(&path), h);
+    }
+
+    #[test]
+    fn pinned_visits_survive_the_cap() {
+        let mut h = History::default();
+        h.joined(&act(1, "keep"));
+        assert!(h.set_pinned("keep", true));
+        assert!(!h.set_pinned("nope", true));
+        for i in 0..(MAX_VISITS + 20) {
+            h.joined(&act(100 + i as u64, &format!("job-{i}")));
+        }
+        assert_eq!(h.visits.len(), MAX_VISITS + 1);
+        assert!(h.visits.iter().any(|v| v.job_id == "keep" && v.pinned));
+        assert_eq!(h.pinned().count(), 1);
+        h.set_pinned("keep", false);
+        h.joined(&act(999, "one-more"));
+        assert_eq!(h.visits.len(), MAX_VISITS);
+        assert!(!h.visits.iter().any(|v| v.job_id == "keep"));
+    }
+
+    #[test]
+    fn the_menu_lists_named_games_once() {
+        let mut h = History::default();
+        for (place, job) in [(1, "a"), (1, "b"), (2, "c"), (3, "d")] {
+            h.joined(&act(place, job));
+        }
+        h.update("a", |v| v.name = Some("First".into()));
+        h.update("b", |v| v.name = Some("First".into()));
+        h.update("c", |v| v.name = Some("Second".into()));
+        let menu: Vec<&str> = h.recent_for_menu(5).iter().map(|v| v.job_id.as_str()).collect();
+        assert_eq!(menu, ["c", "b"], "unnamed visits are skipped and each game appears once");
     }
 
     #[test]

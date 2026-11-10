@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Copy, ExternalLink, MapPin, RotateCw } from '@lucide/svelte';
+  import { Copy, ExternalLink, Layers, MapPin, RotateCw } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import Badge from '../ui/Badge.svelte';
   import Button from '../ui/Button.svelte';
   import GameIcon from './GameIcon.svelte';
+  import GameProfile from './GameProfile.svelte';
   import { api } from '../../lib/api';
   import { duration, serverKindLabel } from '../../lib/format';
   import { app } from '../../lib/store.svelte';
@@ -16,6 +17,7 @@
   let { now, rejoin = true }: Props = $props();
 
   let tick = $state(Date.now());
+  let profileOpen = $state(false);
   const timer = setInterval(() => (tick = Date.now()), 15000);
   onDestroy(() => clearInterval(timer));
 
@@ -56,6 +58,14 @@
         >
       {/if}
       <Button size="sm" variant="ghost" icon={ExternalLink} onclick={() => api.openUrl(now.pageUrl)}>Game page</Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={Layers}
+        label="Profile for this game"
+        title="Choose the profile this game launches with"
+        onclick={() => (profileOpen = true)}
+      />
       {#if rejoin}
         <Button
           size="sm"
@@ -71,6 +81,8 @@
     </div>
   </div>
 </div>
+
+<GameProfile bind:open={profileOpen} placeId={now.placeId} universeId={now.universeId} name={now.game?.name ?? null} />
 
 <style>
   .wrap {

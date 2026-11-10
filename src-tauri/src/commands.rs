@@ -165,6 +165,9 @@ pub fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: Value)
         state.sync_shaders(&app);
         crate::tray::refresh(&app);
     }
+    if old.shaders.hotkey != new.shaders.hotkey {
+        crate::shortcuts::sync(&app);
+    }
     let _ = app.emit(events::SETTINGS, &new);
     Ok(new)
 }
@@ -268,11 +271,16 @@ pub async fn roblox_latest(state: State<'_, AppState>, refresh: bool) -> Result<
 pub struct PlayingInfo {
     pub now: Option<crate::playing::NowPlaying>,
     pub player: Option<crate::playing::Player>,
+    pub ended: Option<crate::playing::GameEnd>,
 }
 
 #[tauri::command]
 pub fn playing_get(state: State<'_, AppState>) -> PlayingInfo {
-    PlayingInfo { now: crate::playing::now_playing(&state), player: crate::playing::player(&state) }
+    PlayingInfo {
+        now: crate::playing::now_playing(&state),
+        player: crate::playing::player(&state),
+        ended: lock(&state.ended).clone(),
+    }
 }
 
 #[tauri::command]
@@ -284,7 +292,63 @@ fn history_changed(app: &AppHandle, state: &AppState) -> Result<crate::history::
     let h = lock(&state.history).clone();
     h.save(&state.paths.history_file()).map_err(|e| Problem::io("Couldn't save the recent games list.", &e))?;
     let _ = app.emit(events::HISTORY, &h);
+    crate::tray::refresh(app);
     Ok(h)
+}
+
+#[tauri::command]
+pub fn history_pin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    job_id: String,
+    pinned: bool,
+) -> Result<crate::history::History> {
+    lock(&state.history).set_pinned(&job_id, pinned);
+    history_changed(&app, &state)
+}
+
+#[tauri::command]
+pub fn games_profile_set(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    key: String,
+    profile: Option<String>,
+) -> Result<Settings> {
+    if !crate::config::valid_game_key(&key) {
+        return Err(Problem::invalid("That game can't be identified.", "Open the game's page and try again."));
+    }
+    if let Some(id) = &profile {
+        if !lock(&state.profiles).profiles.iter().any(|p| &p.id == id) {
+            return Err(Problem::invalid("That profile doesn't exist any more.", "Pick another profile."));
+        }
+    }
+    {
+        let mut s = lock(&state.settings);
+        match &profile {
+            Some(id) => {
+                s.games.profiles.insert(key, id.clone());
+            }
+            None => {
+                s.games.profiles.remove(&key);
+            }
+        }
+    }
+    state.save_settings()?;
+    let settings = state.settings();
+    let _ = app.emit(events::SETTINGS, &settings);
+    Ok(settings)
+}
+
+#[tauri::command]
+pub fn shortcut_check(shortcut: String) -> Result<()> {
+    crate::shortcuts::parse(&shortcut).map(|_| ()).map_err(|e| {
+        Problem::invalid(format!("That hotkey can't be used: {e}."), "Hold Ctrl, Alt or Shift and press a key.")
+    })
+}
+
+#[tauri::command]
+pub fn playing_dismiss_end(app: AppHandle) {
+    crate::playing::dismiss_end(&app);
 }
 
 #[tauri::command]

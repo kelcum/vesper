@@ -37,6 +37,7 @@ pub mod events {
     pub const SHADERS: &str = "shaders://status";
     pub const BUILDS: &str = "builds://status";
     pub const BUILD_ISSUE: &str = "builds://issue";
+    pub const ENDED: &str = "roblox://ended";
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -99,7 +100,9 @@ pub struct AppState {
     pub shade: Mutex<Option<crate::shade::Overlay>>,
     pub shade_status: Mutex<crate::shade::ShaderStatus>,
     pub builds: crate::roblox::builds::BuildsState,
+    pub ended: Mutex<Option<crate::playing::GameEnd>>,
     pub roblox_running: AtomicBool,
+    pub closing_roblox: AtomicBool,
     pub hidden_for_roblox: AtomicBool,
     pub minimized_for_roblox: AtomicBool,
     pub quitting: AtomicBool,
@@ -164,7 +167,9 @@ impl AppState {
             shade: Mutex::new(None),
             shade_status: Mutex::new(crate::shade::ShaderStatus::Off),
             builds: Default::default(),
-            roblox_running: AtomicBool::new(!crate::roblox::process::roblox_pids().is_empty()),
+            ended: Mutex::new(None),
+            roblox_running: AtomicBool::new(!crate::roblox::process::active_roblox_pids().is_empty()),
+            closing_roblox: AtomicBool::new(false),
             hidden_for_roblox: AtomicBool::new(false),
             minimized_for_roblox: AtomicBool::new(false),
             quitting: AtomicBool::new(false),
@@ -477,7 +482,7 @@ pub fn spawn_roblox_watcher(app: AppHandle) {
             if state.quitting.load(Ordering::Relaxed) {
                 return;
             }
-            roblox_seen(&app, &crate::roblox::process::roblox_pids());
+            roblox_seen(&app, &crate::roblox::process::active_roblox_pids());
         })
         .expect("spawn roblox watcher");
 }

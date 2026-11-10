@@ -52,6 +52,60 @@ pub fn roblox_pids() -> Vec<u32> {
     snapshot().map(|all| named(&all, PLAYER_PROCESS).map(|p| p.pid).collect()).unwrap_or_default()
 }
 
+const STARTUP_GRACE: std::time::Duration = std::time::Duration::from_secs(20);
+
+fn split_players(all: &[ProcessSample]) -> (Vec<u32>, Vec<u32>) {
+    let players: Vec<&ProcessSample> = named(all, PLAYER_PROCESS).collect();
+    if players.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+    let pids: Vec<u32> = players.iter().map(|p| p.pid).collect();
+    let windowed = imp::pids_with_windows(&pids);
+    let now = std::time::SystemTime::now();
+    let young = |p: &ProcessSample| {
+        filetime_to_system(p.create_time).is_some_and(|t| now.duration_since(t).is_ok_and(|d| d < STARTUP_GRACE))
+    };
+    players.iter().partition_map(|p| (windowed.contains(&p.pid) || young(p), p.pid))
+}
+
+trait PartitionMap<T> {
+    fn partition_map(self, f: impl Fn(T) -> (bool, u32)) -> (Vec<u32>, Vec<u32>);
+}
+
+impl<T, I: Iterator<Item = T>> PartitionMap<T> for I {
+    fn partition_map(self, f: impl Fn(T) -> (bool, u32)) -> (Vec<u32>, Vec<u32>) {
+        let mut yes = Vec::new();
+        let mut no = Vec::new();
+        for item in self {
+            match f(item) {
+                (true, pid) => yes.push(pid),
+                (false, pid) => no.push(pid),
+            }
+        }
+        (yes, no)
+    }
+}
+
+pub fn active_roblox_pids() -> Vec<u32> {
+    snapshot().map(|all| split_players(&all).0).unwrap_or_default()
+}
+
+pub fn idle_roblox_pids() -> Vec<u32> {
+    snapshot().map(|all| split_players(&all).1).unwrap_or_default()
+}
+
+pub fn end_idle_players() -> usize {
+    let idle = idle_roblox_pids();
+    let mut ended = 0;
+    for pid in idle {
+        match imp::terminate(pid) {
+            Ok(()) => ended += 1,
+            Err(e) => log::warn!("Couldn't end Roblox's idle process {pid}: {e}"),
+        }
+    }
+    ended
+}
+
 pub fn force_quit_players() -> io::Result<()> {
     use std::time::{Duration, Instant};
     let pids = roblox_pids();
@@ -93,6 +147,32 @@ mod imp {
     }
 
     use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
+
+    pub fn pids_with_windows(pids: &[u32]) -> Vec<u32> {
+        use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            EnumWindows, GetWindow, GetWindowThreadProcessId, IsWindowVisible, GW_OWNER,
+        };
+        struct Search<'a> {
+            pids: &'a [u32],
+            found: Vec<u32>,
+        }
+        unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
+            let s = unsafe { &mut *(data.0 as *mut Search) };
+            let mut pid = 0u32;
+            unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+            if s.pids.contains(&pid) && !s.found.contains(&pid) && unsafe { IsWindowVisible(hwnd) }.as_bool() {
+                let owner = unsafe { GetWindow(hwnd, GW_OWNER) }.unwrap_or_default();
+                if owner.is_invalid() {
+                    s.found.push(pid);
+                }
+            }
+            BOOL(1)
+        }
+        let mut s = Search { pids, found: Vec::new() };
+        let _ = unsafe { EnumWindows(Some(each), LPARAM(&mut s as *mut Search as isize)) };
+        s.found
+    }
 
     const STATUS_INFO_LENGTH_MISMATCH: i32 = 0xC000_0004_u32 as i32;
 
@@ -218,6 +298,10 @@ mod imp {
         }
     });
 
+    pub fn pids_with_windows(pids: &[u32]) -> Vec<u32> {
+        pids.to_vec()
+    }
+
     pub fn terminate(pid: u32) -> io::Result<()> {
         if unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) } == 0 {
             return Ok(());
@@ -287,6 +371,9 @@ mod imp {
 
 #[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
+    pub fn pids_with_windows(pids: &[u32]) -> Vec<u32> {
+        pids.to_vec()
+    }
     pub fn terminate(_pid: u32) -> std::io::Result<()> {
         Ok(())
     }

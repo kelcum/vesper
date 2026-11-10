@@ -22,7 +22,7 @@ settings.discord = {
 };
 settings.servers = { pick: 'lowestPing', region: 'us-east' };
 settings.general = { ...settings.general, afterLaunch: 'hidden' };
-settings.games = { history: true, locateServers: true };
+settings.games = { history: true, locateServers: true, profiles: { 'universe:2100000002': 'competitive' } };
 settings.shaders = {
   enabled: true,
   preset: 'cinematic',
@@ -38,6 +38,7 @@ settings.shaders = {
     bloom: 0.15,
     tonemap: 0.7,
   },
+  hotkey: null,
 };
 settings.lastLaunch = {
   at: minutesAgo(12),
@@ -176,7 +177,16 @@ const nowPlaying = running
 const history = {
   visits: [
     ...(nowPlaying
-      ? [{ ...nowPlaying, name: 'Skyline Obby', creator: 'Nimbus Studio', iconUrl: icon('#e35d6a'), leftAt: null }]
+      ? [
+          {
+            ...nowPlaying,
+            name: 'Skyline Obby',
+            creator: 'Nimbus Studio',
+            iconUrl: icon('#e35d6a'),
+            leftAt: null,
+            pinned: false,
+          },
+        ]
       : []),
     {
       placeId: 1100000002,
@@ -189,6 +199,7 @@ const history = {
       location: 'New York City, US',
       joinedAt: minutesAgo(180),
       leftAt: minutesAgo(118),
+      pinned: true,
     },
     {
       placeId: 1100000003,
@@ -201,6 +212,7 @@ const history = {
       location: 'Chicago, US',
       joinedAt: minutesAgo(60 * 27),
       leftAt: minutesAgo(60 * 26),
+      pinned: false,
     },
     {
       placeId: 1100000004,
@@ -213,6 +225,7 @@ const history = {
       location: 'Ashburn, US',
       joinedAt: minutesAgo(60 * 50),
       leftAt: minutesAgo(60 * 49),
+      pinned: false,
     },
   ],
 };
@@ -447,6 +460,18 @@ const handlers: Record<string, (args: any) => unknown> = {
     },
   }),
   history_get: () => history,
+  history_pin: ({ jobId, pinned }) => {
+    const v = history.visits.find((x) => x.jobId === jobId);
+    if (v) v.pinned = pinned;
+    return history;
+  },
+  games_profile_set: ({ key, profile }) => {
+    if (profile) settings.games.profiles[key] = profile;
+    else delete settings.games.profiles[key];
+    return settings;
+  },
+  shortcut_check: () => null,
+  playing_dismiss_end: () => null,
   servers_regions: () => regions,
   servers_scan: async () => (await new Promise((r) => setTimeout(r, 600)), pings),
   shaders_info: () => ({

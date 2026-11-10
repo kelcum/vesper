@@ -46,6 +46,14 @@ pub fn run_cli() -> i32 {
     let _ = mod_ledger.save(&mod_paths.ledger);
     log::info!("Restored {} customised Roblox file(s)", mods.restored);
 
+    let older_versions = paths.cache.join("roblox-versions");
+    if older_versions.is_dir() {
+        match std::fs::remove_dir_all(&older_versions) {
+            Ok(()) => log::info!("Removed the older Roblox versions Vesper kept"),
+            Err(e) => log::warn!("Couldn't remove the older Roblox versions: {e}"),
+        }
+    }
+
     let settings = crate::config::Settings::load(&paths.settings_file()).settings;
     if let (Some(original), Some(env)) = (settings.original_fps_cap, crate::roblox::detect::DetectEnv::system()) {
         if crate::roblox::process::roblox_pids().is_empty() {

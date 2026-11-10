@@ -1,6 +1,6 @@
 use super::cdn;
-use super::detect::{InstallSource, PLAYER_EXE};
-use super::version::{file_version, RobloxVersion};
+use super::detect::{self, InstallSource};
+use super::version::RobloxVersion;
 use crate::config::Settings;
 use crate::error::{Problem, ProblemAction, Result};
 use crate::state::{events, lock, AppState};
@@ -17,6 +17,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 const HISTORY_REPO: &str = "Roblox-DeployHistory-Updates/version-hash-saver";
 const CDN: &str = "https://setup.rbxcdn.com";
+#[cfg(target_os = "macos")]
+const PLATFORM: &str = "MacPlayer";
+#[cfg(not(target_os = "macos"))]
+const PLATFORM: &str = "WindowsPlayer";
 const INSTALLER_PACKAGE: &str = "RobloxPlayerInstaller.exe";
 const MAX_LISTED: usize = 5;
 const MAX_RESOLVED: usize = 8;
@@ -24,7 +28,19 @@ const LIST_TTL: Duration = Duration::from_secs(30 * 60);
 const APP_SETTINGS: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Settings>\n\t<ContentFolder>content</ContentFolder>\n\t<BaseUrl>http://www.roblox.com</BaseUrl>\n</Settings>\n";
 
 static PLAYER_ENTRY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"WindowsPlayer → (\d+\.\d+\.\d+\.\d+)").expect("valid regex"));
+    LazyLock::new(|| Regex::new(&format!(r"{PLATFORM} → (\d+\.\d+\.\d+\.\d+)")).expect("valid regex"));
+
+fn probe_url(hash: &str) -> String {
+    if cfg!(target_os = "macos") {
+        format!("{CDN}/mac/{hash}-RobloxPlayer.zip")
+    } else {
+        format!("{CDN}/{hash}-rbxPkgManifest.txt")
+    }
+}
+
+pub fn installed_version(dir: &Path) -> Option<RobloxVersion> {
+    detect::resolve_custom(dir).ok()?.version?.parse().ok()
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Known {
@@ -193,6 +209,13 @@ pub fn safe_relative(name: &str) -> Option<PathBuf> {
 }
 
 pub fn parse_commits(json: &str) -> std::result::Result<Vec<(String, RobloxVersion, DateTime<Utc>)>, String> {
+    parse_commits_for(json, &PLAYER_ENTRY)
+}
+
+pub fn parse_commits_for(
+    json: &str,
+    entry: &Regex,
+) -> std::result::Result<Vec<(String, RobloxVersion, DateTime<Utc>)>, String> {
     #[derive(Deserialize)]
     struct Commit {
         sha: String,
@@ -212,7 +235,7 @@ pub fn parse_commits(json: &str) -> std::result::Result<Vec<(String, RobloxVersi
         .into_iter()
         .filter(|c| !c.sha.is_empty() && c.sha.bytes().all(|b| b.is_ascii_hexdigit()))
         .filter_map(|c| {
-            let version = PLAYER_ENTRY.captures(&c.commit.message)?[1].parse().ok()?;
+            let version = entry.captures(&c.commit.message)?[1].parse().ok()?;
             Some((c.sha, version, c.commit.author.date))
         })
         .collect())
@@ -282,7 +305,7 @@ pub fn note_blank_app(app: &AppHandle) {
 
 pub fn forget_missing(settings: &mut Settings) {
     let gone = settings.roblox.pinned_build.is_some()
-        && !settings.roblox.install_dir.as_deref().is_some_and(|d| d.join(PLAYER_EXE).is_file());
+        && !settings.roblox.install_dir.as_deref().is_some_and(|d| detect::resolve_custom(d).is_ok());
     if gone {
         settings.roblox.pinned_build = None;
         settings.roblox.install_dir = None;
@@ -415,6 +438,79 @@ pub fn extract(archive: &Path, dest: &Path, cancel: &AtomicBool) -> std::result:
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+pub fn download_build(
+    http: &reqwest::Client,
+    hash: &str,
+    dir: &Path,
+    cancel: &AtomicBool,
+    mut progress: impl FnMut(u64, u64),
+) -> std::result::Result<(), Stop> {
+    let disk = |e: io::Error| Stop::Failed(Problem::io("Vesper couldn't save Roblox's download.", &e));
+    std::fs::create_dir_all(dir).map_err(disk)?;
+    let url = probe_url(hash);
+    let total = tauri::async_runtime::block_on(async { http.head(&url).send().await?.error_for_status() })
+        .map_err(download_problem)?
+        .content_length()
+        .unwrap_or(0);
+    let archive = dir.join("RobloxPlayer.zip.download");
+    let mut last = String::new();
+    let mut fetched = false;
+    for _ in 0..3 {
+        progress(0, total);
+        match tauri::async_runtime::block_on(fetch_once(http, &url, &archive, cancel, &mut |got| progress(got, total)))
+        {
+            Ok(_) => {
+                fetched = true;
+                break;
+            }
+            Err(FetchError::Cancelled) => return Err(Stop::Cancelled),
+            Err(FetchError::Disk(e)) => return Err(disk(e)),
+            Err(FetchError::Network(e)) => last = e,
+        }
+        log::info!("Retrying a Roblox download: {last}");
+    }
+    if !fetched {
+        return Err(Stop::Failed(download_problem(last)));
+    }
+    let unpack = std::process::Command::new("/usr/bin/ditto")
+        .arg("-x")
+        .arg("-k")
+        .arg(&archive)
+        .arg(dir)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(disk)?;
+    if !unpack.status.success() {
+        return Err(Stop::Failed(download_problem(String::from_utf8_lossy(&unpack.stderr).trim())));
+    }
+    std::fs::remove_file(&archive).map_err(disk)?;
+    let app = std::fs::read_dir(dir)
+        .map_err(disk)?
+        .filter_map(std::result::Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
+        .ok_or_else(|| Stop::Failed(download_problem("the download didn't contain a Roblox app")))?;
+    let signature = std::process::Command::new("/usr/bin/codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(&app)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(disk)?;
+    if !signature.status.success() {
+        return Err(Stop::Failed(
+            Problem::new("builds.unsigned", "This Roblox download didn't pass Apple's signature check")
+                .what("The downloaded Roblox app isn't signed the way Roblox signs its releases.")
+                .why("The download may have been damaged on the way.")
+                .fix("Try again, or pick a different version.")
+                .details(String::from_utf8_lossy(&signature.stderr).trim()),
+        ));
+    }
+    progress(total, total);
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn download_build(
     http: &reqwest::Client,
     hash: &str,
@@ -489,7 +585,7 @@ fn install(app: &AppHandle, hash: &str, version: RobloxVersion, cancel: &AtomicB
     let state = app.state::<AppState>();
     let root = versions_root(&state);
     let dest = root.join(hash);
-    let wanted = |dir: &Path| file_version(&dir.join(PLAYER_EXE)) == Some(version);
+    let wanted = |dir: &Path| installed_version(dir) == Some(version);
     if wanted(&dest) {
         activate(app, hash, dest)?;
         return Ok(());
@@ -527,19 +623,18 @@ fn install(app: &AppHandle, hash: &str, version: RobloxVersion, cancel: &AtomicB
 }
 
 async fn resolve(http: reqwest::Client, sha: String, version: RobloxVersion, date: DateTime<Utc>) -> Option<Known> {
-    let url = format!("https://raw.githubusercontent.com/{HISTORY_REPO}/{sha}/WindowsPlayer.json");
+    let url = format!("https://raw.githubusercontent.com/{HISTORY_REPO}/{sha}/{PLATFORM}.json");
     let text = http.get(url).send().await.ok()?.error_for_status().ok()?.text().await.ok()?;
     let parsed = cdn::parse_version(&text).ok()?;
     if parsed.version.parse::<RobloxVersion>().ok()? != version || !valid_hash(&parsed.version_hash) {
         return None;
     }
-    let manifest = format!("{CDN}/{}-rbxPkgManifest.txt", parsed.version_hash);
-    http.head(manifest).send().await.ok()?.error_for_status().ok()?;
+    http.head(probe_url(&parsed.version_hash)).send().await.ok()?.error_for_status().ok()?;
     Some(Known { version, hash: parsed.version_hash, released: Some(date) })
 }
 
 async fn history(http: &reqwest::Client) -> std::result::Result<Vec<Known>, String> {
-    let url = format!("https://api.github.com/repos/{HISTORY_REPO}/commits?path=WindowsPlayer.json&per_page=40");
+    let url = format!("https://api.github.com/repos/{HISTORY_REPO}/commits?path={PLATFORM}.json&per_page=40");
     let response = http
         .get(url)
         .header(reqwest::header::ACCEPT, "application/vnd.github+json")
@@ -574,18 +669,8 @@ fn base_version(state: &AppState) -> Option<RobloxVersion> {
     installed.or_else(|| lock(&state.latest).as_ref().and_then(|l| l.version.parse().ok()))
 }
 
-fn windows_only() -> Problem {
-    Problem::new("builds.windows_only", "Only on Windows for now")
-        .what("Vesper can't install older Roblox versions on a Mac yet.")
-        .why("Roblox packages its Mac app differently.")
-        .fix("Keep using the version you have.")
-}
-
 #[tauri::command]
 pub async fn builds_list(state: State<'_, AppState>, refresh: bool) -> Result<BuildList> {
-    if !cfg!(windows) {
-        return Err(windows_only());
-    }
     let cached = lock(&state.builds.known)
         .as_ref()
         .filter(|(at, _)| !refresh && at.elapsed() < LIST_TTL)
@@ -637,9 +722,6 @@ pub fn builds_issue(state: State<'_, AppState>) -> Option<BuildIssue> {
 
 #[tauri::command]
 pub fn builds_install(app: AppHandle, state: State<'_, AppState>, hash: String, version: String) -> Result<()> {
-    if !cfg!(windows) {
-        return Err(windows_only());
-    }
     let parsed: RobloxVersion = version.parse().map_err(|_| {
         Problem::invalid("That Roblox version number isn't valid.", "Close this window and open it again.")
     })?;
@@ -830,10 +912,13 @@ mod tests {
           {"sha":"abc123","commit":{"message":"MacPlayer → 0.744.0.7441080","author":{"date":"2026-10-20T20:24:47Z"}}},
           {"sha":"../evil","commit":{"message":"WindowsPlayer → 0.743.0.7431134","author":{"date":"2026-10-15T22:10:29Z"}}}
         ]"#;
-        let commits = parse_commits(json).unwrap();
+        let windows = Regex::new(r"WindowsPlayer → (\d+\.\d+\.\d+\.\d+)").unwrap();
+        let commits = parse_commits_for(json, &windows).unwrap();
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].0, "d28372088a");
         assert_eq!(commits[0].1, "0.745.0.7451137".parse().unwrap());
+        let mac = Regex::new(r"MacPlayer → (\d+\.\d+\.\d+\.\d+)").unwrap();
+        assert_eq!(parse_commits_for(json, &mac).unwrap().len(), 2);
         assert!(parse_commits("{\"message\":\"rate limited\"}").is_err());
     }
 
@@ -906,6 +991,7 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
     #[test]
     #[ignore = "downloads a real Roblox build"]
     fn downloads_a_real_build() {
@@ -916,7 +1002,7 @@ mod tests {
         download_build(&download_client(), &hash, &dir, &cancel, |d, t| last = (d, t)).unwrap();
         assert_eq!(last.0, last.1);
         assert!(last.1 > 50_000_000);
-        assert!(file_version(&dir.join(PLAYER_EXE)).is_some());
+        assert!(installed_version(&dir).is_some());
         assert!(dir.join("AppSettings.xml").is_file());
         assert!(!dir.join(INSTALLER_PACKAGE).exists());
     }

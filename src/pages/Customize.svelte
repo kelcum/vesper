@@ -15,6 +15,7 @@
     Paintbrush,
     CloudSun,
     Images,
+    Keyboard,
   } from '@lucide/svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
@@ -30,6 +31,7 @@
   import { isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { ModsView, Option, ShaderParams } from '../lib/types';
+  import { hotkeyLabel } from '../lib/games';
   import studioScript from '../../docs/studio/ColorPresets.client.lua?raw';
 
   const thumbs = import.meta.glob('../assets/mods/*.png', { eager: true, query: '?url', import: 'default' }) as Record<
@@ -114,6 +116,29 @@
     }
   });
   const shaders = $derived(app.settings.shaders);
+  let recording = $state(false);
+  function onHotkey(e: KeyboardEvent) {
+    if (!recording) return;
+    e.preventDefault();
+    if (e.key === 'Escape') {
+      recording = false;
+      return;
+    }
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Super');
+    parts.push(e.code);
+    const combo = parts.join('+');
+    recording = false;
+    app
+      .attempt(() => api.shortcutCheck(combo))
+      .then((ok) => {
+        if (ok !== undefined) app.saveSettings({ shaders: { hotkey: combo } });
+      });
+  }
   const SLIDERS: {
     key: keyof ShaderParams;
     label: string;
@@ -753,6 +778,8 @@
   </Card>
 </div>
 
+<svelte:window onkeydown={onHotkey} />
+
 {#if !isMac}<section class="shaders glass">
     <div class="row top">
       <span class="ico"><Paintbrush size={16} aria-hidden="true" /></span>
@@ -770,6 +797,18 @@
     {#if app.shaders.state === 'failed' && shaders.enabled}
       <p class="small bad">{app.shaders.detail}</p>
     {/if}
+    <div class="row hotkey">
+      <Keyboard size={15} aria-hidden="true" />
+      <span class="faint small">Hotkey to switch shaders on and off, anywhere</span>
+      <kbd class="keys" class:recording>{recording ? 'Press keys…' : hotkeyLabel(shaders.hotkey)}</kbd>
+      <Button size="sm" variant={recording ? 'primary' : 'secondary'} onclick={() => (recording = !recording)}
+        >{recording ? 'Cancel' : shaders.hotkey ? 'Change' : 'Set hotkey'}</Button
+      >
+      {#if shaders.hotkey && !recording}
+        <Button size="sm" variant="ghost" onclick={() => app.saveSettings({ shaders: { hotkey: null } })}>Remove</Button
+        >
+      {/if}
+    </div>
     <div class="sh-body">
       <div class="sh-preview">
         <div class="sh-scene" style:filter={previewFilter}>

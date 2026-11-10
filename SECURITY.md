@@ -7,7 +7,7 @@ security reports seriously and respond to them first.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.x (latest) | Yes |
+| 0.3.x (latest) | Yes |
 | Older | No — update to the latest release |
 
 Only the newest release receives security fixes. Vesper updates itself after

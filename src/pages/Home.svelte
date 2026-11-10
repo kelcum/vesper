@@ -36,6 +36,8 @@
   import { computer, isMac } from '../lib/platform';
   import { app } from '../lib/store.svelte';
   import type { LatestVersion, LaunchTarget } from '../lib/types';
+  import { profileForGame } from '../lib/games';
+  import { duration } from '../lib/format';
 
   let target = $state('');
   let parsed = $state<LaunchTarget | null>(null);
@@ -79,7 +81,21 @@
   const outdated = $derived(!!(install?.version && latest && compareVersions(latest.version, install.version) > 0));
   const pinned = $derived(!!app.settings.roblox.pinnedBuild);
   const profile = $derived(app.activeProfile);
-  const flagCount = $derived(profile ? Object.keys(profile.flags).length : 0);
+  const gameProfile = $derived.by(() => {
+    const target = parsed;
+    if (target?.kind !== 'experience') return null;
+    const visit = app.history.visits.find((v) => v.placeId === target.placeId);
+    const id = profileForGame(app.settings, target.placeId, visit?.universeId ?? null);
+    const p = id ? app.profiles.profiles.find((x) => x.id === id) : undefined;
+    return p && p.id !== profile?.id ? p : null;
+  });
+  const flagCount = $derived(Object.keys((gameProfile ?? profile)?.flags ?? {}).length);
+  const ended = $derived(app.ended && !app.robloxRunning ? app.ended : null);
+
+  async function rejoin() {
+    if (!ended) return;
+    await app.attempt(() => api.robloxLaunch(ended.joinUrl ?? String(ended.placeId)));
+  }
   const report = $derived(app.lastReport);
   const perf = $derived(app.latestPerf);
 
@@ -180,10 +196,26 @@
       </p>
     {:else if install && !busy}
       <p class="state">
-        Ready to start Roblox {install.version ?? ''} with the {profile?.name ?? ''} profile{flagCount
-          ? `, applying ${flagCount} flag${flagCount === 1 ? '' : 's'}`
-          : ''}.
+        Ready to start Roblox {install.version ?? ''} with the {(gameProfile ?? profile)?.name ?? ''} profile{gameProfile
+          ? ' (set for this game)'
+          : ''}{flagCount ? `, applying ${flagCount} flag${flagCount === 1 ? '' : 's'}` : ''}.
       </p>
+    {/if}
+    {#if ended && app.launch.state !== 'failed'}
+      <div class="ended glass">
+        <TriangleAlert size={16} aria-hidden="true" class="warnc" />
+        <div class="ended-text">
+          <strong>Roblox closed while you were in {ended.name ?? `place ${ended.placeId}`}.</strong>
+          <span class="muted small"
+            >After {duration(ended.playedSecs * 1000)}, without leaving the game first. A crash, a kick or a lost
+            connection can do that.</span
+          >
+        </div>
+        <Button size="sm" icon={RotateCw} disabled={busy} onclick={rejoin}
+          >{ended.joinUrl ? 'Rejoin server' : 'Play again'}</Button
+        >
+        <Button size="sm" variant="ghost" onclick={() => api.playingDismissEnd()}>Dismiss</Button>
+      </div>
     {/if}
     {#if !install}
       <p class="state bad">
@@ -223,7 +255,7 @@
     subtitle={pinned ? 'Older version, kept by Vesper' : install ? sourceLabel(install.source) : 'Not detected'}
   >
     {#snippet actions()}
-      {#if install && !isMac}<Button
+      {#if install}<Button
           size="sm"
           variant="ghost"
           icon={History}

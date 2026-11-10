@@ -22,6 +22,7 @@ pub mod roblox;
 pub mod servers;
 pub mod session;
 pub mod shade;
+pub mod shortcuts;
 pub mod sky;
 pub mod state;
 pub mod tray;
@@ -31,6 +32,9 @@ use crate::config::CloseBehavior;
 use crate::discord::presence::Presence;
 use crate::state::{events, lock, AppState};
 use tauri::{Emitter, Manager, WindowEvent};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+
+const WINDOW_STATE: StateFlags = StateFlags::SIZE.union(StateFlags::POSITION).union(StateFlags::MAXIMIZED);
 
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
@@ -74,6 +78,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().with_state_flags(WINDOW_STATE).build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(state)
         .setup(|app| {
             let handle = app.handle().clone();
@@ -87,6 +93,7 @@ pub fn run() {
             state.refresh_presence();
 
             tray::create(&handle)?;
+            shortcuts::sync(&handle);
             forget_avatar_page(&state.paths.cache);
             if state.roblox_running.load(std::sync::atomic::Ordering::Relaxed) {
                 playing::start(&handle);
@@ -116,6 +123,9 @@ pub fn run() {
                 WindowEvent::CloseRequested { api, .. } => {
                     if state.quitting.load(std::sync::atomic::Ordering::Relaxed) {
                         return;
+                    }
+                    if window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false) {
+                        let _ = app.save_window_state(WINDOW_STATE);
                     }
                     if state.settings().general.close_behavior == CloseBehavior::Tray {
                         api.prevent_close();
@@ -152,6 +162,10 @@ pub fn run() {
             commands::history_get,
             commands::history_clear,
             commands::history_remove,
+            commands::history_pin,
+            commands::games_profile_set,
+            commands::shortcut_check,
+            commands::playing_dismiss_end,
             commands::servers_regions,
             commands::shaders_info,
             commands::shaders_preset,

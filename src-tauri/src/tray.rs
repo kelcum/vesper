@@ -34,6 +34,17 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         )?;
         profiles.append(&item)?;
     }
+    let recent = Submenu::with_id(app, "recent", "Recent games", true)?;
+    let visits = lock(&state.history);
+    let listed = visits.recent_for_menu(6);
+    if listed.is_empty() {
+        recent.append(&MenuItem::with_id(app, "recent:none", "Nothing yet", false, None::<&str>)?)?;
+    }
+    for v in listed {
+        let label = v.name.clone().unwrap_or_default();
+        recent.append(&MenuItem::with_id(app, format!("visit:{}", v.job_id), label, true, None::<&str>)?)?;
+    }
+    drop(visits);
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Vesper", true, None::<&str>)?;
     Menu::with_items(
@@ -43,6 +54,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &PredefinedMenuItem::separator(app)?,
             &show,
             &launch,
+            &recent,
             &PredefinedMenuItem::separator(app)?,
             &profiles,
             &shaders,
@@ -163,6 +175,29 @@ fn on_menu(app: &AppHandle, id: &str) {
         }
         "quit" => quit(app),
         other => {
+            if let Some(job_id) = other.strip_prefix("visit:") {
+                let state = app.state::<AppState>();
+                let target =
+                    lock(&state.history).visits.iter().find(|v| v.job_id == job_id).map(|v| LaunchTarget::Experience {
+                        place_id: v.place_id,
+                        game_instance_id: (v.kind == crate::roblox::activity::ServerKind::Public)
+                            .then(|| v.job_id.clone()),
+                        link_code: None,
+                        launch_data: None,
+                    });
+                let Some(target) = target else { return };
+                let running = state.roblox_running.load(Ordering::Relaxed);
+                let started = if running {
+                    crate::session::begin_restart(app.clone(), target)
+                } else {
+                    crate::session::begin(app.clone(), target)
+                };
+                if let Err(problem) = started {
+                    show_main(app);
+                    app.state::<AppState>().set_launch(app, crate::state::LaunchStatus::Failed { problem });
+                }
+                return;
+            }
             if let Some(profile) = other.strip_prefix("profile:") {
                 let state = app.state::<AppState>();
                 let ok = lock(&state.profiles).set_active(profile).is_ok();

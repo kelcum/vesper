@@ -5,6 +5,7 @@ use crate::flags::model::FlagSet;
 use crate::flags::validate::{has_errors, validate};
 use crate::flags::verification::LaunchReport;
 use crate::flags::Catalog;
+use crate::profiles::Profile;
 use crate::roblox::deeplink::{launch_argument, LaunchTarget};
 use crate::roblox::detect::RobloxInstall;
 use crate::roblox::launch::{spawn, SpawnRequest};
@@ -64,7 +65,10 @@ fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
         return Ok(());
     }
     state.hidden_for_roblox.store(false, Ordering::Relaxed);
-    if let Err(e) = process::force_quit_players() {
+    state.closing_roblox.store(true, Ordering::Relaxed);
+    let quit = process::force_quit_players();
+    if let Err(e) = quit {
+        state.closing_roblox.store(false, Ordering::Relaxed);
         return Err(Problem::new("roblox.wont_close", "Roblox didn't close")
             .what("Vesper force-quit Roblox so it could start again, but it's still running.")
             .why(if cfg!(target_os = "macos") {
@@ -82,8 +86,36 @@ fn close_roblox(app: &AppHandle) -> Result<(), Problem> {
     }
     log::info!("Force-quit Roblox for a restart");
     crate::state::roblox_seen(app, &[]);
+    state.closing_roblox.store(false, Ordering::Relaxed);
     std::thread::sleep(Duration::from_millis(1000));
     Ok(())
+}
+
+fn game_profile(state: &AppState, target: &LaunchTarget) -> Option<Profile> {
+    let LaunchTarget::Experience { place_id, .. } = target else { return None };
+    let games = state.settings().games;
+    if games.profiles.is_empty() {
+        return None;
+    }
+    let cached = lock(&state.universes).get(place_id).copied();
+    let wants_universe = games.profiles.keys().any(|k| k.starts_with("universe:"));
+    let universe = cached.or_else(|| {
+        if !wants_universe {
+            return None;
+        }
+        let found = tauri::async_runtime::block_on(async {
+            tokio::time::timeout(Duration::from_secs(6), crate::roblox::web::universe_of(&state.http, *place_id))
+                .await
+                .ok()?
+                .ok()
+        });
+        if let Some(u) = found {
+            lock(&state.universes).insert(*place_id, u);
+        }
+        found
+    });
+    let id = games.profile_for(*place_id, universe)?.to_owned();
+    lock(&state.profiles).profiles.iter().find(|p| p.id == id).cloned()
 }
 
 fn choose_server(app: &AppHandle, target: &LaunchTarget) -> LaunchTarget {
@@ -162,12 +194,25 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     state.redetect(app);
     let install = state.require_install()?;
     let settings = state.settings();
-    let profile = lock(&state.profiles).active().clone();
-    if !process::roblox_pids().is_empty() {
+    let active = lock(&state.profiles).active().clone();
+    let profile = match game_profile(&state, target) {
+        Some(p) if p.id != active.id => {
+            log::info!("Using the {} profile, set for this game", p.name);
+            lock(&state.notices).push(format!("Using the {} profile, which you set for this game.", p.name));
+            p
+        }
+        _ => active,
+    };
+    if !process::active_roblox_pids().is_empty() {
         return Err(Problem::new("roblox.already_running", "Roblox is already open")
             .what("Roblox runs one copy at a time, so a second launch wouldn't start anything.")
             .why("Roblox keeps a single window open.")
             .fix("Use “Restart Roblox” on Home: Vesper closes Roblox and launches it again, into the same server if you like."));
+    }
+    let idle = process::end_idle_players();
+    if idle > 0 {
+        log::info!("Ended {idle} Roblox process(es) that were waiting in the tray, so the launch starts fresh");
+        std::thread::sleep(Duration::from_millis(500));
     }
     let launched_at = SystemTime::now();
 

@@ -125,8 +125,9 @@
         {/each}
       </ul>
       <p class="faint small">
-        Downloads about 230 MB from Roblox, and only applies when you launch from Vesper. Game links on the website keep
-        opening your normal Roblox.
+        Downloads 160 to 230 MB from Roblox, and only applies when you launch from Vesper. Game links on the website
+        keep opening your normal Roblox. Switching versions throws away Roblox's texture cache, so the first games after
+        a switch load more slowly.
       </p>
     {:else}
       <p class="faint center">

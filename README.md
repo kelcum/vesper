@@ -41,15 +41,20 @@ can't measure something.
   opens. Already playing? *Restart and rejoin* force-quits Roblox and puts
   you back in the same server. While Roblox runs, Vesper can stay, minimize, hide in the tray or
   leave the taskbar and tray completely.
-- **Older Roblox versions** (Windows): pick a version from one to several
-  releases back on Home. It's downloaded from Roblox, kept in Vesper's own folder
-  and launched from Vesper, so your normal Roblox install isn't changed and you
-  can go back any time. Roblox only lets recent versions join games, so Vesper
-  tells you when one is too old (error 280 or a blank window) and marks it and
-  older ones as too old.
+- **Older Roblox versions**: pick a version from one to several releases back
+  on Home. It's downloaded from Roblox (on a Mac, checked against Apple's
+  signature), kept in Vesper's own folder and launched from Vesper, so your
+  normal Roblox install isn't changed and you can go back any time. Roblox only
+  lets recent versions join games, so Vesper tells you when one is too old
+  (error 280 or a blank window) and marks it and older ones as too old.
 - **Now playing and Recent games**: the game and server you're in (with the
   server's city, if you turn that on), and a list of earlier games and servers
-  to join again. Kept only on your computer; turn it off or clear it any time.
+  to join again, with pins, search and your most played games. Kept only on
+  your computer; turn it off or clear it any time. If Roblox closes while
+  you're in a game without leaving it first, Home says so and offers to
+  rejoin. The tray menu lists your recent games too.
+- **A profile per game**: pick a profile for a game from Recent or Now playing,
+  and Vesper launches that game with it while your active profile stays put.
 - **Server picking**: join the lowest-ping server, or one in a region or city
   you choose, using RoValra's public server list and your measured ping.
 - **Fast Flags** for all 18 allowlisted flags, explained in plain language,
@@ -71,8 +76,9 @@ can't measure something.
   Roblox's folder. On a Mac, other tools' leftovers are put back to Roblox's
   own first. Games that bring their own fonts or sky keep them.
 - **Shaders** (Windows): colour grading laid over your game while you play,
-  with seven looks and sliders. Nothing is loaded into Roblox: Vesper grades a
-  capture of Roblox's window, as screen recorders do.
+  with seven looks and sliders, and a hotkey to switch them while Roblox has
+  the focus. Nothing is loaded into Roblox: Vesper grades a capture of Roblox's
+  window, as screen recorders do.
 - **Performance**: Roblox's and your PC's CPU, memory and GPU use, plus frame
   rate and frame timing from Direct3D present events where Windows allows it.
 - **Discord Rich Presence**, built in and off until you turn it on: "Using
@@ -192,6 +198,14 @@ Settings → Discord → Rich Presence shows "Using Vesper" on your profile with
 artwork and, unless you turn them off, whether Roblox is running and your
 profile's name are shared. Discord hides the button on your own profile, so ask a friend to check.
 If Discord is closed, Vesper waits quietly and connects when Discord opens.
+
+## Code signing policy
+
+See [docs/code-signing-policy.md](docs/code-signing-policy.md). Windows
+releases are built by GitHub Actions from the tagged commit. Free code signing
+provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org), once the application is approved;
+until then, releases are unsigned.
 
 ## Privacy
 
