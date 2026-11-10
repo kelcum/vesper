@@ -441,8 +441,9 @@
   }
   .visit {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3) var(--space-4);
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
   }
@@ -450,7 +451,7 @@
     box-shadow: inset 2px 0 0 var(--accent);
   }
   .info {
-    flex: 1;
+    flex: 1 1 240px;
     min-width: 0;
   }
   .title {
@@ -478,6 +479,7 @@
     align-items: center;
     gap: 2px;
     flex: none;
+    margin-left: auto;
   }
   .most {
     list-style: none;
