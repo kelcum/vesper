@@ -123,7 +123,7 @@ impl History {
             .iter()
             .filter(|v| v.name.is_some())
             .filter(|v| {
-                let key = v.universe_id.map_or(v.place_id, |u| u);
+                let key = v.universe_id.unwrap_or(v.place_id);
                 if seen.contains(&key) {
                     false
                 } else {

@@ -149,7 +149,8 @@ mod imp {
     use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
 
     pub fn pids_with_windows(pids: &[u32]) -> Vec<u32> {
-        use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+        use windows::core::BOOL;
+        use windows::Win32::Foundation::{HWND, LPARAM};
         use windows::Win32::UI::WindowsAndMessaging::{
             EnumWindows, GetWindow, GetWindowThreadProcessId, IsWindowVisible, GW_OWNER,
         };

@@ -21,10 +21,12 @@ const CDN: &str = "https://setup.rbxcdn.com";
 const PLATFORM: &str = "MacPlayer";
 #[cfg(not(target_os = "macos"))]
 const PLATFORM: &str = "WindowsPlayer";
+#[cfg(not(target_os = "macos"))]
 const INSTALLER_PACKAGE: &str = "RobloxPlayerInstaller.exe";
 const MAX_LISTED: usize = 5;
 const MAX_RESOLVED: usize = 8;
 const LIST_TTL: Duration = Duration::from_secs(30 * 60);
+#[cfg(not(target_os = "macos"))]
 const APP_SETTINGS: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Settings>\n\t<ContentFolder>content</ContentFolder>\n\t<BaseUrl>http://www.roblox.com</BaseUrl>\n</Settings>\n";
 
 static PLAYER_ENTRY: LazyLock<Regex> =
@@ -383,6 +385,7 @@ async fn fetch_once(
     Ok(hex::encode(digest.finalize()))
 }
 
+#[cfg(not(target_os = "macos"))]
 fn fetch_verified(
     http: &reqwest::Client,
     url: &str,
@@ -857,7 +860,7 @@ mod tests {
         ] {
             assert!(package_folder(name).is_some(), "{name}");
         }
-        assert_eq!(package_folder(INSTALLER_PACKAGE), None);
+        assert_eq!(package_folder("RobloxPlayerInstaller.exe"), None);
     }
 
     #[test]
