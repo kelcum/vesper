@@ -437,6 +437,7 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
     let mut seen_spawned = false;
     let mut first_player: Option<(u32, Instant)> = None;
     let mut installer_gone_since: Option<Instant> = None;
+    let mut updated_in_place_since: Option<Instant> = None;
     loop {
         let all = process::snapshot().unwrap_or_default();
         let players: Vec<u32> = process::named(&all, PLAYER_PROCESS).map(|p| p.pid).collect();
@@ -480,6 +481,14 @@ fn wait_for_player(app: &AppHandle, spawned: u32) -> Result<u32, Problem> {
                     .action(ProblemAction::Retry)
                     .action(ProblemAction::OpenUrl("https://www.roblox.com/download".into())));
             }
+        }
+        if updating && direct && !installer && players.contains(&spawned) {
+            if updated_in_place_since.get_or_insert_with(Instant::now).elapsed() > Duration::from_secs(3) {
+                log::info!("Roblox finished updating and kept running in the same process");
+                return Ok(spawned);
+            }
+        } else {
+            updated_in_place_since = None;
         }
         let spawned_gone = !players.contains(&spawned);
         if direct && spawned_gone && !installer && !updating && started.elapsed() > Duration::from_secs(2) {
