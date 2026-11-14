@@ -6,6 +6,15 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-14
+
+### Fixed
+
+- When Roblox updated itself during a launch and then kept running in the same
+  process, as newer Roblox versions do, Vesper kept showing "Roblox is
+  updating" and reported after five minutes that Roblox didn't open, even
+  though you were already in a game. It now notices Roblox has finished.
+
 ## [0.3.7] - 2026-11-13
 
 ### Fixed
