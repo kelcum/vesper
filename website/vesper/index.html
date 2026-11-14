@@ -92,7 +92,7 @@
         </p>
         <div class="cta reveal">
           <!-- build:hero-cta -->
-          <a class="btn btn-primary" href="download/Vesper_0.3.6_x64-setup.exe" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.7_x64-setup.exe" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -108,7 +108,7 @@
             </svg>
             Download for Windows</a
           >
-          <a class="btn btn-primary" href="download/Vesper_0.3.6_universal.dmg" download
+          <a class="btn btn-primary" href="download/Vesper_0.3.7_universal.dmg" download
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -129,7 +129,7 @@
         </div>
         <!-- build:hero-meta -->
         <p class="cta-meta reveal">
-          Version 0.3.6 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
+          Version 0.3.7 · Windows 10 &amp; 11 (64-bit) and macOS 11 or later · updates itself
         </p>
         <!-- /build:hero-meta -->
         <div class="hero-shot reveal">
@@ -954,7 +954,7 @@
             </p>
             <!-- build:download -->
             <div class="cta">
-              <a class="btn btn-primary" href="download/Vesper_0.3.6_x64-setup.exe" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.7_x64-setup.exe" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -970,7 +970,7 @@
                 </svg>
                 Download for Windows</a
               >
-              <a class="btn btn-primary" href="download/Vesper_0.3.6_universal.dmg" download
+              <a class="btn btn-primary" href="download/Vesper_0.3.7_universal.dmg" download
                 ><svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -988,65 +988,33 @@
               >
             </div>
             <ul class="facts">
-              <li><b>4.6 MB</b> installer, released 2026-11-10, no administrator rights needed</li>
+              <li><b>4.7 MB</b> installer, released 2026-11-14, no administrator rights needed</li>
               <li>
                 <b>Updates itself:</b> new versions show up inside Vesper, signed so only real ones install. Your
                 settings stay.
               </li>
               <li>
                 <b>Portable:</b>
-                <a href="download/Vesper_0.3.6_x64-portable.zip" download>Vesper_0.3.6_x64-portable.zip</a> (6.0 MB),
+                <a href="download/Vesper_0.3.7_x64-portable.zip" download>Vesper_0.3.7_x64-portable.zip</a> (6.1 MB),
                 keeps everything in a folder next to Vesper.exe
               </li>
-              <li><b>SHA-256</b> <code>9f7de0a32802aa6c4d9f53e4ad037cad41bfbb3cbacc081e17c47d162d9b57d4</code></li>
+              <li><b>SHA-256</b> <code>42b4984e3746201f3b29a665b53eaa3225a2c52020075922e6499d3ceeae7ba2</code></li>
               <li>
                 <b>macOS:</b>
-                <a href="download/Vesper_0.3.6_universal.dmg" download>Vesper_0.3.6_universal.dmg</a> (10.9 MB), macOS
+                <a href="download/Vesper_0.3.7_universal.dmg" download>Vesper_0.3.7_universal.dmg</a> (10.9 MB), macOS
                 11 or later, Apple silicon and Intel. SHA-256
-                <code>6b6356a4c4792459c7b93782f019291645a881cce3be422a80a7b3718998310e</code>
+                <code>e545bfe3c371fd3a8d97da75fea154ef715c97282307257dfd4003b4df77966b</code>
               </li>
             </ul>
             <details>
-              <summary>What's new in 0.3.6</summary>
-              <h3>Added</h3>
-              <ul>
-                <li>
-                  Recent games: pin a game to the top, search the list, and a Most played card with your total time per
-                  game.
-                </li>
-                <li>
-                  A profile for each game: pick one from Recent or Now playing and Vesper launches that game with it,
-                  leaving your active profile alone.
-                </li>
-                <li>
-                  When Roblox closes while you&#39;re in a game without leaving it first, Home says so and offers to
-                  rejoin the server.
-                </li>
-                <li>The tray menu lists your recent games, so you can jump back in from there.</li>
-                <li>A hotkey for shaders, set in Customize, that works while Roblox has the focus.</li>
-                <li>
-                  The Roblox version picker on macOS. It downloads Roblox&#39;s Mac app from Roblox and checks
-                  Apple&#39;s signature on it. Not yet tried on a real Mac.
-                </li>
-                <li>Vesper remembers its window size and position.</li>
-                <li>A code signing policy, in preparation for signed Windows releases through SignPath Foundation.</li>
-              </ul>
-              <h3>Changed</h3>
-              <ul>
-                <li>
-                  Roblox now starts a helper in the tray at login. Vesper no longer treats it as Roblox running: Home
-                  keeps its Launch button, Discord doesn&#39;t say &quot;Playing Roblox&quot;, and launching from Vesper
-                  ends the idle helper first so your flags apply to a fresh Roblox.
-                </li>
-                <li>
-                  Uninstalling removes any older Roblox versions Vesper kept, without needing &quot;Delete the
-                  application data&quot;.
-                </li>
-                <li>Updated dependencies: Tauri plugins, tokio, serde_json, Lucide icons and svelte-check.</li>
-              </ul>
+              <summary>What's new in 0.3.7</summary>
               <h3>Fixed</h3>
               <ul>
-                <li>SECURITY.md named 0.1.x as the supported version.</li>
+                <li>
+                  macOS: a Roblox left open in the Dock with no window no longer blocks launching with &quot;Roblox is
+                  already open&quot;. Vesper now checks for a window the same way it does on Windows, and quits an idle
+                  Roblox before launching so your flags apply. The message, when it does appear, explains Command-Q.
+                </li>
               </ul>
             </details>
             <p class="note">

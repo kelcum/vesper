@@ -1,27 +1,27 @@
 {
   "status": "released",
-  "version": "0.3.6",
-  "date": "2026-11-10",
+  "version": "0.3.7",
+  "date": "2026-11-14",
   "installer": {
-    "file": "Vesper_0.3.6_x64-setup.exe",
-    "size": 4840667,
-    "sha256": "9f7de0a32802aa6c4d9f53e4ad037cad41bfbb3cbacc081e17c47d162d9b57d4"
+    "file": "Vesper_0.3.7_x64-setup.exe",
+    "size": 4893327,
+    "sha256": "42b4984e3746201f3b29a665b53eaa3225a2c52020075922e6499d3ceeae7ba2"
   },
   "portable": {
-    "file": "Vesper_0.3.6_x64-portable.zip",
-    "size": 6256753,
-    "sha256": "839b7f8ab536a02cf0e7807c9fb845d2e0e835b7ce013de42a93f2db203ed8ce"
+    "file": "Vesper_0.3.7_x64-portable.zip",
+    "size": 6350272,
+    "sha256": "7cf73b17e75eeb6b7fe077cc2e015a5a8ca61867fbcd417bd95f783619995181"
   },
   "repoPublic": false,
   "repo": "https://github.com/kelcum/vesper",
   "mac": {
-    "file": "Vesper_0.3.6_universal.dmg",
-    "size": 11436946,
-    "sha256": "6b6356a4c4792459c7b93782f019291645a881cce3be422a80a7b3718998310e"
+    "file": "Vesper_0.3.7_universal.dmg",
+    "size": 11478458,
+    "sha256": "e545bfe3c371fd3a8d97da75fea154ef715c97282307257dfd4003b4df77966b"
   },
   "macUpdate": {
-    "file": "Vesper_0.3.6_universal.app.tar.gz",
-    "size": 11702176,
-    "sha256": "e2b1f4c374e14767befc1b8393e580a1a12215de9e53b5e4a83edae601e5dcc7"
+    "file": "Vesper_0.3.7_universal.app.tar.gz",
+    "size": 11747120,
+    "sha256": "ba7c6babd27cf05f0ab8369486ff1b386770ca316384b80697e75cbd6a7e4c53"
   }
 }
