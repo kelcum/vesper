@@ -206,8 +206,16 @@ fn run(app: &AppHandle, target: &LaunchTarget) -> Result<(), Problem> {
     if !process::active_roblox_pids().is_empty() {
         return Err(Problem::new("roblox.already_running", "Roblox is already open")
             .what("Roblox runs one copy at a time, so a second launch wouldn't start anything.")
-            .why("Roblox keeps a single window open.")
-            .fix("Use “Restart Roblox” on Home: Vesper closes Roblox and launches it again, into the same server if you like."));
+            .why(if cfg!(target_os = "macos") {
+                "Roblox keeps running in the Dock after you close its window."
+            } else {
+                "Roblox keeps a single window open."
+            })
+            .fix(if cfg!(target_os = "macos") {
+                "Use “Restart Roblox” on Home: Vesper quits Roblox and launches it again, into the same server if you like. Or quit Roblox with Command-Q first."
+            } else {
+                "Use “Restart Roblox” on Home: Vesper closes Roblox and launches it again, into the same server if you like."
+            }));
     }
     let idle = process::end_idle_players();
     if idle > 0 {

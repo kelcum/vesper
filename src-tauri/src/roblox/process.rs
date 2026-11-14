@@ -300,7 +300,68 @@ mod imp {
     });
 
     pub fn pids_with_windows(pids: &[u32]) -> Vec<u32> {
-        pids.to_vec()
+        use core_foundation::base::{CFType, TCFType};
+        use core_foundation::dictionary::CFDictionary;
+        use core_foundation::number::CFNumber;
+        use core_foundation::string::CFString;
+        use core_graphics::window::{
+            copy_window_info, kCGNullWindowID, kCGWindowBounds, kCGWindowLayer, kCGWindowListExcludeDesktopElements,
+            kCGWindowListOptionAll, kCGWindowOwnerPID,
+        };
+        use std::ffi::c_void;
+
+        const MIN_SIDE: f64 = 64.0;
+
+        fn value(dict: &CFDictionary, key: *const c_void) -> Option<CFType> {
+            let raw = *dict.find(key)?;
+            if raw.is_null() {
+                return None;
+            }
+            Some(unsafe { CFType::wrap_under_get_rule(raw) })
+        }
+        fn number(dict: &CFDictionary, key: *const c_void) -> Option<CFNumber> {
+            value(dict, key)?.downcast::<CFNumber>()
+        }
+
+        let Some(windows) =
+            copy_window_info(kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements, kCGNullWindowID)
+        else {
+            return pids.to_vec();
+        };
+        let (owner_key, layer_key, bounds_key) = unsafe {
+            (kCGWindowOwnerPID as *const c_void, kCGWindowLayer as *const c_void, kCGWindowBounds as *const c_void)
+        };
+        let width_key = CFString::from_static_string("Width");
+        let height_key = CFString::from_static_string("Height");
+
+        let mut found = Vec::new();
+        for item in windows.iter() {
+            let raw = *item;
+            if raw.is_null() {
+                continue;
+            }
+            let Some(window) = unsafe { CFType::wrap_under_get_rule(raw) }.downcast::<CFDictionary>() else {
+                continue;
+            };
+            let Some(pid) = number(&window, owner_key).and_then(|n| n.to_i64()) else { continue };
+            let Ok(pid) = u32::try_from(pid) else { continue };
+            if !pids.contains(&pid) || found.contains(&pid) {
+                continue;
+            }
+            if number(&window, layer_key).and_then(|n| n.to_i64()) != Some(0) {
+                continue;
+            }
+            let Some(bounds) = value(&window, bounds_key).and_then(|b| b.downcast::<CFDictionary>()) else {
+                continue;
+            };
+            let side = |key: &CFString| {
+                number(&bounds, key.as_concrete_TypeRef() as *const c_void).and_then(|n| n.to_f64()).unwrap_or(0.0)
+            };
+            if side(&width_key) >= MIN_SIDE && side(&height_key) >= MIN_SIDE {
+                found.push(pid);
+            }
+        }
+        found
     }
 
     pub fn terminate(pid: u32) -> io::Result<()> {
@@ -419,6 +480,19 @@ mod tests {
         let age = std::time::SystemTime::now().duration_since(t).expect("in the past");
         assert!(age < std::time::Duration::from_secs(600), "{age:?}");
         assert!(filetime_to_system(0).is_none(), "before 1970 is rejected");
+    }
+
+    #[test]
+    fn window_check_returns_only_asked_pids_once() {
+        assert!(imp::pids_with_windows(&[]).is_empty());
+        let me = std::process::id();
+        let asked = [me, me, u32::MAX];
+        let found = imp::pids_with_windows(&asked);
+        assert!(found.iter().all(|p| asked.contains(p)));
+        let mut unique = found.clone();
+        unique.dedup();
+        assert_eq!(unique.len(), found.len());
+        assert!(!found.contains(&u32::MAX));
     }
 
     #[test]

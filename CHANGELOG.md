@@ -6,6 +6,15 @@ All notable changes to Vesper are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-13
+
+### Fixed
+
+- macOS: a Roblox left open in the Dock with no window no longer blocks
+  launching with "Roblox is already open". Vesper now checks for a window the
+  same way it does on Windows, and quits an idle Roblox before launching so
+  your flags apply. The message, when it does appear, explains Command-Q.
+
 ## [0.3.6] - 2026-11-10
 
 ### Added
